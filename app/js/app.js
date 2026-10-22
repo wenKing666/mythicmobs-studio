@@ -330,6 +330,60 @@
     toast("模板已删除");
   }
 
+  /* 0.17.0：模板导出 / 导入（换机器或分享给同服朋友） */
+  async function exportTemplate(id) {
+    const t = MM_STATE.customTemplates().find(function (x) { return x.id === id; });
+    if (!t) return;
+    const data = JSON.stringify(t, null, 2);
+    const fname = "模板-" + t.name + ".json";
+    if (window.MM_HOST && MM_HOST.isElectron) {
+      const p = await MM_HOST.saveAs(fname);
+      if (!p) return;
+      await MM_HOST.write(p, data);
+      toast("模板已导出到 " + p);
+    } else {
+      const blob = new Blob([data], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("模板已导出");
+    }
+  }
+
+  async function importTemplate() {
+    let text = null;
+    if (window.MM_HOST && MM_HOST.isElectron && MM_HOST_OPEN_JSON) {
+      const p = await MM_HOST_OPEN_JSON();
+      if (!p) return;
+      text = (await MM_HOST.read(p)).text;
+    } else {
+      text = await new Promise(function (resolve) {
+        const inp = document.createElement("input");
+        inp.type = "file";
+        inp.accept = ".json,application/json";
+        inp.onchange = function () {
+          const f = inp.files[0];
+          if (!f) return resolve(null);
+          const r = new FileReader();
+          r.onload = function () { resolve(r.result); };
+          r.readAsText(f);
+        };
+        inp.click();
+      });
+      if (!text) return;
+    }
+    try {
+      const o = JSON.parse(text);
+      MM_STATE.addCustomTemplate(o);
+      MM_UI.renderTemplates($("templateList"), useTemplate, removeTemplate);
+      toast("已导入模板「" + o.name + "」");
+    } catch (e) {
+      toast("导入失败：" + e.message);
+    }
+  }
+
   function plainName(p) {
     return String(p.data.display || "").replace(/&[0-9a-fk-or]/gi, "").trim();
   }
@@ -770,7 +824,7 @@
     // 给空状态里的按钮用
     window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
       reload: reloadFromDisk, switchEntry: switchEntry, clone: cloneProject, saveAsTemplate: saveAsTemplate,
-      undo: doUndo, redo: doRedo, saveToServer: saveToServer };
+      undo: doUndo, redo: doRedo, saveToServer: saveToServer, exportTemplate: exportTemplate, importTemplate: importTemplate };
     restoreLastDir();
   }
 

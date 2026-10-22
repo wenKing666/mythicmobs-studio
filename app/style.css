@@ -1037,3 +1037,9 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 .ph-row:hover { background: var(--accent-soft); }
 .ph-row code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); min-width: 180px; }
 .ph-row span { font-size: 12px; color: var(--ink-3); }
+
+
+/* 0.17.0 模板导出按钮 */
+.tpl-btn .tpl-del { right: 30px; }
+.tpl-btn .tpl-del.tpl-del-danger { right: 8px; }
+.tpl-group .side-mini { margin-left: 8px; }

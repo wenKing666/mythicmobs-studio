@@ -679,6 +679,21 @@ window.MM_STATE = (function () {
     localStorage.setItem(TPL_KEY, JSON.stringify(list));
     return list;
   }
+  /* 导入的模板入库（0.17.0）：校验必要的字段，名字加标记防重名混乱 */
+  function addCustomTemplate(obj) {
+    if (!obj || typeof obj !== "object") throw new Error("模板格式不对");
+    if (!obj.name || !obj.kind || !obj.payload || !obj.payload.data) throw new Error("缺少 name / kind / payload");
+    const list = customTemplates();
+    list.unshift({
+      id: "ctpl_" + uid(),
+      name: String(obj.name) + "（导入）",
+      desc: String(obj.desc || ""),
+      kind: obj.kind,
+      payload: JSON.parse(JSON.stringify(obj.payload))
+    });
+    localStorage.setItem(TPL_KEY, JSON.stringify(list));
+    return list;
+  }
   /* 用自定义模板建项目：payload 恢复 + 走一遍与 load() 相同的兼容补齐 */
   function buildCustom(t) {
     const p = JSON.parse(JSON.stringify(t.payload));
@@ -790,7 +805,7 @@ window.MM_STATE = (function () {
     specOf: specOf, specKinds: specKinds, newSpecProject: newSpecProject,
     clone: clone,
     customTemplates: customTemplates, saveCustomTemplate: saveCustomTemplate,
-    removeCustomTemplate: removeCustomTemplate, buildCustom: buildCustom,
+    removeCustomTemplate: removeCustomTemplate, addCustomTemplate: addCustomTemplate, buildCustom: buildCustom,
     undo: undo, redo: redo, baselineSnap: baselineSnap
   };
 })();

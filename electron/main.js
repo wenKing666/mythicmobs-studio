@@ -8,7 +8,13 @@ const YAML = require("yaml");
 let win = null;
 
 function createWindow() {
-  win = new BrowserWindow({
+  /* 0.17.0：记住窗口尺寸与位置（存 userData/win-bounds.json） */
+  let bounds = null;
+  try {
+    bounds = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "win-bounds.json"), "utf8"));
+  } catch { /* 首次启动没有 */ }
+
+  win = new BrowserWindow(Object.assign({
     width: 1440,
     height: 920,
     minWidth: 1080,
@@ -22,7 +28,17 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  }, bounds && bounds.width > 400 ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height } : {}));
+
+  const saveBounds = () => {
+    try {
+      fs.writeFileSync(path.join(app.getPath("userData"), "win-bounds.json"),
+        JSON.stringify(win.getBounds()), "utf8");
+    } catch { /* 忽略 */ }
+  };
+  win.on("resize", saveBounds);
+  win.on("move", saveBounds);
+  win.on("close", saveBounds);
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, "..", "app", "index.html"));
 }
@@ -196,6 +212,16 @@ ipcMain.handle("dialog:saveFile", async (_e, defaultName) => {
 
 ipcMain.handle("shell:showItem", async (_e, file) => {
   shell.showItemInFolder(file);
+});
+
+/* 模板导入（0.17.0）：选一个 .json 文件 */
+ipcMain.handle("dialog:openJson", async () => {
+  const r = await dialog.showOpenDialog(win, {
+    title: "导入模板",
+    filters: [{ name: "模板文件", extensions: ["json"] }],
+    properties: ["openFile"]
+  });
+  return r.canceled ? null : r.filePaths[0];
 });
 
 /* 备份清理（0.16.0）：递归找保存时产生的 *.bak-*，按修改时间升序 */

@@ -12,7 +12,7 @@
   <div class="brand">
     <svg class="mark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
     <span class="app-name">MythicMobs 编辑器</span>
-    <span class="app-ver" id="appVer">0.16.0</span>
+    <span class="app-ver" id="appVer">0.17.0</span>
   </div>
   <div class="top-actions">
     <button id="btnOpenFolder" class="btn dark" hidden>
@@ -110,21 +110,22 @@
       </button>
     </div>
     <ol class="help-steps">
-      <li>左边选一个模板，或点右上角「新建怪物 / 新建物品」。</li>
-      <li>中间填表格，右侧会实时生成配置文件。</li>
-      <li>点「下载 .yml」，把文件放进服务器对应目录，游戏里 <code>/mm reload</code>。</li>
+      <li>左边选一个模板（也可以点「存为模板」攒自己的），或点右上角「新建怪物 / 新建物品 / 更多类型」。</li>
+      <li>桌面版点「打开文件夹」选服务器的 <code>plugins/MythicMobs</code>，左侧直接列出全部配置，点谁编辑谁。</li>
+      <li>中间填表格，右侧实时生成配置；复制 YAML 或用「保存到服务器」直接落盘。</li>
+      <li>改完游戏里 <code>/mm reload</code> 就能生效。写错了没关系——<code>Ctrl+Z</code> 撤销，引用检查也会提醒。</li>
     </ol>
     <h3>几个名词</h3>
     <dl class="help-dl">
       <dt>ID</dt><dd>英文唯一名，服务器里用它刷怪，例如 <code>my_boss</code>，不能有空格和中文。</dd>
       <dt>触发器</dt><dd>什么时候执行，比如生成时、攻击时、死亡时。</dd>
-      <dt>效果</dt><dd>做什么，比如造成伤害、播放音效、发送消息。</dd>
+      <dt>效果</dt><dd>做什么，比如造成伤害、播放音效、发送消息。wiki 的 303 个机制 / 196 条件 / 91 目标器 / 38 触发器全部在「全量目录」里，中文搜索。</dd>
       <dt>目标</dt><dd>对谁做，比如自己、当前攻击目标、附近的玩家。</dd>
     </dl>
     <h3>占位符速查</h3>
     <p class="help-note">写消息 / 显示名时可用，点击复制。外面再包一层颜色如 <code>&lt;gold&gt;&lt;trigger.name&gt;&lt;/gold&gt;</code>。</p>
     <div id="phList" class="ph-list"></div>
-    <p class="help-note">测试版：怪物与物品的基础功能可用，技能目前放出 21 个常用机制，后续补齐全部 303 个。</p>
+    <p class="help-note">wiki 全量数据：302 机制 / 196 条件 / 91 目标器 / 38 触发器 / 120 粒子 / 51 AI 行为 / 14 AI 目标，9 种扩展配置类型（刷怪点、对话、过场镜头等）都有表单。</p>
   </div>
 </div>
 

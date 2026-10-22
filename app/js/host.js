@@ -247,6 +247,7 @@
   window.MM_HOST_OPEN_FILE = openFile;
 
   /* 备份清理（0.16.0）：列表 + 批量删除 */
+  window.MM_HOST_OPEN_JSON = function () { return MM_HOST.openJson(); };
   window.MM_HOST_BACKUPS = function (dir) { return MM_HOST.listBackups(dir); };
   window.MM_HOST_DELETE_FILES = function (paths) { return MM_HOST.deleteFiles(paths); };
   /* 当前扫过的服务器根目录（另存到服务器 / 备份清理用） */

@@ -876,8 +876,8 @@ async function main() {
     && MM_STATE.customTemplates()[0].name === "我的测试模板"`));
   check("侧栏出现「我的模板」分组与删除按钮", await evalJs(`(() => {
     const group = [...document.querySelectorAll("#templateList .tpl-group")]
-      .find(g => g.textContent === "我的模板");
-    return !!group && document.querySelectorAll("#templateList .tpl-del").length >= 1;
+      .find(g => g.textContent.includes("我的模板"));
+    return !!group && document.querySelectorAll("#templateList .tpl-del-danger").length >= 1;
   })()`));
   await evalJs(`MM_APP.new("mob"); true`);
   await new Promise(r => setTimeout(r, 300));
@@ -898,14 +898,11 @@ async function main() {
     await evalJs(`MM_STATE.current().key`));
   await evalJs(`(() => {
     const t = MM_STATE.customTemplates()[0];
-    MM_APP.removeTemplate ? null : null;
     const id = t.id;
     window.confirm = () => true;
-    /* 走 app 层的删除（含确认与列表重绘） */
-    (function () {
-      const btn = document.querySelector("#templateList .tpl-del");
-      btn.click(); return true;
-    })();
+    /* 走 app 层的删除（含确认与列表重绘）——.tpl-del-danger 才是删除按钮 */
+    const btn = document.querySelector("#templateList .tpl-del-danger");
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     return id;
   })()`);
   await new Promise(r => setTimeout(r, 300));
@@ -1069,6 +1066,21 @@ async function main() {
   await new Promise(r => setTimeout(r, 350));
   check("纯浏览器不显示「保存到服务器」", await evalJs(`![...document.querySelectorAll("#editor .mini-btn")]
     .some(b => b.textContent.includes("保存到服务器"))`));
+
+  /* ---------- 0.17.0：模板导出导入（浏览器用下载兜底） ---------- */
+
+  await evalJs(`(() => {
+    window.prompt = () => "导出测试模板";
+    MM_APP.saveAsTemplate(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 250));
+  check("自定义模板分组里有导入按钮", await evalJs(`(() => {
+    const grp = [...document.querySelectorAll("#templateList .tpl-group")]
+      .find(g => g.textContent.includes("我的模板"));
+    return !!grp && !!grp.querySelector(".side-mini");
+  })()`));
+  check("模板行有导出按钮", await evalJs(`document.querySelectorAll("#templateList .tpl-btn").length >= 21
+    && document.querySelectorAll("#templateList .tpl-del").length >= 2`));
 
   await shot("e2e-theme");
 

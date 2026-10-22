@@ -377,10 +377,15 @@ window.MM_UI = (function () {
         ])
       ]));
     });
-    /* 0.13.0：用户自己的模板（可删除） */
+    /* 0.17.0：用户自己的模板（可导出分享、可删除） */
     const mine = (window.MM_STATE && MM_STATE.customTemplates) ? MM_STATE.customTemplates() : [];
     if (mine.length) {
-      container.appendChild(el("div", { class: "tpl-group", text: "我的模板" }));
+      const grp = el("div", { class: "tpl-group", text: "我的模板" });
+      grp.appendChild(el("button", {
+        class: "side-mini", text: "导入", type: "button", title: "从 .json 文件导入模板",
+        onclick: function (e) { e.stopPropagation(); window.MM_APP && MM_APP.importTemplate(); }
+      }));
+      container.appendChild(grp);
     }
     mine.forEach(function (t) {
       const btn = el("button", {
@@ -392,7 +397,11 @@ window.MM_UI = (function () {
           el("div", { class: "d", text: t.desc })
         ]),
         el("span", {
-          class: "tpl-del", title: "删除模板",
+          class: "tpl-del", title: "导出成 .json 文件（分享给别人 / 换机器）",
+          onclick: function (e) { e.stopPropagation(); window.MM_APP && MM_APP.exportTemplate(t.id); }
+        }, [svgSpan("download", 12)]),
+        el("span", {
+          class: "tpl-del tpl-del-danger", title: "删除模板",
           onclick: function (e) { e.stopPropagation(); onDelete && onDelete(t.id); }
         }, [svgSpan("trash", 12)])
       ]);
