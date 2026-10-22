@@ -981,6 +981,68 @@ async function main() {
 
   await shot("e2e-search");
 
+  /* ---------- 0.15.0：引用关系图 + 模拟占比条 ---------- */
+
+  // 26. 项目图（纯浏览器降级）：建一个怪 → 技能组 → 掉落表链
+  await evalJs(`(() => {
+    const p = MM_APP.template("tpl_boss");   /* BOSS 模板：技能里没有 s= 引用，手造一条 */
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  await evalJs(`(() => {
+    const skill = MM_APP.template("tpl_skill_nova");
+    const dt = MM_APP.template("tpl_droptable");
+    /* 让 BOSS 引用这个技能组与掉落表 */
+    const boss = [...MM_STATE.all()].find(x => x.kind === "mob" && x.key.indexOf("skeleton_king") === 0);
+    boss.data.skills = [{ mechanic: "skill", targeter: "target", params: { s: skill.key } }];
+    boss.data.drops = [{ table: dt.key }];
+    MM_APP.select(boss.id);
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  await evalJs(`document.getElementById("btnGraph").click(); true`);
+  await new Promise(r => setTimeout(r, 500));
+  check("关系图弹层打开", await evalJs(`!document.getElementById("graphModal").hidden`));
+  check("三列布局与统计", await evalJs(`(() => {
+    const stat = document.getElementById("graphStat").textContent;
+    return stat.includes("怪物") && stat.includes("技能组") && stat.includes("掉落表");
+  })()`),
+    await evalJs(`document.getElementById("graphStat").textContent`));
+  check("画出了引用边", await evalJs(`document.querySelectorAll("#graphBody .graph-edge").length >= 2`));
+  check("节点点击静默处理不报错", await evalJs(`(() => {
+    const n = document.querySelector("#graphBody .graph-node");
+    n.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    return true;
+  })()`));
+  await evalJs(`document.getElementById("btnCloseGraph").click(); true`);
+  check("关闭关系图", await evalJs(`document.getElementById("graphModal").hidden`));
+
+  // 27. 模拟占比条
+  await evalJs(`(() => {
+    document.getElementById("btnNewDropTable").click();
+    const d = MM_STATE.current().data;
+    d.drops = [{ item: "diamond", amount: "1", chance: "0.7" }, { item: "iron", amount: "1", chance: "0.2" }];
+    MM_APP.refresh(true);
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 400));
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .sim-bar .mini-btn")]
+      .find(b => b.textContent === "抽 1000 次").click(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("每行带出货占比条", await evalJs(`(() => {
+    const fills = [...document.querySelectorAll("#editor .sim-bar-fill")];
+    if (fills.length !== 2) return false;
+    const w1 = parseFloat(fills[0].style.width), w2 = parseFloat(fills[1].style.width);
+    return w1 > w2 && w1 > 60 && w2 < 30;
+  })()`),
+    await evalJs(`[...document.querySelectorAll("#editor .sim-bar-fill")].map(f=>f.style.width).join(",")`));
+  check("头部显示合计期望件数", await evalJs(`document.querySelector("#editor .sim-head")
+    .textContent.includes("平均每次掉")`));
+
+  await shot("e2e-graph");
+
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);

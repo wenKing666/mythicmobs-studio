@@ -12,6 +12,8 @@
 
 0.9.0 补上**打包发布**：`npm run dist` 出 Windows 便携版单文件 exe，双击即用，不用装 Node 或运行时。
 
+0.15.0 补了两块可视化：顶栏**关系图**按钮打开「怪物 → 技能组 → 掉落表」的引用网（三列布局、悬停高亮相关连线、点节点直接打开文件，孤立的配置不画并单独计数；没开文件夹时用已打开的项目画）；掉落概率模拟的每一行加了**出货占比条**和合计期望件数，概率高低一眼看出。
+
 0.14.0 加了**全局搜索**：顶栏搜索框输入关键字（物品 ID、技能名、任意文本），同时搜已打开的项目和服务器上所有配置文件，结果列出命中文件与行摘要，点一下直接进表单；`Esc` 关闭、`Enter` 跳第一条。找「哪个怪用了某物品」不再需要挨个点开。
 
 0.13.0 是**编辑效率包**：编辑器头部多了**⧉ 克隆**（复制一份当前配置继续改，保存时另存新文件）和**存为模板**（存进左侧「我的模板」，随时重复使用、可删除）；另外补上了 **Ctrl+Z 撤销 / Ctrl+Y 重做**——按操作批次快照（改动停手 0.6 秒记一步），误删一条技能再也不用整个回滚。焦点在输入框里时 Ctrl+Z 仍是正常的文本撤销。
@@ -182,8 +184,8 @@ tools/
   test_metaskill.mjs  技能组 + 目标器通用筛选 + 参数上下文中文（34 项）
   test_ai.mjs         AI 选择器 / 伤害修正 / 掉落三形态 / 掉落表 / 物品组件 / 引用检查（69 项）
   test_spec.mjs       通用字段引擎 + 9 种类型 / 三种文件形态 / 组件子键 / 掉落特效（127 项）
-  e2e.mjs             无头浏览器交互测试（130 项）
-  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写、易用性三件套、引用影响、文件搜索（70 项）
+  e2e.mjs             无头浏览器交互测试（137 项）
+  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写、易用性三件套、引用影响、文件搜索、关系图数据（73 项）
   smoke_packaged.mjs  打包形态冒烟（版本号 / 扫描 / 导入 / 写盘备份，8 项）
   make_icon.py        生成应用图标 build/icon.ico（Pillow 几何绘制，npm run icon）
   shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
@@ -201,12 +203,12 @@ node tools/test_catalog.mjs                    # 41  全量目录单测（不需
 node tools/test_metaskill.mjs                  # 34  技能组 / 通用筛选 / 参数中文（不需要浏览器）
 node tools/test_ai.mjs                         # 69  AI / 伤害修正 / 掉落 / 物品组件 / 引用检查（不需要浏览器）
 node tools/test_spec.mjs                       # 127  通用字段引擎 / 9 种类型 / 三种文件形态（不需要浏览器）
-node tools/e2e.mjs 9333 .                      # 130 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
-node tools/e2e-electron.mjs 9350 tests/fixture-server   # 70  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
+node tools/e2e.mjs 9333 .                      # 137 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
+node tools/e2e-electron.mjs 9350 tests/fixture-server   # 73  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 node tools/smoke_packaged.mjs 9351 tests/fixture-server # 8   打包形态冒烟（先给 dist 的 exe 传调试端口启动）
 ```
 
-`npm test` 会把前六条单测串起来跑。合计 **562 项**（单测 359 + 界面 203），全绿；打包后另跑 8 项冒烟。
+`npm test` 会把前六条单测串起来跑。合计 **573 项**（单测 359 + 界面 214），全绿；打包后另跑 8 项冒烟。
 
 ---
 

@@ -1498,14 +1498,20 @@ window.MM_UI = (function () {
 
       out.innerHTML = "";
       out.className = "sim-out";
+      const totalPieces = stats.reduce(function (s, x) { return s + x.pieces; }, 0);
       const head = el("div", { class: "sim-head", text: "抽了 " + times + " 次" +
-        (weightMode ? "（权重模式，每轮 " + lo + "~" + hi + " 件）" : "（独立判定模式）") + "：" });
+        (weightMode ? "（权重模式，每轮 " + lo + "~" + hi + " 件）" : "（独立判定模式）") +
+        "，平均每次掉 " + (totalPieces / times).toFixed(2) + " 件：" });
       out.appendChild(head);
       const grid = el("div", { class: "sim-grid" });
       stats.forEach(function (s) {
+        const pct = s.hits * 100 / times;
         grid.appendChild(el("div", { class: "sim-row" }, [
           el("span", { class: "sim-name", text: s.name }),
-          el("span", { class: "sim-num", text: s.hits + " 次 · " + (s.hits * 100 / times).toFixed(1) + "%" }),
+          el("span", { class: "sim-bar-track" }, [
+            el("span", { class: "sim-bar-fill", style: "width:" + Math.min(100, pct).toFixed(1) + "%" })
+          ]),
+          el("span", { class: "sim-num", text: s.hits + " 次 · " + pct.toFixed(1) + "%" }),
           el("span", { class: "sim-exp", text: "期望 " + (s.pieces / times).toFixed(2) + " 件/次" })
         ]));
       });

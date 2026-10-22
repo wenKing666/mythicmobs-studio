@@ -981,3 +981,25 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 .gs-s { font-size: 11px; color: var(--ink-3); font-family: ui-monospace, monospace;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-empty { padding: 10px; font-size: 12px; color: var(--ink-3); }
+
+/* 0.15.0 引用关系图 + 模拟占比条 */
+.graph-box { width: min(960px, 92vw); }
+.graph-stat { font-size: 11.5px; color: var(--ink-3); margin-left: 10px; flex: 1; }
+.graph-body { max-height: 62vh; overflow: auto; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel-2); padding: 8px; }
+.graph-svg { width: 100%; display: block; }
+.graph-col { font-size: 12px; font-weight: 700; fill: var(--ink-3); }
+.graph-edge { fill: none; stroke: var(--line); stroke-width: 1.4; transition: stroke .12s; }
+.graph-edge.e-table { stroke-dasharray: 5 4; }
+.graph-edge.hot { stroke: var(--accent); stroke-width: 2; }
+.graph-node rect { fill: var(--panel); stroke: var(--line); }
+.graph-node:hover rect { stroke: var(--accent); }
+.graph-node.n-mob rect { stroke: #7ba7d7; }
+.graph-node.n-skill rect { stroke: #d7b47b; }
+.graph-node.n-table rect { stroke: #9bd78f; }
+.graph-node text { font-size: 11px; fill: var(--ink); pointer-events: none; }
+
+.sim-bar-track { display: inline-block; width: 90px; height: 8px; border-radius: 4px;
+  background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
+.sim-bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.sim-row { grid-template-columns: minmax(110px, 1fr) 90px auto auto; }

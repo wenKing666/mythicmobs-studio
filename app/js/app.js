@@ -243,21 +243,22 @@
   function useTemplate(id, custom) {
     if (custom) {
       const ct = MM_STATE.customTemplates().find(function (x) { return x.id === id; });
-      if (!ct) return;
+      if (!ct) return null;
       const cp = MM_STATE.buildCustom(ct);
       MM_UI.renderEditor($("editor"), cp);
       refresh();
       $("editor").scrollTop = 0;
       toast("已从模板创建：" + ct.name);
-      return;
+      return cp;
     }
     const t = MM_STATE.templates.find(function (x) { return x.id === id; });
-    if (!t) return;
+    if (!t) return null;
     const p = MM_STATE.add(t.build());
     MM_UI.renderEditor($("editor"), p);
     refresh();
     $("editor").scrollTop = 0;
     toast("已从模板创建：" + t.name);
+    return p;
   }
 
   function download() {
@@ -430,6 +431,142 @@
     });
   }
 
+  /* 0.15.0：引用关系图——三列布局（怪物 / 技能组 / 掉落表），SVG 贝塞尔连线 */
+  const COL = { mob: { title: "怪物", x: 0.16 }, skill: { title: "技能组", x: 0.5 }, droptable: { title: "掉落表", x: 0.84 } };
+  const GS = { nodeH: 26, gap: 8, colW: 150 };
+
+  async function openGraph() {
+    const modal = $("graphModal");
+    const body = $("graphBody");
+    const stat = $("graphStat");
+    modal.hidden = false;
+    body.innerHTML = '<div class="gs-empty">正在读取服务器配置…</div>';
+
+    let g = null;
+    if (window.MM_HOST_BUILD_GRAPH) {
+      try { g = await MM_HOST_BUILD_GRAPH(); } catch (e) { g = null; }
+    }
+    if (!g || !g.nodes.length) {
+      /* 纯浏览器或没有文件：用已打开的项目兜底构图 */
+      g = projectGraph();
+      if (!g.nodes.length) {
+        body.innerHTML = '<div class="gs-empty">还没有可画的配置：先打开服务器文件夹，或新建几个互相引用的怪物 / 技能组 / 掉落表。</div>';
+        stat.textContent = "";
+        return;
+      }
+    }
+    drawGraph(g, body, stat);
+  }
+
+  /* 用已打开项目构建同结构图（无文件系统时的降级） */
+  function projectGraph() {
+    const nodes = [], edges = [], known = {};
+    MM_STATE.all().forEach(function (p) {
+      if (p.kind === "skill" || p.kind === "droptable") {
+        known[p.key.toLowerCase()] = { id: "p:" + p.id, kind: p.kind, name: p.key, path: "p:" + p.id };
+      }
+    });
+    MM_STATE.all().forEach(function (p) {
+      if (p.kind !== "mob" && p.kind !== "skill" && p.kind !== "droptable") return;
+      const self = { id: "p:" + p.id, kind: p.kind, name: p.key, path: "p:" + p.id };
+      nodes.push(self);
+      let text = "";
+      try { text = MM_YAML.generate(p); } catch (e) { return; }
+      const skills = {};
+      let m; const re = /(?:skill|metaskill)\s*\{[^}]*\b(?:s|skill|name)\s*=\s*['"]?([\w\-]+)/gi;
+      while ((m = re.exec(text))) skills[m[1].toLowerCase()] = m[1];
+      const re2 = /\btable\s*[:=]\s*['"]?([\w\-]+)/gi;
+      while ((m = re2.exec(text))) {
+        const t = known[m[1].toLowerCase()];
+        if (t && t.path !== self.id) edges.push({ from: self.id, to: t.path, kind: "table" });
+      }
+      Object.keys(skills).forEach(function (low) {
+        const t = known[low];
+        if (t && t.path !== self.id) edges.push({ from: self.id, to: t.path, kind: "skill" });
+      });
+    });
+    const linked = {};
+    edges.forEach(function (e) { linked[e.from] = linked[e.to] = true; });
+    return { nodes: nodes.filter(n => linked[n.id]), edges: edges, skipped: 0 };
+  }
+
+  function drawGraph(g, body, stat) {
+    const cols = { mob: [], skill: [], droptable: [] };
+    g.nodes.forEach(function (n) { (cols[n.kind] || (cols[n.kind] = [])).push(n); });
+    Object.keys(cols).forEach(function (k) {
+      cols[k].sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+    });
+    const maxRows = Math.max(cols.mob.length, cols.skill.length, cols.droptable.length, 1);
+    const W = 900, H = Math.max(maxRows * (GS.nodeH + GS.gap) + 60, 160);
+    stat.textContent = cols.mob.length + " 怪物 · " + cols.skill.length + " 技能组 · " +
+      cols.droptable.length + " 掉落表 · " + g.edges.length + " 条引用" +
+      (g.skipped ? "（另有 " + g.skipped + " 个无关联配置未画）" : "");
+
+    const nodeById = {};
+    g.nodes.forEach(function (n) { nodeById[n.id] = n; });
+    /* 每列内编号 → 坐标 */
+    function pos(n) {
+      const col = cols[n.kind];
+      const i = col.findIndex(function (x) { return x.id === n.id; });
+      const cx = COL[n.kind].x * W;
+      const startY = (H - col.length * (GS.nodeH + GS.gap)) / 2 + GS.nodeH / 2;
+      return { x: cx, y: startY + i * (GS.nodeH + GS.gap) };
+    }
+
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="graph-svg" xmlns="http://www.w3.org/2000/svg">';
+    Object.keys(COL).forEach(function (k) {
+      svg += '<text x="' + (COL[k].x * W) + '" y="16" text-anchor="middle" class="graph-col">' + COL[k].title + '</text>';
+    });
+    g.edges.forEach(function (e, i) {
+      const a = pos(nodeById[e.from]), b = pos(nodeById[e.to]);
+      if (!a || !b) return;
+      const x1 = a.x + GS.colW / 2, y1 = a.y;
+      const x2 = b.x - GS.colW / 2, y2 = b.y;
+      const mid = (x1 + x2) / 2;
+      svg += '<path class="graph-edge e-' + e.kind + '" data-i="' + i +
+        '" d="M' + x1 + ' ' + y1 + ' C ' + mid + ' ' + y1 + ', ' + mid + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"/>';
+    });
+    g.nodes.forEach(function (n) {
+      const p = pos(n);
+      const cls = n.kind === "mob" ? "n-mob" : n.kind === "skill" ? "n-skill" : "n-table";
+      const title = (n.name || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+      svg += '<g class="graph-node ' + cls + '" data-id="' + n.id.replace(/"/g, "&quot;") + '">' +
+        '<rect x="' + (p.x - GS.colW / 2) + '" y="' + (p.y - GS.nodeH / 2) + '" width="' + GS.colW +
+        '" height="' + GS.nodeH + '" rx="6"/>' +
+        '<text x="' + p.x + '" y="' + (p.y + 4) + '" text-anchor="middle">' + title + '</text></g>';
+    });
+    svg += '</svg>';
+
+    body.innerHTML = svg;
+    /* 点节点打开文件（项目节点无 path 前缀的才是文件） */
+    body.querySelectorAll(".graph-node").forEach(function (gn) {
+      gn.addEventListener("click", function () {
+        const id = gn.getAttribute("data-id");
+        if (id.indexOf("p:") === 0) return;
+        const n = g.nodes.find(function (x) { return x.id === id; });
+        if (n && window.MM_HOST_OPEN_FILE) {
+          MM_HOST_OPEN_FILE({ path: n.path, name: n.name, kind: n.kind, rel: n.name, size: 0, mtime: 0 });
+          $("graphModal").hidden = true;
+        }
+      });
+      gn.addEventListener("mouseenter", function () {
+        const id = gn.getAttribute("data-id");
+        body.querySelectorAll(".graph-edge").forEach(function (edge) {
+          edge.classList.toggle("hot", false);
+        });
+        g.edges.forEach(function (e, i) {
+          if (e.from === id || e.to === id) {
+            const el = body.querySelector('.graph-edge[data-i="' + i + '"]');
+            if (el) el.classList.add("hot");
+          }
+        });
+      });
+    });
+    body.addEventListener("mouseleave", function () {
+      body.querySelectorAll(".graph-edge.hot").forEach(function (edge) { edge.classList.remove("hot"); });
+    });
+  }
+
   function init() {
 
     MM_UI.init({
@@ -455,6 +592,11 @@
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });
+    $("btnGraph").addEventListener("click", openGraph);
+    $("btnCloseGraph").addEventListener("click", function () { $("graphModal").hidden = true; });
+    $("graphModal").addEventListener("click", function (e) {
+      if (e.target === $("graphModal")) $("graphModal").hidden = true;
+    });
     $("btnCloseHelp").addEventListener("click", function () { $("helpModal").hidden = true; });
     $("helpModal").addEventListener("click", function (e) {
       if (e.target === $("helpModal")) $("helpModal").hidden = true;

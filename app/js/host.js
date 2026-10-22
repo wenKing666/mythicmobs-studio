@@ -340,6 +340,76 @@
     return done;
   };
 
+  /* 关系图（0.15.0）：遍历文件抽「谁引用了谁」的正向边。
+     技能引用与 FIND_REFERRERS 同款模式；掉落表引用用「token 恰好是已知表名」消歧
+     （掉落行里的裸 token 既可能是物品也可能是表，只有命中表名清单才算边）。
+     返回 { nodes, edges, skipped }：nodes 是出现在边里的文件；skipped 是孤立文件数。 */
+  window.MM_HOST_BUILD_GRAPH = async function () {
+    if (!files.length) return { nodes: [], edges: [], skipped: 0 };
+    const known = {};
+    files.forEach(function (f) {
+      if (f.kind === "skill" || f.kind === "droptable") {
+        known[String(f.name || "").replace(/\.yml$/i, "").toLowerCase()] = f;
+      }
+    });
+    const nodes = {}, edges = [];
+    const skillRefsOf = function (text) {
+      const out = {}, re = /(?:skill|metaskill)\s*\{[^}]*\b(?:s|skill|name)\s*=\s*['"]?([\w\-]+)/gi;
+      let m;
+      while ((m = re.exec(text))) out[m[1].toLowerCase()] = m[1];
+      const re2 = /^\s*(?:FailedConditionsSkill|OnCooldownSkill|Skill)\s*:\s*['"]?([\w\-]+)/gim;
+      while ((m = re2.exec(text))) out[m[1].toLowerCase()] = m[1];
+      return out;
+    };
+    const tableTokensOf = function (text) {
+      const out = {};
+      let m; const re = /table\s*[:=]\s*['"]?([\w\-]+)/gi;
+      while ((m = re.exec(text))) out[m[1].toLowerCase()] = m[1];
+      /* 单 token 行 `- 名字`：后面不跟数字/花括号，且名字是已知掉落表才算边 */
+      const re2 = /^\s*-\s+([\w\-]+)\s*(?:#.*)?$/gm;
+      while ((m = re2.exec(text))) {
+        if (known[m[1].toLowerCase()]) out[m[1].toLowerCase()] = m[1];
+      }
+      return out;
+    };
+    const addNode = function (f) {
+      if (!nodes[f.path]) nodes[f.path] = { id: f.path, kind: f.kind, name: f.name || f.rel, path: f.path };
+    };
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (f.kind !== "mob" && f.kind !== "skill" && f.kind !== "droptable") continue;
+      let text = textCache[f.path];
+      if (text === undefined) {
+        try { text = (await MM_HOST.read(f.path)).text || ""; }
+        catch (e) { text = ""; }
+        textCache[f.path] = text;
+      }
+      addNode(f);
+      const fromId = f.path;
+      const skills = skillRefsOf(text);
+      Object.keys(skills).forEach(function (low) {
+        const target = known[low];
+        if (target && target.path !== fromId) {
+          addNode(target);
+          edges.push({ from: fromId, to: target.path, kind: "skill" });
+        }
+      });
+      const tables = tableTokensOf(text);
+      Object.keys(tables).forEach(function (low) {
+        const target = known[low];
+        if (target && target.path !== fromId) {
+          addNode(target);
+          edges.push({ from: fromId, to: target.path, kind: "table" });
+        }
+      });
+    }
+    const nodeList = Object.keys(nodes).map(function (k) { return nodes[k]; });
+    const linked = {};
+    edges.forEach(function (e) { linked[e.from] = linked[e.to] = true; });
+    const shown = nodeList.filter(function (n) { return linked[n.id]; });
+    return { nodes: shown, edges: edges, skipped: nodeList.length - shown.length };
+  };
+
   function init() {
     $("btnOpenFolder").hidden = false;
     $("btnOpenFolder").addEventListener("click", openFolder);

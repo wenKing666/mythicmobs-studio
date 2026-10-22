@@ -543,6 +543,25 @@ async function main() {
     check("搜索结果点开进表单", await ev(`MM_STATE.current().key === "skeleton_king"`));
   }
 
+  /* ---------- 0.15.0：引用关系图数据 ---------- */
+
+  const graph = await ev(`MM_HOST_BUILD_GRAPH()`);
+  const gp = typeof graph === "string" ? JSON.parse(graph) : graph;
+  check("图数据抽出技能边", Array.isArray(gp.edges)
+    && gp.edges.some(e => {
+      const to = gp.nodes.find(n => n.id === e.to);
+      return e.kind === "skill" && to && to.name.indexOf("boss_phase2") === 0;
+    }),
+    JSON.stringify(gp.edges));
+  check("图数据抽掉落表边（token 消歧）", Array.isArray(gp.edges)
+    && gp.edges.some(e => {
+      const to = gp.nodes.find(n => n.id === e.to);
+      return e.kind === "table" && to && to.name.indexOf("boss_loot") === 0;
+    }));
+  check("孤立文件不进图并计数", Array.isArray(gp.nodes)
+    && gp.nodes.every(n => gp.edges.some(e => e.from === n.id || e.to === n.id))
+    && gp.skipped >= 1);
+
   /* 清掉导入的项目，别留在下次运行里 */
   await ev(`(() => {
     MM_STATE.all().filter(p => p.filePath).forEach(p => MM_STATE.remove(p.id));
