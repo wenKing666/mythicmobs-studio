@@ -186,14 +186,27 @@ window.MM_YAML = (function () {
     return pp ? pp.name : "";
   }
 
+  /* 所有目标器共用的通用参数（筛选 / 偏移 / 坐标），wiki 里挂在 Targeters 说明页 */
+  function targeterUniversal() {
+    const t = catOf("targeters", "targeters");
+    return t ? (t.params || []) : [];
+  }
+
   function skTarget(s) {
-    const old = MM_DATA.targeters.filter(function (x) { return x.id === s.targeter; })[0];
-    if (old && old.tpl) {
-      const r = (s.targetParams && s.targetParams.radius) || s.radius || old.defaultR || 5;
-      return s.targeter === "self" ? "" : " " + old.tpl.replace("%r%", r);
-    }
+    if (!s.targeter) return "";
+    /* @self 是默认行为，不写出来，配置更干净 */
+    if (s.targeter === "self") return "";
+
     const tg = catOf("targeters", s.targeter);
-    if (!tg) return " " + (s.targeter ? "@" + s.targeter : "");
+    if (!tg) {
+      /* 目录里没有（旧手写表 / 插件自定义目标器）→ 退回手写模板 */
+      const old = MM_DATA.targeters.filter(function (x) { return x.id === s.targeter; })[0];
+      if (old && old.tpl) {
+        const r = (s.targetParams && s.targetParams.radius) || s.radius || old.defaultR || 5;
+        return " " + old.tpl.replace("%r%", r);
+      }
+      return " @" + s.targeter;
+    }
     const parts = [];
     (tg.params || []).forEach(function (pp) {
       const v = s.targetParams ? s.targetParams[pp.name] : undefined;
@@ -201,7 +214,14 @@ window.MM_YAML = (function () {
       if (pp.type === "boolean") { if (v === "true" || v === true) parts.push(shortParamName(pp) + "=true"); return; }
       parts.push(shortParamName(pp) + "=" + pval(v));
     });
-    if (!parts.length && s.radius) parts.push("r=" + s.radius);
+    /* 通用筛选（targetplayers / sort / limit…）与偏移坐标写在同一个花括号里 */
+    targeterUniversal().forEach(function (pp) {
+      const v = s.targetParams ? s.targetParams[pp.name] : undefined;
+      if (v === undefined || v === null || v === "") return;
+      if (pp.type === "boolean") { if (v === "true" || v === true) parts.push(pp.name + "=true"); return; }
+      if (pp.def !== "" && pp.def !== undefined && String(v) === String(pp.def)) return;
+      parts.push(pp.name + "=" + pval(v));
+    });
     /* 单词型用 id（@target / @self），组合词用驼峰（@PlayersInRadius），和 wiki 一致 */
     const enName = String(tg.en || tg.id);
     const name = /\s/.test(enName) ? enName.replace(/\s+/g, "") : tg.id;
@@ -346,33 +366,86 @@ window.MM_YAML = (function () {
     return L.join("\n") + "\n";
   }
 
+  /* ---------- 技能组（Metaskill） ---------- */
+
+  /* 技能组 Conditions 里的条件不带 ?，可选后缀 true/false 表示「期望不成立」 */
+  function metaskillCondLine(c) {
+    const t = condText(c);
+    if (!t) return "";
+    let out = t.replace(/^\?/, "");
+    if (c.expect === "true" || c.expect === "false") out += " " + c.expect;
+    return out;
+  }
+
+  function metaskill(p) {
+    const d = p.data, L = [];
+    const raw = rawOf(p);
+    pushHead(L, raw);
+    L.push(keyOf(p) + ":");
+    if (d.cancelIfNoTargets === "true") L.push("  CancelIfNoTargets: true");
+    if (d.hidden === "true") L.push("  Hidden: true");
+
+    [["Conditions", d.conditions],
+     ["TargetConditions", d.targetConditions],
+     ["TriggerConditions", d.triggerConditions]].forEach(function (b) {
+      const lines = (b[1] || []).map(metaskillCondLine).filter(Boolean);
+      if (!lines.length) return;
+      L.push("  " + b[0] + ":");
+      lines.forEach(function (t) { L.push("  - " + t); });
+    });
+
+    if (d.failedConditionsSkill) L.push("  FailedConditionsSkill: " + scalar(d.failedConditionsSkill));
+    if (num(d.cooldown) !== null) L.push("  Cooldown: " + fmtNum(d.cooldown));
+    if (d.onCooldownSkill) L.push("  OnCooldownSkill: " + scalar(d.onCooldownSkill));
+    if (d.skill) L.push("  Skill: " + scalar(d.skill));
+
+    const sk = (d.skills || []).filter(function (s) { return s.raw || s.mechanic; });
+    if (sk.length) {
+      L.push("  Skills:");
+      sk.forEach(function (s) { L.push("  - " + (s.raw || skillLine(s))); });
+    }
+    pushTail(L, raw);
+    return L.join("\n") + "\n";
+  }
+
   /* ---------- 必填校验 ---------- */
+  function checkSkillRows(list, out) {
+    (list || []).forEach(function (s, i) {
+      if (s.raw) return;                      // 原样保留的技能行不拦
+      const mech = mechDefOf(s.mechanic);
+      if (!mech) { out.push("第 " + (i + 1) + " 个技能：效果未选择"); return; }
+      (mech.params || []).forEach(function (pp) {
+        if (!pp.required) return;
+        const v = s.params ? s.params[pp.name] : undefined;
+        if (v === undefined || v === null || String(v).trim() === "") {
+          out.push("技能「" + (mech.zh || mech.en || mech.id) + "」的 " + (pp.zh || pp.label || pp.name) + " 没填");
+        }
+      });
+    });
+  }
+
   function validate(p) {
     const out = [];
     if (!p) return out;
-    const D = MM_DATA;
     if (!String(p.key || "").trim()) out.push("ID 不能为空");
 
     if (p.kind === "mob") {
       if (!p.data.type) out.push("生物类型未选择");
-      (p.data.skills || []).forEach(function (s, i) {
-        if (s.raw) return;                      // 原样保留的技能行不拦
-        const mech = mechDefOf(s.mechanic);
-        if (!mech) { out.push("第 " + (i + 1) + " 个技能：效果未选择"); return; }
-        (mech.params || []).forEach(function (pp) {
-          if (!pp.required) return;
-          const v = s.params ? s.params[pp.name] : undefined;
-          if (v === undefined || v === null || String(v).trim() === "") {
-            out.push("技能「" + (mech.zh || mech.en || mech.id) + "」的 " + (pp.zh || pp.label || pp.name) + " 没填");
-          }
-        });
-      });
+      checkSkillRows(p.data.skills, out);
       (p.data.equipment || []).forEach(function (e, i) {
         if (!e.item || !String(e.item).trim()) out.push("第 " + (i + 1) + " 件装备没选物品");
       });
       (p.data.drops || []).forEach(function (x, i) {
         if (!x.item || !String(x.item).trim()) out.push("第 " + (i + 1) + " 条掉落没选物品");
       });
+    } else if (p.kind === "skill") {
+      checkSkillRows(p.data.skills, out);
+      [["条件", p.data.conditions], ["目标条件", p.data.targetConditions], ["触发条件", p.data.triggerConditions]]
+        .forEach(function (b) {
+          (b[1] || []).forEach(function (c, i) {
+            if (!c.id) out.push("第 " + (i + 1) + " 个" + b[0] + "：条件未选择");
+          });
+        });
     } else {
       if (!p.data.material) out.push("物品材质未选择");
       (p.data.enchants || []).forEach(function (e, i) {
@@ -393,7 +466,9 @@ window.MM_YAML = (function () {
 
   function generate(p) {
     if (!p) return "# 左边选一个模板，或点「新建怪物」开始\n";
-    return p.kind === "mob" ? mob(p) : item(p);
+    if (p.kind === "mob") return mob(p);
+    if (p.kind === "skill") return metaskill(p);
+    return item(p);
   }
 
   /* ---------- 高亮 ---------- */

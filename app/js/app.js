@@ -57,6 +57,8 @@
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
 
     if (rebuild && !rebuilding) {
+      /* 重建表单前先把还挂着的手写补全弹层关掉，否则它会留在 body 上 */
+      if (window.__mmActiveCombo) window.__mmActiveCombo.close();
       const sc = $("editor").scrollTop;
       MM_UI.renderEditor($("editor"), p);
       $("editor").scrollTop = sc;
@@ -156,6 +158,7 @@
 
     $("btnNewMob").addEventListener("click", function () { newProject("mob"); });
     $("btnNewItem").addEventListener("click", function () { newProject("item"); });
+    $("btnNewSkill").addEventListener("click", function () { newProject("skill"); });
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });

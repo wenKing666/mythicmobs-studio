@@ -80,7 +80,7 @@ console.log("\n[3] 行内条件");
     { trigger: "onDamaged", mechanic: "damage", targeter: "target", params: { amount: "10" },
       conditions: [{ id: "healthpercent", params: { percent: "<50%" } }] }
   ]));
-  ok("百分比条件用 healthpercent{p}", y.includes('damage{amount=10} @Target ?healthpercent{p=<50%} ~onDamaged'), y.split("\n").filter(l => l.includes("damage")));
+  ok("百分比条件用 healthpercent{p}", y.includes('damage{amount=10} @target ?healthpercent{p=<50%} ~onDamaged'), y.split("\n").filter(l => l.includes("damage")));
 }
 {
   const y = Y.mob(mob([

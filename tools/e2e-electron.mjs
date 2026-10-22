@@ -69,8 +69,9 @@ async function main() {
 
   const dir = FIXTURE.replace(/\\/g, "\\\\");
   const scan = await ev(`MM_HOST.scan("${dir}")`);
-  check("扫描目录拿到 2 个文件", scan.files.length === 2, "count=" + scan.files.length);
-  check("识别出 mob / item", scan.files.some(f => f.kind === "mob") && scan.files.some(f => f.kind === "item"),
+  check("扫描目录拿到 3 个文件", scan.files.length === 3, "count=" + scan.files.length);
+  check("识别出 mob / item / skill",
+    scan.files.some(f => f.kind === "mob") && scan.files.some(f => f.kind === "item") && scan.files.some(f => f.kind === "skill"),
     JSON.stringify(scan.files.map(f => f.kind)));
 
   const mob = scan.files.find(f => f.kind === "mob");
@@ -142,6 +143,39 @@ async function main() {
   check("其他字段没丢", /Type:\s*SKELETON/.test(written) && /Drops:/.test(written)
     && /skill\{s=KingSlam\}/.test(written) && /MovementSpeed/.test(written));
   fs.rmSync(tmpRoot, { recursive: true, force: true });
+
+  /* 技能组：打开 → 进表单 → 改冷却 → 保存 → 磁盘上真的变了 */
+  const skillFile = scan.files.find(f => f.kind === "skill");
+  if (!skillFile) {
+    check("夹具里有技能组文件", false, JSON.stringify(scan.files.map(f => f.rel)));
+  } else {
+    const tmpSkill = path.join(os.tmpdir(), "mm-skill-test");
+    fs.rmSync(tmpSkill, { recursive: true, force: true });
+    fs.mkdirSync(path.join(tmpSkill, "Skills"), { recursive: true });
+    const sDst = path.join(tmpSkill, "Skills", "boss_phase2.yml");
+    fs.writeFileSync(sDst, fs.readFileSync(skillFile.path, "utf8"), "utf8");
+
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: sDst, name: "boss_phase2.yml", kind: "skill", rel: "Skills/boss_phase2.yml", size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("技能组进表单而不是只读预览",
+      await ev(`!document.getElementById("editor").innerText.includes("只读预览")`));
+    check("技能组读出条件块",
+      await ev(`document.getElementById("yamlOut").innerText.includes("- healthpercent{p=<50%}")`));
+    check("技能组的 day false 读成「不成立」",
+      await ev(`document.getElementById("yamlOut").innerText.includes("- day false")`));
+
+    await ev(`(() => { const p = MM_STATE.current(); p.data.cooldown = 99; MM_STATE.touch(); return true; })()`);
+    await ev(`MM_HOST_SAVE()`);
+
+    const sWritten = fs.readFileSync(sDst, "utf8");
+    check("技能组冷却写回磁盘", /Cooldown:\s*99/.test(sWritten), sWritten.slice(0, 100).replace(/\n/g, " | "));
+    check("技能组条件没丢",
+      /Conditions:/.test(sWritten) && /healthpercent/.test(sWritten) && /day false/.test(sWritten), sWritten);
+    check("技能组技能没丢", /lightning\{damage=8\} @target/.test(sWritten), sWritten);
+    fs.rmSync(tmpSkill, { recursive: true, force: true });
+  }
 
   /* 清掉导入的项目，别留在下次运行里 */
   await ev(`(() => {

@@ -34,6 +34,7 @@ ZH_FILES = {
     "triggers": "triggers.json",
     "particles": "particles.json",
     "params": "params.json",
+    "context": "context.json",
 }
 
 
@@ -360,7 +361,7 @@ def norm_default(v):
     return s
 
 
-def build_param(attr, samples, zh_params):
+def build_param(attr, samples, zh_params, ctx=None):
     name = attr.get("name", "")
     aliases = [a for a in (attr.get("aliases") or []) if a]
     # 合并别名样本
@@ -384,12 +385,16 @@ def build_param(attr, samples, zh_params):
         raw_default in ("NONE", "NULL")
         or re.search(r"\brequired\b|\bmandatory\b|\bmust be (set|given|specified|provided)\b", desc_low)
     )
+    """上下文中文优先：amount 在 damage 里是「伤害量」，在 heal 里是「治疗量」。
+    同一个参数名在所有组件里共用一个标签是错的，data/zh/context.json 按组件覆盖。"""
+    scoped = ctx or {}
+    zh = scoped.get(name) or scoped.get(name.lower()) or zh_params.get(name) or zh_params.get(name.lower()) or ""
     out = {
         "name": name,
         "type": ptype,
         "def": dflt,
         "required": required,
-        "zh": zh_params.get(name) or zh_params.get(name.lower()) or "",
+        "zh": zh,
         "desc": attr.get("description") or "",
         "conf": conf,
     }
@@ -400,12 +405,13 @@ def build_param(attr, samples, zh_params):
     return out
 
 
-def build_components(raw, kind, zh_names, zh_params, with_group=False):
+def build_components(raw, kind, zh_names, zh_params, with_group=False, ctx_map=None):
     items = []
     for key, comp in raw.items():
         cid = key.lower().replace(" ", "")
         params = []
         samples = collect_example_samples(comp)
+        ctx = (ctx_map or {}).get(cid) or {}
         for attr in comp.get("attributes") or []:
             # wiki 有时把多个参数挤在一行（如 "x1, y1, z1"），拆成独立参数
             names = [n.strip() for n in str(attr.get("name", "")).split(",") if n.strip()]
@@ -413,9 +419,9 @@ def build_components(raw, kind, zh_names, zh_params, with_group=False):
                 for n in names:
                     sub = dict(attr)
                     sub["name"] = n
-                    params.append(build_param(sub, samples, zh_params))
+                    params.append(build_param(sub, samples, zh_params, ctx))
             else:
-                params.append(build_param(attr, samples, zh_params))
+                params.append(build_param(attr, samples, zh_params, ctx))
         desc = (comp.get("description") or "").strip()
         if len(desc) > 400:
             desc = desc[:400].rstrip() + "…"
@@ -447,6 +453,7 @@ def main():
     zh_trig = zh["triggers"]
     zh_particle = zh["particles"]
     zh_params = zh["params"]
+    zh_ctx = {k: v for k, v in (zh.get("context") or {}).items() if not k.startswith("_")}
 
     # 通用属性从 mechanics 里摘出来（wiki 把它当成一个叫 Mechanics 的条目）
     raw_mech = dict(schema.get("mechanics") or {})
@@ -457,9 +464,12 @@ def main():
         for attr in universal_raw.get("attributes") or []:
             universal.append(build_param(attr, samples, zh_params))
 
-    mechanics = build_components(raw_mech, "mechanic", zh_mech, zh_params, with_group=True)
-    conditions = build_components(schema.get("conditions") or {}, "condition", zh_cond, zh_params)
-    targeters = build_components(schema.get("targeters") or {}, "targeter", zh_targ, zh_params)
+    mechanics = build_components(raw_mech, "mechanic", zh_mech, zh_params, with_group=True,
+                                 ctx_map=zh_ctx.get("mechanic"))
+    conditions = build_components(schema.get("conditions") or {}, "condition", zh_cond, zh_params,
+                                  ctx_map=zh_ctx.get("condition"))
+    targeters = build_components(schema.get("targeters") or {}, "targeter", zh_targ, zh_params,
+                                 ctx_map=zh_ctx.get("targeter"))
     triggers_raw = schema.get("triggers") or {}
     triggers = []
     if isinstance(triggers_raw, dict):

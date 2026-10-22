@@ -46,6 +46,8 @@ function classify(rel) {
   const p = rel.replace(/\\/g, "/").toLowerCase();
   if (p.includes("/mobs/") || p.startsWith("mobs/")) return "mob";
   if (p.includes("/items/") || p.startsWith("items/")) return "item";
+  /* 技能组（Metaskill）在 Skills 目录下 */
+  if (p.includes("/skills/") || p.startsWith("skills/")) return "skill";
   return "other";
 }
 
@@ -80,9 +82,10 @@ async function walk(dir, base, depth, out) {
 async function scan(dir) {
   const out = [];
   await walk(dir, dir, 4, out);
+  const ORDER = { mob: 0, skill: 1, item: 2, other: 3 };
   out.sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === "mob" ? -1 : b.kind === "mob" ? 1 : 0;
-    return a.rel.localeCompare(b.rel);
+    const d = (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3);
+    return d || a.rel.localeCompare(b.rel);
   });
   return out;
 }

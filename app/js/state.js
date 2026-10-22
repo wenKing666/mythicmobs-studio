@@ -70,6 +70,25 @@ window.MM_STATE = (function () {
     };
   }
 
+  function newSkill() {
+    return {
+      kind: "skill",
+      key: "",
+      data: {
+        cancelIfNoTargets: "",
+        hidden: "",
+        conditions: [],
+        targetConditions: [],
+        triggerConditions: [],
+        failedConditionsSkill: "",
+        cooldown: "",
+        onCooldownSkill: "",
+        skill: "",
+        skills: []
+      }
+    };
+  }
+
   function uniqueKey(base) {
     let k = base, i = 2;
     while (projects.some(function (p) { return p.key === k; })) k = base + "_" + (i++);
@@ -86,9 +105,9 @@ window.MM_STATE = (function () {
   }
 
   function create(kind) {
-    const p = kind === "mob" ? newMob() : newItem();
-    p.key = uniqueKey(kind === "mob" ? "my_mob" : "my_item");
-    p.data.display = kind === "mob" ? "&c我的怪物" : "&b我的物品";
+    const p = kind === "mob" ? newMob() : kind === "skill" ? newSkill() : newItem();
+    p.key = uniqueKey(kind === "mob" ? "my_mob" : kind === "skill" ? "my_skill" : "my_item");
+    if (kind !== "skill") p.data.display = kind === "mob" ? "&c我的怪物" : "&b我的物品";
     return add(p);
   }
 
@@ -140,6 +159,37 @@ window.MM_STATE = (function () {
         p.data.drops = [
           { item: "diamond", amount: "2-4", chance: "1" },
           { item: "nether_star", amount: "1", chance: "0.3" }
+        ];
+        return p;
+      }
+    },
+    {
+      id: "tpl_skill_phase", kind: "skill", icon: "zap", name: "BOSS 二阶段",
+      desc: "血量低于 50% 才执行，带全屏提示",
+      build: function () {
+        const p = newSkill();
+        p.key = uniqueKey("boss_phase2");
+        p.data.conditions = [{ id: "healthpercent", params: { percent: "<50%" } }];
+        p.data.cooldown = 15;
+        p.data.skills = [
+          { trigger: "", mechanic: "sendtitle", targeter: "playersinradius", targetParams: { radius: 30 }, params: { title: "&c&l第二阶段", subtitle: "&7他变得更愤怒了", duration: 40, fadeIn: 10, fadeOut: 10 } },
+          { trigger: "", mechanic: "lightning", targeter: "target", params: { damage: 8 } },
+          { trigger: "", mechanic: "particle", targeter: "self", params: { particle: "flame", amount: 60, spread: 2 } }
+        ];
+        return p;
+      }
+    },
+    {
+      id: "tpl_skill_nova", kind: "skill", icon: "zap", name: "范围爆发",
+      desc: "10 秒冷却，周围 8 格全体受伤并击退",
+      build: function () {
+        const p = newSkill();
+        p.key = uniqueKey("shock_nova");
+        p.data.cooldown = 10;
+        p.data.skills = [
+          { trigger: "", mechanic: "damage", targeter: "playersinradius", targetParams: { radius: 8 }, params: { amount: 12 } },
+          { trigger: "", mechanic: "throw", targeter: "playersinradius", targetParams: { radius: 8 }, params: { velocity: 1.5 } },
+          { trigger: "", mechanic: "particle", targeter: "self", params: { particle: "explosion_large", amount: 1 } }
         ];
         return p;
       }
@@ -235,7 +285,7 @@ window.MM_STATE = (function () {
     all: function () { return projects; },
     currentId: function () { return currentId; },
     renameKey: renameKey,
-    newMob: newMob, newItem: newItem
+    newMob: newMob, newItem: newItem, newSkill: newSkill
   };
 })();
 

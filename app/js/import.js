@@ -7,6 +7,9 @@ window.MM_IMPORT = (function () {
   /* 表单能管的顶层字段；不在这里的，整块留原文 */
   const MOB_KEYS = ["Type", "Display", "Health", "Damage", "Armor", "BossBar", "Options", "Equipment", "Skills", "Drops"];
   const ITEM_KEYS = ["Id", "Display", "Amount", "Lore", "Options", "Enchantments", "Attributes"];
+  /* 技能组（Metaskill）：/Skills 目录下的文件，字段见 wiki Skills/Metaskills */
+  const SKILL_KEYS = ["CancelIfNoTargets", "Hidden", "Conditions", "TargetConditions", "TriggerConditions",
+    "FailedConditionsSkill", "OnFailSkill", "Cooldown", "OnCooldownSkill", "Skill", "Skills"];
 
   function knownMobOptions() {
     const set = {};
@@ -185,6 +188,12 @@ window.MM_IMPORT = (function () {
     return old || null;
   }
 
+  /* 所有目标器共用的通用参数（筛选 / 偏移 / 坐标） */
+  function targeterUniversal() {
+    const t = catOf("targeters", "targeters");
+    return t ? (t.params || []) : [];
+  }
+
   /* 通用修饰：目录里有 14 项就用目录，目录不在才退回固定 5 项 */
   const UNIVERSAL_FALLBACK = ["cooldown", "delay", "repeat", "repeatInterval", "chance"];
   function universalDefs() {
@@ -258,8 +267,10 @@ window.MM_IMPORT = (function () {
     return { base: base.replace(/\s+/g, " ").trim(), conds: conds };
   }
 
-  /* 一行技能 → 结构化；拿不准就整行保留 */
-  function parseSkill(line) {
+  /* 一行技能 → 结构化；拿不准就整行保留。
+     opts.noTrigger：技能组里的技能行没有触发器，别拿 onSpawn 去补 */
+  function parseSkill(line, opts) {
+    opts = opts || {};
     const s = String(line).trim().replace(/^-\s+/, "");
     if (!s) return null;
     if (/^skill\{/i.test(s) || s.indexOf("$") >= 0) return { raw: s };
@@ -306,7 +317,7 @@ window.MM_IMPORT = (function () {
       const hit = targeterIdOf(tg[0]);
       if (!hit) return { raw: s };                // 陌生目标器
       targeter = hit.id;
-      targetParams = normKeys(parsePairs(tg[2] || ""), hit.params || []);
+      targetParams = normKeys(parsePairs(tg[2] || ""), (hit.params || []).concat(targeterUniversal()));
       rest = (rest.slice(0, tg.index) + rest.slice(tg.index + tg[0].length)).trim();
     }
 
@@ -333,7 +344,7 @@ window.MM_IMPORT = (function () {
       else outParams[k] = v;
     });
 
-    const item = { mechanic: mech.id, trigger: trigger || "onSpawn", targeter: targeter, params: outParams };
+    const item = { mechanic: mech.id, trigger: trigger || (opts.noTrigger ? "" : "onSpawn"), targeter: targeter, params: outParams };
     if (Object.keys(universal).length) item.universal = universal;
     if (Object.keys(targetParams).length) item.targetParams = targetParams;
     if (conditions.length) item.conditions = conditions;
@@ -345,12 +356,12 @@ window.MM_IMPORT = (function () {
     return item;
   }
 
-  function parseSkills(list) {
+  function parseSkills(list, opts) {
     const out = [];
     (Array.isArray(list) ? list : []).forEach(function (x) {
       if (x === null || x === undefined) return;
       if (typeof x !== "string") { out.push({ raw: JSON.stringify(x) }); return; }
-      const r = parseSkill(x);
+      const r = parseSkill(x, opts);
       if (r) out.push(r);
     });
     return out;
@@ -390,6 +401,27 @@ window.MM_IMPORT = (function () {
     return out;
   }
 
+  /* 技能组的 Conditions 行：`healthpercent{p=<50%}`，可选后缀 true/false 是期望值。
+     和技能行内条件不同，这里不带 ? 前缀。 */
+  function parseConditionList(list) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach(function (x) {
+      const line = String(x === null || x === undefined ? "" : x).trim();
+      if (!line) return;
+      const m = line.match(/^([A-Za-z_][\w]*)\s*(?:\{([^}]*)\})?\s*(true|false)?\s*$/i);
+      if (!m) return;
+      const cd = catOf("conditions", m[1].toLowerCase()) || catOf("conditions", m[1]);
+      const c = {
+        id: cd ? cd.id : m[1],
+        params: normKeys(parsePairs(m[2] || ""), cd ? cd.params || [] : [])
+      };
+      /* 后缀 true 和不写后缀等价，只记 false，UI 上就两项 */
+      if (m[3] && m[3].toLowerCase() === "false") c.expect = "false";
+      out.push(c);
+    });
+    return out;
+  }
+
   function guessKind(js) {
     const keys = js && typeof js === "object" ? Object.keys(js) : [];
     for (let i = 0; i < keys.length; i++) {
@@ -397,6 +429,15 @@ window.MM_IMPORT = (function () {
       if (!b || typeof b !== "object" || Array.isArray(b)) continue;
       if (b.Type !== undefined) return "mob";
       if (b.Id !== undefined) return "item";
+    }
+    /* 没有 Type / Id，但带着技能组的招牌字段 → 技能组 */
+    for (let i = 0; i < keys.length; i++) {
+      const b = js[keys[i]];
+      if (!b || typeof b !== "object" || Array.isArray(b)) continue;
+      if (b.Conditions !== undefined || b.TargetConditions !== undefined || b.TriggerConditions !== undefined ||
+          b.Cooldown !== undefined || b.CancelIfNoTargets !== undefined || b.Hidden !== undefined) {
+        return "skill";
+      }
     }
     return "mob";
   }
@@ -421,13 +462,14 @@ window.MM_IMPORT = (function () {
 
     const d = p.data;
     const isMob = p.kind === "mob";
+    const isSkill = p.kind === "skill";
     const doc = splitTop(parsed.text || "");
     const raw = { head: doc.head, entry: [], others: [], options: {} };
     const warnings = [];
 
     /* 本条目里认不出的子块（AIGoalSelectors / DamageModifiers / KillMessages…）整块留原文 */
     const handled = {};
-    (isMob ? MOB_KEYS : ITEM_KEYS).forEach(function (k) { handled[k] = true; });
+    (isMob ? MOB_KEYS : isSkill ? SKILL_KEYS : ITEM_KEYS).forEach(function (k) { handled[k] = true; });
     const mine = entryLines(doc, key);
     splitByIndent(mine.slice(1), 2).forEach(function (b) {
       if (!handled[b.key]) raw.entry.push(b.lines.join("\n"));
@@ -458,6 +500,22 @@ window.MM_IMPORT = (function () {
         if (known[k]) d.options[k] = body.Options[k];
         else raw.options[k] = body.Options[k];
       });
+    } else if (isSkill) {
+      d.cancelIfNoTargets = body.CancelIfNoTargets === true ? "true" : "";
+      d.hidden = body.Hidden === true ? "true" : "";
+      d.conditions = parseConditionList(body.Conditions);
+      d.targetConditions = parseConditionList(body.TargetConditions);
+      d.triggerConditions = parseConditionList(body.TriggerConditions);
+      const fail = body.FailedConditionsSkill !== undefined ? body.FailedConditionsSkill : body.OnFailSkill;
+      d.failedConditionsSkill = Array.isArray(fail) ? "" : (fail !== undefined ? String(fail) : "");
+      d.cooldown = body.Cooldown !== undefined ? body.Cooldown : "";
+      d.onCooldownSkill = body.OnCooldownSkill !== undefined ? String(body.OnCooldownSkill) : "";
+      d.skill = body.Skill !== undefined ? String(body.Skill) : "";
+      d.skills = parseSkills(body.Skills, { noTrigger: true });
+      if (Array.isArray(fail)) {
+        warnings.push("条件不满足时执行的是一个内联技能列表，表单表达不了，已原样保留");
+        raw.entry.push("  FailedConditionsSkill:\n" + fail.map(function (l) { return "  - " + l; }).join("\n"));
+      }
     } else {
       if (body.Id !== undefined) d.material = String(body.Id);
       d.display = body.Display !== undefined ? String(body.Display) : "";

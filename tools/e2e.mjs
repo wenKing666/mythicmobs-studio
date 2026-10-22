@@ -306,6 +306,103 @@ async function main() {
   })()`);
   check("条件预设一键写入 YAML", condOk === true, String(condOk));
 
+  // 8.3 技能组（Metaskill）
+  await evalJs(`document.getElementById("btnNewSkill").click(); true`);
+  await new Promise(r => setTimeout(r, 500));
+  check("新建技能组出现表单", await evalJs(`document.body.innerText.includes("目标条件 TargetConditions")`));
+  check("技能组默认不写任何字段",
+    await evalJs(`document.getElementById("yamlOut").innerText.trim() === "my_skill:"`),
+    await evalJs(`document.getElementById("yamlOut").innerText`));
+
+  const skillCond = await evalJs(`(async () => {
+    const card = [...document.querySelectorAll('.card')]
+      .find(c => c.querySelector('summary') && c.querySelector('summary').textContent.includes('条件 Conditions'));
+    if (!card) return 'no-card';
+    card.open = true;
+    const chip = [...card.querySelectorAll('.chip')].find(c => c.textContent.includes('血量低于 50%'));
+    if (!chip) return 'no-chip';
+    chip.click();
+    await new Promise(r => setTimeout(r, 450));
+    return document.getElementById('yamlOut').innerText;
+  })()`);
+  check("技能组条件块写进 YAML",
+    typeof skillCond === "string" && skillCond.includes("Conditions:\n  - healthpercent{p=<50%}"), String(skillCond));
+  check("技能组条件不带问号", typeof skillCond === "string" && !skillCond.includes("?"), String(skillCond));
+  check("条件行有成立/不成立下拉", await evalJs(`document.querySelectorAll('.cond-expect').length === 1`));
+
+  // 8.4 比较符下拉
+  check("比较符默认是 <", await evalJs(`(document.querySelector('.cmp-op') || {}).value === '<'`),
+    await evalJs(`(document.querySelector('.cmp-op') || {}).value`));
+  check("数值框只留 50", await evalJs(`(document.querySelector('.cmp-val') || {}).value === '50'`),
+    await evalJs(`(document.querySelector('.cmp-val') || {}).value`));
+  check("百分比按钮自动点亮", await evalJs(`!!document.querySelector('.cmp-unit.on')`));
+
+  await evalJs(`(() => {
+    const s = document.querySelector('.cmp-op');
+    s.value = '<=';
+    s.dispatchEvent(new Event('change', {bubbles:true}));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("换运算符立刻改写 YAML",
+    await evalJs(`document.getElementById("yamlOut").innerText.includes("- healthpercent{p=<=50%}")`),
+    await evalJs(`document.getElementById("yamlOut").innerText`));
+
+  await evalJs(`(() => {
+    const s = document.querySelector('.cond-expect');
+    s.value = 'false';
+    s.dispatchEvent(new Event('change', {bubbles:true}));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("期望不成立写 false",
+    await evalJs(`document.getElementById("yamlOut").innerText.includes("- healthpercent{p=<=50%} false")`),
+    await evalJs(`document.getElementById("yamlOut").innerText`));
+
+  // 8.5 技能组里的技能没有触发器，目标器通用筛选能设
+  await evalJs(`(() => {
+    [...document.querySelectorAll('.add-row')].find(b => b.textContent.includes('添加技能')).click();
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 500));
+  check("技能组里加了技能", await evalJs(`document.querySelectorAll('.skill-row').length === 1`));
+  check("技能组技能没有触发器字段", await evalJs(`!document.querySelector('.skill-row input[placeholder="onSpawn"]')`));
+
+  await evalJs(`(() => {
+    const row = document.querySelector('.skill-row');
+    const inputs = row.querySelectorAll('.combo-field input');
+    const t = inputs[inputs.length - 1];
+    t.value = 'playersinradius';
+    t.dispatchEvent(new Event('input', {bubbles:true}));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 400));
+  check("目标器通用筛选区出现", await evalJs(`[...document.querySelectorAll('.skill-row .skill-section')]
+    .some(s => s.querySelector('summary').textContent.includes('目标筛选'))`));
+
+  const targFilter = await evalJs(`(async () => {
+    const sec = [...document.querySelectorAll('.skill-row .skill-section')]
+      .find(s => s.querySelector('summary').textContent.includes('目标筛选'));
+    if (!sec) return 'no-section';
+    sec.open = true;
+    const label = [...sec.querySelectorAll('.sw-label')].find(x => x.textContent.includes('包含玩家'));
+    if (!label) return 'no-label';
+    const cb = label.closest('label').querySelector('input[type=checkbox]');
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change', {bubbles:true}));
+    await new Promise(r => setTimeout(r, 400));
+    return document.getElementById('yamlOut').innerText;
+  })()`);
+  check("目标筛选写进目标器花括号",
+    typeof targFilter === "string" && /@PlayersInRadius\{[^}]*targetplayers=true/.test(targFilter), String(targFilter));
+
+  check("技能参数按机制改名（伤害量）", await evalJs(`(() => {
+    const row = document.querySelector('.skill-row');
+    return [...row.querySelectorAll('.field > label')].some(x => x.textContent.trim() === '伤害量');
+  })()`));
+
+  await shot("e2e-metaskill");
+
   // 9. 使用说明弹窗
   await evalJs(`document.getElementById("btnHelp").click(); true`);
   await new Promise(r => setTimeout(r, 250));

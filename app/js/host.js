@@ -32,8 +32,9 @@
       return;
     }
     const mobs = files.filter(function (f) { return f.kind === "mob"; });
+    const skills = files.filter(function (f) { return f.kind === "skill"; });
     const items = files.filter(function (f) { return f.kind === "item"; });
-    const others = files.filter(function (f) { return f.kind !== "mob" && f.kind !== "item"; });
+    const others = files.filter(function (f) { return f.kind !== "mob" && f.kind !== "skill" && f.kind !== "item"; });
 
     function group(title, list) {
       if (!list.length) return;
@@ -44,7 +45,7 @@
           title: f.rel,
           onclick: function () { openFile(f); }
         }, [
-          el("span", { class: "file-icon", html: MM_ICONS.get(f.kind === "mob" ? "skull" : f.kind === "item" ? "sword" : "file", 13) }),
+          el("span", { class: "file-icon", html: MM_ICONS.get(f.kind === "mob" ? "skull" : f.kind === "skill" ? "zap" : f.kind === "item" ? "sword" : "file", 13) }),
           el("span", { class: "file-name", text: f.name }),
           el("span", { class: "file-size", text: fmtSize(f.size) })
         ]));
@@ -52,6 +53,7 @@
     }
 
     group("怪物", mobs);
+    group("技能组", skills);
     group("物品", items);
     group("其他", others);
   }
@@ -103,7 +105,7 @@
         showFileView(f, r, r.errors);
         return;
       }
-      const kind = (f.kind === "mob" || f.kind === "item") ? f.kind : MM_IMPORT.guessKind(r.js);
+      const kind = (f.kind === "mob" || f.kind === "item" || f.kind === "skill") ? f.kind : MM_IMPORT.guessKind(r.js);
 
       const opened = MM_STATE.all().find(function (p) { return p.filePath === f.path; });
       if (opened) {
@@ -113,7 +115,7 @@
         return;
       }
 
-      const base = kind === "mob" ? MM_STATE.newMob() : MM_STATE.newItem();
+      const base = kind === "mob" ? MM_STATE.newMob() : kind === "skill" ? MM_STATE.newSkill() : MM_STATE.newItem();
       const res = MM_IMPORT.fill(base, { js: r.js, text: r.text, filePath: f.path });
       if (!res.ok) {
         showFileView(f, r, [res.reason]);

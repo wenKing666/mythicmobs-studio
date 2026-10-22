@@ -757,11 +757,30 @@ code {
   padding: 8px 10px;
 }
 .cond-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   gap: 8px;
-  align-items: start;
+  align-items: flex-start;
 }
+.cond-head .combo { flex: 1 1 auto; min-width: 0; }
+.cond-head .rm { flex: 0 0 auto; }
+
+/* 条件参数的「比较符 + 数值 + %」控件 */
+.cmp-row { display: flex; gap: 5px; align-items: stretch; }
+.cmp-row .cmp-op { flex: 0 0 62px; width: 62px; padding-left: 6px; padding-right: 2px; }
+.cmp-row .cmp-val { flex: 1 1 auto; min-width: 0; }
+.cmp-unit {
+  flex: 0 0 auto;
+  width: 30px;
+  border: 1px solid var(--line-2);
+  background: #fff;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.cmp-unit.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.cond-expect { width: auto; min-width: 74px; flex: 0 0 auto; }
 .cond-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip {
   border: 1px solid var(--line-2);

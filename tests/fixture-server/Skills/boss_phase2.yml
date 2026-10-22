@@ -1,0 +1,12 @@
+boss_phase2:
+  CancelIfNoTargets: true
+  Cooldown: 15
+  Conditions:
+  - healthpercent{p=<50%}
+  - day false
+  TargetConditions:
+  - hasaura{a=fire}
+  Skills:
+  - sendtitle{title=&c&l第二阶段;subtitle=&7他更愤怒了;duration=40} @PlayersInRadius{r=30}
+  - lightning{damage=8} @target
+  - particle{particle=flame;amount=60} @self

@@ -6,19 +6,23 @@ window.MM_UI = (function () {
   const D = MM_DATA;
   const CAT = window.MM_CATALOG || null;
 
-  /* 全量目录（wiki 抓取）优先；没有就退回手写表，保证页面永远能开 */
+  /* 全量目录（wiki 抓取）优先；没有就退回手写表，保证页面永远能开。
+     目录里混着「说明」条目（id 等于类型名，如 Targeters / Conditions），
+     它们是 wiki 的总述页，不该出现在选择列表里。 */
   function catList(kind) {
     if (CAT && CAT[kind] && CAT[kind].length) {
-      return CAT[kind].map(function (x) {
-        return {
-          id: x.id,
-          zh: x.zh || x.en || x.id,
-          en: x.en || x.id,
-          group: x.group || "",
-          params: x.params || [],
-          desc: x.desc || ""
-        };
-      });
+      return CAT[kind]
+        .filter(function (x) { return x.id !== kind; })
+        .map(function (x) {
+          return {
+            id: x.id,
+            zh: x.zh || x.en || x.id,
+            en: x.en || x.id,
+            group: x.group || "",
+            params: x.params || [],
+            desc: x.desc || ""
+          };
+        });
     }
     return (D[kind] || []).map(function (x) {
       return { id: x.id, zh: x.zh || x.id, en: x.en || x.id, group: "", params: x.params || [], desc: x.desc || "" };
@@ -346,7 +350,7 @@ window.MM_UI = (function () {
         class: "project-item" + (p.id === MM_STATE.currentId() ? " active" : ""),
         onclick: function () { onSelect(p.id); }
       }, [
-        ico(p.kind === "mob" ? "skull" : "sword", 14),
+        ico(p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap" : "sword", 14),
         el("div", { class: "meta" }, [
           el("div", { class: "name", text: plain(p.data.display) || p.key }),
           el("div", { class: "sub", text: p.key })
@@ -385,19 +389,23 @@ window.MM_UI = (function () {
         el("p", { text: "从左侧模板开始，或新建一个" }),
         el("div", { class: "hint-row" }, [
           el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("mob"); } }, ["新建怪物"]),
-          el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("item"); } }, ["新建物品"])
+          el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("item"); } }, ["新建物品"]),
+          el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("skill"); } }, ["新建技能组"])
         ])
       ]));
       return;
     }
     root.appendChild(editorHeader(project));
     if (project.kind === "mob") renderMob(root, project);
+    else if (project.kind === "skill") renderSkill(root, project);
     else renderItem(root, project);
   }
 
   function editorHeader(p) {
-    const kindName = p.kind === "mob" ? "怪物" : "物品";
-    const iconName = p.kind === "mob" ? "skull" : "sword";
+    const kindName = p.kind === "mob" ? "怪物" : p.kind === "skill" ? "技能组" : "物品";
+    const iconName = p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap" : "sword";
+    const isSkill = p.kind === "skill";
+    const idPlaceholder = isSkill ? "my_boss_phase2" : p.kind === "mob" ? "my_boss" : "my_sword";
 
     const idErr = el("div", { class: "field-err", text: "ID 不能为空" });
     idErr.style.display = "none";
@@ -408,7 +416,7 @@ window.MM_UI = (function () {
       syncId();
       MM_STATE.touch();
       changed();
-    }, { placeholder: p.kind === "mob" ? "my_boss" : "my_sword" });
+    }, { placeholder: idPlaceholder });
 
     function syncId() {
       const bad = !String(idInput.value || "").trim();
@@ -424,17 +432,20 @@ window.MM_UI = (function () {
         el("span", { text: kindName })
       ]),
       el("div", { class: "card-body" }, [
-        el("div", { class: "grid" }, [
+        el("div", { class: "grid" + (isSkill ? " one" : "") }, [
           el("div", { class: "field" }, [
             el("label", { text: "ID" }),
             idInput,
             idErr,
-            el("div", { class: "hint", text: "服务器里用它刷怪 / 给物品，只能英文、数字、下划线" })
+            el("div", {
+              class: "hint",
+              text: isSkill ? "技能组名，别的技能用 skill{s=这个名字} 调用它" : "服务器里用它刷怪 / 给物品，只能英文、数字、下划线"
+            })
           ]),
-          field("显示名称", "头顶显示的名字，支持 & 颜色代码", textInput(p.data.display, function (v) {
+          isSkill ? null : field("显示名称", "头顶显示的名字，支持 & 颜色代码", textInput(p.data.display, function (v) {
             p.data.display = v; MM_STATE.touch(); changed();
           }, { placeholder: p.kind === "mob" ? "&c我的怪物" : "&b我的物品" }))
-        ])
+        ].filter(Boolean))
       ])
     ]);
   }
@@ -702,6 +713,48 @@ window.MM_UI = (function () {
     { label: "处于战斗中", id: "incombat", params: {} }
   ];
 
+  /* ---------- 条件行（技能行与技能组共用） ---------- */
+  /* 技能组的 Conditions 行可以带 true/false 后缀表示「期望不成立」 */
+  function expectSelect(value, onchange) {
+    const s = el("select", { class: "input cond-expect", title: "期望结果：不写就是「成立」，false 表示条件不成立时才继续" });
+    [["", "成立"], ["false", "不成立"]].forEach(function (o) {
+      const opt = el("option", { value: o[0], text: o[1] });
+      if (String(value || "") === o[0]) opt.selected = true;
+      s.appendChild(opt);
+    });
+    s.addEventListener("change", function () { onchange(s.value); });
+    return s;
+  }
+
+  function conditionRows(list, opts) {
+    opts = opts || {};
+    return list.map(function (c, ci) {
+      const cd = catFind("conditions", c.id);
+      const paramsBox = (cd && cd.params.length) ? paramGrid(cd.params, function (pp) {
+        return c.params && c.params[pp.name] !== undefined ? c.params[pp.name] : pp.def;
+      }, function (pp, v) {
+        if (!c.params) c.params = {};
+        c.params[pp.name] = v;
+        MM_STATE.touch(); changed();
+      }, { cmp: true }) : null;
+
+      const head = el("div", { class: "cond-head" }, [
+        listInput(catList("conditions"), c.id, function (v) {
+          list[ci] = { id: v, params: {}, expect: c.expect };
+          MM_STATE.touch(); changed(true);
+        }, "搜索条件名，如 healthpercent / chance", true),
+        opts.expect ? expectSelect(c.expect, function (v) {
+          c.expect = v; MM_STATE.touch(); changed();
+        }) : null,
+        rmButton("删除条件", function () {
+          list.splice(ci, 1); MM_STATE.touch(); changed(true);
+        })
+      ].filter(Boolean));
+
+      return el("div", { class: "cond-row" }, [head, paramsBox].filter(Boolean));
+    });
+  }
+
   function enumTable(name) {
     if (!name) return null;
     if (name === "particles") return catList("particles");
@@ -728,9 +781,77 @@ window.MM_UI = (function () {
     return null;
   }
 
-  function paramControl(pp, value, set) {
+  /* ---------- 比较符输入 ---------- */
+  /* 条件参数的值几乎都是「运算符 + 数值」，wiki 里写成 <50% / >10 / >=3。
+     裸敲容易漏写 < 或把 % 弄丢，所以运算符做成下拉、百分比做成开关。 */
+  const CMP_OPS = [
+    { op: "", label: "=" },
+    { op: "<", label: "<" },
+    { op: "<=", label: "≤" },
+    { op: ">", label: ">" },
+    { op: ">=", label: "≥" },
+    { op: "!=", label: "≠" }
+  ];
+
+  function splitCmp(v) {
+    const s = String(v === undefined || v === null ? "" : v);
+    const m = s.match(/^\s*(<=|>=|!=|=|<|>)\s*(.*)$/);
+    if (!m) return { op: "", val: s };
+    return { op: m[1] === "=" ? "" : m[1], val: m[2] };
+  }
+
+  function cmpInput(value, onchange, opts) {
+    opts = opts || {};
+    const p = splitCmp(value);
+    let unit = "";
+    let body = p.val;
+    if (opts.percent && /%\s*$/.test(body)) { unit = "%"; body = body.replace(/%\s*$/, ""); }
+
+    const sel = el("select", { class: "input cmp-op", title: "比较符" });
+    CMP_OPS.forEach(function (o) {
+      const opt = el("option", { value: o.op, text: o.label });
+      if (o.op === p.op) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    const num = el("input", { class: "input cmp-val", type: "text", placeholder: opts.placeholder || "数值" });
+    num.value = body;
+
+    function emit() {
+      const v = num.value.trim();
+      if (v === "") { onchange(""); return; }
+      onchange(sel.value + v + (unit ? "%" : ""));
+    }
+    sel.addEventListener("change", emit);
+    num.addEventListener("input", emit);
+
+    const kids = [sel, num];
+    if (opts.percent) {
+      const pc = el("button", {
+        class: "cmp-unit" + (unit ? " on" : ""), type: "button", title: "按百分比（% ）"
+      }, ["%"]);
+      pc.addEventListener("click", function () {
+        unit = unit ? "" : "%";
+        pc.classList.toggle("on", !!unit);
+        emit();
+      });
+      kids.push(pc);
+    }
+    return el("div", { class: "cmp-row" }, kids);
+  }
+
+  function paramControl(pp, value, set, opts) {
     const t = pp.type;
     const label = pp.zh || pp.name;
+    /* 条件参数：数值型或值里已经带运算符 → 用「运算符 + 数值」控件 */
+    if (opts && opts.cmp && ["boolean", "enum", "skill", "condition", "color"].indexOf(t) < 0) {
+      const CMPABLE = /^(percent|percentage|amount|damage|damageamount|distance|height|level|stacks|kills|size|velocity|force|speed|difficulty|health|healthpercent|count|value|score|exp|food|hunger|time|players|entities|blocks|y|mana|hp|soul|age)$/i;
+      const text = String(value === undefined || value === null ? "" : value);
+      const numLike = t === "number" || CMPABLE.test(pp.name);
+      const hasCmp = /^\s*(<=|>=|!=|=|<|>)/.test(text);
+      if (numLike || hasCmp) {
+        return cmpInput(value, set, { percent: /percent|percentage/i.test(pp.name) });
+      }
+    }
     if (t === "boolean") {
       return switchRow(label, null, value === true || value === "true", function (v) {
         set(v ? "true" : "");
@@ -750,7 +871,7 @@ window.MM_UI = (function () {
   function paramGrid(list, getVal, setVal, opts) {
     const wrap = el("div", { class: "grid " + ((opts && opts.cols) || "three"), style: "margin-top:10px" });
     list.forEach(function (pp) {
-      const ctl = paramControl(pp, getVal(pp), function (v) { setVal(pp, v); });
+      const ctl = paramControl(pp, getVal(pp), function (v) { setVal(pp, v); }, opts);
       /* 提示只放「必填 / 默认值」，英文原描述收进 title，避免整屏英文 */
       let hint = null;
       if (pp.required && !pp.def) hint = "必填";
@@ -762,7 +883,38 @@ window.MM_UI = (function () {
     return wrap;
   }
 
-  function skillRow(d, s, i) {
+  /* 目标器通用参数：wiki「Targeters」说明页列出的筛选 / 偏移 / 坐标，所有目标器都能用 */
+  const TARGET_GEOM_RE = /^(xoffset|yoffset|zoffset|forwardoffset|sideoffset|upoffset|rotate|coordinate|length|block|faulty|nomegbb|useboundingbox|sudoparent|sudoowner|sudotrigger)/i;
+
+  function targeterExtraNodes(s) {
+    if (!s.targeter || s.targeter === "self" || s.targeter === "targeters") return [];
+    /* 直接取 catalog 的「Targeters 说明」条目——它不在 catList 里 */
+    const uni = ((CAT && CAT.targeters) || []).filter(function (x) { return x.id === "targeters"; })[0];
+    if (!uni || !uni.params || !uni.params.length) return [];
+    const geoms = uni.params.filter(function (pp) { return TARGET_GEOM_RE.test(pp.name); });
+    const filters = uni.params.filter(function (pp) { return !TARGET_GEOM_RE.test(pp.name); });
+
+    function box(title, list) {
+      if (!list.length) return null;
+      const used = list.filter(function (pp) {
+        return s.targetParams && s.targetParams[pp.name] !== undefined && s.targetParams[pp.name] !== "";
+      }).length;
+      return el("details", { class: "skill-section" }, [
+        el("summary", { text: title + "（" + list.length + " 项" + (used ? " · 已设 " + used : "") + "）" }),
+        paramGrid(list, function (pp) {
+          return s.targetParams && s.targetParams[pp.name] !== undefined ? s.targetParams[pp.name] : pp.def;
+        }, function (pp, v) {
+          if (!s.targetParams) s.targetParams = {};
+          s.targetParams[pp.name] = v;
+          MM_STATE.touch(); changed();
+        })
+      ]);
+    }
+    return [box("目标筛选", filters), box("偏移 · 坐标 · sudo", geoms)].filter(Boolean);
+  }
+
+  function skillRow(d, s, i, opts) {
+    opts = opts || {};
     /* 导入时认不出的技能行：只读展示，可删，不猜语义 */
     if (s.raw) {
       return el("div", { class: "list-row skill-row" }, [
@@ -794,8 +946,8 @@ window.MM_UI = (function () {
       MM_STATE.touch(); changed();
     }
 
-    const head = el("div", { class: "grid three" }, [
-      field("触发", null, listInput(catList("triggers"), s.trigger, function (v) {
+    const head = el("div", { class: opts.noTrigger ? "grid" : "grid three" }, [
+      opts.noTrigger ? null : field("触发", null, listInput(catList("triggers"), s.trigger, function (v) {
         s.trigger = v; MM_STATE.touch(); changed(true);
       }, "onSpawn", true)),
       field("效果", null, listInput(catList("mechanics"), s.mechanic, function (v) {
@@ -807,7 +959,7 @@ window.MM_UI = (function () {
       field("目标", null, listInput(catList("targeters"), s.targeter, function (v) {
         s.targeter = v; MM_STATE.touch(); changed(true);
       }, "self"))
-    ]);
+    ].filter(Boolean));
 
     const descLine = mech ? el("div", { class: "mech-desc" }, [
       el("b", { text: mech.zh }),
@@ -844,28 +996,6 @@ window.MM_UI = (function () {
       ]));
     }
 
-    const condNodes = s.conditions.map(function (c, ci) {
-      const cd = catFind("conditions", c.id);
-      return el("div", { class: "cond-row" }, [
-        el("div", { class: "cond-head" }, [
-          listInput(catList("conditions"), c.id, function (v) {
-            s.conditions[ci] = { id: v, params: {} };
-            MM_STATE.touch(); changed(true);
-          }, "条件名", true),
-          rmButton("删除条件", function () {
-            s.conditions.splice(ci, 1); MM_STATE.touch(); changed(true);
-          })
-        ]),
-        cd && cd.params.length ? paramGrid(cd.params, function (pp) {
-          return c.params && c.params[pp.name] !== undefined ? c.params[pp.name] : pp.def;
-        }, function (pp, v) {
-          if (!c.params) c.params = {};
-          c.params[pp.name] = v;
-          MM_STATE.touch(); changed();
-        }) : null
-      ].filter(Boolean));
-    });
-
     const condWrap = el("details", { class: "skill-section", open: s.conditions.length > 0 }, [
       el("summary", { text: "触发条件" + (s.conditions.length ? "（" + s.conditions.length + " 个）" : "") }),
       el("div", { class: "cond-presets" }, COND_PRESETS.map(function (pre) {
@@ -877,7 +1007,7 @@ window.MM_UI = (function () {
           }
         });
       })),
-      el("div", { class: "cond-list" }, condNodes),
+      el("div", { class: "cond-list" }, conditionRows(s.conditions)),
       addButton("添加条件", function () {
         s.conditions.push({ id: "chance", params: { chance: "0.3" } });
         MM_STATE.touch(); changed(true);
@@ -916,11 +1046,86 @@ window.MM_UI = (function () {
 
     return el("div", { class: "list-row skill-row" }, [
       el("div", { class: "row-body" },
-        [head, descLine, targParamWrap].concat(paramNodes).concat([condWrap, uniWrap]).filter(Boolean)),
+        [head, descLine, targParamWrap]
+          .concat(paramNodes.concat(targeterExtraNodes(s)))
+          .concat([condWrap, uniWrap]).filter(Boolean)),
       rmButton("删除", function () {
         d.skills.splice(i, 1); MM_STATE.touch(); changed(true);
       })
     ]);
+  }
+
+  /* ---------- 技能组表单（Metaskill） ---------- */
+  function renderSkill(root, p) {
+    const d = p.data;
+    ["conditions", "targetConditions", "triggerConditions", "skills"].forEach(function (k) {
+      if (!Array.isArray(d[k])) d[k] = [];
+    });
+
+    root.appendChild(card("zap", "基础", "", true, [
+      el("div", { class: "grid three" }, [
+        switchRow("没有目标就取消", "CancelIfNoTargets", d.cancelIfNoTargets === "true", function (v) {
+          d.cancelIfNoTargets = v ? "true" : ""; MM_STATE.touch(); changed();
+        }),
+        switchRow("隐藏", "不出现在 /mm skills 列表里", d.hidden === "true", function (v) {
+          d.hidden = v ? "true" : ""; MM_STATE.touch(); changed();
+        }),
+        field("冷却（秒）", "同一施法者两次执行的最小间隔", numberInput(d.cooldown, function (v) {
+          d.cooldown = v; MM_STATE.touch(); changed();
+        }, { step: "any" }))
+      ])
+    ]));
+
+    /* 三块条件语义不同：施法者 / 继承到的目标 / 触发者 */
+    function condCard(key, title, sub, withPresets) {
+      const list = d[key];
+      const body = el("div", { class: "list" }, [
+        withPresets ? el("div", { class: "cond-presets" }, COND_PRESETS.map(function (pre) {
+          return el("button", {
+            class: "chip", type: "button", text: pre.label,
+            onclick: function () {
+              list.push({ id: pre.id, params: Object.assign({}, pre.params) });
+              MM_STATE.touch(); changed(true);
+            }
+          });
+        })) : null,
+        el("div", { class: "cond-list" }, conditionRows(list, { expect: true })),
+        addButton("添加条件", function () {
+          list.push({ id: "", params: {} });
+          MM_STATE.touch(); changed(true);
+        })
+      ].filter(Boolean));
+      return card("sliders", title, sub, list.length > 0, [body]);
+    }
+
+    root.appendChild(condCard("conditions", "条件 Conditions",
+      "对施法者判定" + (d.conditions.length ? " · " + d.conditions.length + " 个" : " · 不满足就不执行"), true));
+    root.appendChild(condCard("targetConditions", "目标条件 TargetConditions",
+      "对继承到的目标判定" + (d.targetConditions.length ? " · " + d.targetConditions.length + " 个" : "")));
+    root.appendChild(condCard("triggerConditions", "触发条件 TriggerConditions",
+      "对触发者判定，可用 @Trigger" + (d.triggerConditions.length ? " · " + d.triggerConditions.length + " 个" : "")));
+
+    const skBody = el("div", { class: "list" });
+    d.skills.forEach(function (s, i) { skBody.appendChild(skillRow(d, s, i, { noTrigger: true })); });
+    skBody.appendChild(addButton("添加技能", function () {
+      d.skills.push({ trigger: "", mechanic: "damage", targeter: "target", params: { amount: 10 } });
+      MM_STATE.touch(); changed(true);
+    }));
+    root.appendChild(card("layers", "技能列表", d.skills.length ? d.skills.length + " 条" : "技能组里真正执行的东西", d.skills.length > 0, [skBody]));
+
+    root.appendChild(card("box", "分支技能组", "条件不满足 / 冷却中 / 并发执行时改跑别的技能组", false, [
+      el("div", { class: "grid three" }, [
+        field("条件不满足时", "FailedConditionsSkill", textInput(d.failedConditionsSkill, function (v) {
+          d.failedConditionsSkill = v; MM_STATE.touch(); changed();
+        }, { placeholder: "另一个技能组名" })),
+        field("冷却中时", "OnCooldownSkill", textInput(d.onCooldownSkill, function (v) {
+          d.onCooldownSkill = v; MM_STATE.touch(); changed();
+        }, { placeholder: "另一个技能组名" })),
+        field("同时并发执行", "额外的异步技能组", textInput(d.skill, function (v) {
+          d.skill = v; MM_STATE.touch(); changed();
+        }, { placeholder: "另一个技能组名" }))
+      ])
+    ]));
   }
 
   /* ---------- 物品表单 ---------- */
