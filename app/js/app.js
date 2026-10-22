@@ -107,6 +107,29 @@
     $("editor").scrollTop = 0;
   }
 
+  /* 「更多类型」下拉：9 种通用配置类型直接按字段表生成按钮 */
+  function buildNewMenu() {
+    const box = $("newMoreMenu");
+    if (!box) return;
+    box.innerHTML = "";
+    const types = (window.MM_SPEC && MM_SPEC.allTypes()) || [];
+    types.forEach(function (t) {
+      const b = document.createElement("button");
+      b.className = "dropdown-item";
+      b.type = "button";
+      b.dataset.kind = t.kind;
+      b.innerHTML = '<span class="di-ico"></span><span class="di-t"></span><span class="di-d"></span>';
+      b.querySelector(".di-ico").innerHTML = MM_ICONS.get(t.icon || "file", 14);
+      b.querySelector(".di-t").textContent = t.title;
+      b.querySelector(".di-d").textContent = t.dir + "/";
+      b.addEventListener("click", function () {
+        $("newMore").open = false;
+        newProject(t.kind);
+      });
+      box.appendChild(b);
+    });
+  }
+
   function useTemplate(id) {    const t = MM_STATE.templates.find(function (x) { return x.id === id; });
     if (!t) return;
     const p = MM_STATE.add(t.build());
@@ -177,6 +200,7 @@
     $("btnNewItem").addEventListener("click", function () { newProject("item"); });
     $("btnNewSkill").addEventListener("click", function () { newProject("skill"); });
     $("btnNewDropTable").addEventListener("click", function () { newProject("droptable"); });
+    buildNewMenu();
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });

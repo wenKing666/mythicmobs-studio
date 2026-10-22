@@ -66,7 +66,10 @@ window.MM_STATE = (function () {
         aiTargets: [],
         damageModifiers: [],
         skills: [],
-        drops: []
+        drops: [],
+        /* 0.7.0 补齐的 15 个顶层字段（Level / Faction / HealthBar / Modules…），
+           字段表在 spec-data.js 的 mobExtra，生成时整块接在标准字段后面 */
+        extra: window.MM_SPEC ? MM_SPEC.blank(MM_SPEC.mobExtraFields()) : {}
       }
     };
   }
@@ -126,6 +129,25 @@ window.MM_STATE = (function () {
     };
   }
 
+  /* 通用配置类型（spec-data.js 描述的 9 种）：字段一股脑塞进 data.fields，
+     由 MM_SPEC 负责生成 YAML 与反填，state 这边只管建空壳。 */
+  function specOf(kind) {
+    return (window.MM_SPEC && MM_SPEC.type(kind)) || null;
+  }
+
+  function specKinds() {
+    return (window.MM_SPEC && MM_SPEC.allTypes()) || [];
+  }
+
+  function newSpecProject(kind) {
+    const sp = specOf(kind);
+    return {
+      kind: kind,
+      key: "",
+      data: { fields: window.MM_SPEC ? MM_SPEC.blank(MM_SPEC.flatFields(sp)) : {} }
+    };
+  }
+
   function uniqueKey(base) {
     let k = base, i = 2;
     while (projects.some(function (p) { return p.key === k; })) k = base + "_" + (i++);
@@ -142,11 +164,14 @@ window.MM_STATE = (function () {
   }
 
   function create(kind) {
-    const p = kind === "mob" ? newMob()
+    const sp = specOf(kind);
+    const p = sp ? newSpecProject(kind)
+      : kind === "mob" ? newMob()
       : kind === "skill" ? newSkill()
       : kind === "droptable" ? newDropTable()
       : newItem();
-    const baseKey = kind === "mob" ? "my_mob"
+    const baseKey = sp ? (sp.keyPrefix || kind)
+      : kind === "mob" ? "my_mob"
       : kind === "skill" ? "my_skill"
       : kind === "droptable" ? "my_droptable"
       : "my_item";
@@ -418,6 +443,13 @@ window.MM_STATE = (function () {
       currentId = o.currentId || (projects[0] && projects[0].id) || null;
       // 兼容旧数据：补齐新增选项的默认值
       projects.forEach(function (p) {
+        p.data = p.data || {};
+        /* 通用配置类型：data.fields 里的空值补齐，字段表以后加了新键也不至于 undefined */
+        const sp = specOf(p.kind);
+        if (sp) {
+          p.data.fields = Object.assign(MM_SPEC.blank(MM_SPEC.flatFields(sp)), p.data.fields || {});
+          return;
+        }
         const base = p.kind === "mob" ? newMob() : p.kind === "item" ? newItem() : null;
         if (!base) return;
         const defs = p.kind === "mob" ? mobOptionDefaults() : itemOptionDefaults();
@@ -474,7 +506,8 @@ window.MM_STATE = (function () {
     all: function () { return projects; },
     currentId: function () { return currentId; },
     renameKey: renameKey,
-    newMob: newMob, newItem: newItem, newSkill: newSkill, newDropTable: newDropTable
+    newMob: newMob, newItem: newItem, newSkill: newSkill, newDropTable: newDropTable,
+    specOf: specOf, specKinds: specKinds, newSpecProject: newSpecProject
   };
 })();
 

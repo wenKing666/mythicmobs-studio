@@ -302,6 +302,16 @@ window.MM_IMPORT = (function () {
         return;
       }
       if (typeof v === "object") {
+        /* 有子键表的组件（spec-data 里那 28 项）保留原始类型：列表还是数组、
+           键值还是对象、数字还是数字，不然生成时又会退化成字符串 */
+        const sf = window.MM_SPEC ? MM_SPEC.itemComponentFields(k) : null;
+        if (sf) {
+          const conv = MM_SPEC.fromYaml(sf, v).store;
+          const merged = Object.assign({}, v);
+          Object.keys(conv).forEach(function (kk) { merged[kk] = conv[kk]; });
+          out[k] = { params: merged };
+          return;
+        }
         const params = {};
         Object.keys(v).forEach(function (kk) {
           const vv = v[kk];
@@ -310,7 +320,8 @@ window.MM_IMPORT = (function () {
         out[k] = { params: params };
         return;
       }
-      out[k] = { value: String(v) };
+      /* 标量组件保持原类型（数字别变成字符串，不然会输出成 '2'） */
+      out[k] = { value: v };
     });
     return out;
   }
@@ -540,6 +551,13 @@ window.MM_IMPORT = (function () {
 
   function parseEnchants(list) {
     const out = [];
+    /* 也接受 `Enchantments: {DURABILITY: 3}` 这种映射写法，别静默丢掉 */
+    if (list && typeof list === "object" && !Array.isArray(list)) {
+      Object.keys(list).forEach(function (k) {
+        out.push({ name: k.toUpperCase(), level: Number(list[k]) || 1 });
+      });
+      return out;
+    }
     (Array.isArray(list) ? list : []).forEach(function (x) {
       if (x === null || x === undefined) return;
       if (typeof x === "object") {
@@ -593,8 +611,134 @@ window.MM_IMPORT = (function () {
     return out;
   }
 
+  /* ---------- 通用配置类型（spec-data.js 描述的 9 种）的导入 ---------- */
+
+  /* pins.yml 这类整份是列表的文件：按顶格 "- " 切成一项一块，保留原始行 */
+  function splitListItems(text) {
+    const lines = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").split("\n");
+    const out = [];
+    let cur = null;
+    lines.forEach(function (l) {
+      if (/^-[ \t]/.test(l) || l === "-") {
+        cur = [l];
+        out.push(cur);
+        return;
+      }
+      if (!cur) return;
+      cur.push(l);
+    });
+    return out;
+  }
+
+  function fillSpec(p, parsed) {
+    const spec = MM_SPEC.type(p.kind);
+    if (!spec) return { ok: false, reason: "没有「" + p.kind + "」这种配置类型的字段表" };
+    const fields = MM_SPEC.flatFields(spec);
+    const handled = {};
+    fields.forEach(function (f) { handled[f.k] = true; });
+
+    const js = parsed && parsed.js;
+    const text = (parsed && parsed.text) || "";
+    const raw = { head: [], entry: [], others: [], options: {}, itemExtra: [] };
+    const warnings = [];
+    let key = p.key;
+    let body = null;
+
+    if (spec.listFile) {
+      if (!Array.isArray(js) || !js.length) return { ok: false, reason: "这个文件不是「- 条目」的列表结构" };
+      const items = splitListItems(text);
+      body = js[0] || {};
+      key = String(body.name || body.Name || p.key || "my_pin");
+      if (items.length > 1) {
+        warnings.push("这个列表里有 " + items.length + " 项，已编辑第 1 项，其余原样保留");
+        items.slice(1).forEach(function (blk) { raw.others.push(blk.join("\n")); });
+      }
+      /* 第一项把开头 "- " 换成两个空格，就能按 2 缩进切字段；
+         认不出的字段原样留在这项末尾，生成时补回去 */
+      const first = (items[0] || []).map(function (l, i) {
+        return i === 0 ? "  " + l.replace(/^-\s*/, "") : l;
+      });
+      splitByIndent(first, 2).forEach(function (b) {
+        if (handled[b.key]) return;
+        b.lines.forEach(function (l) { raw.itemExtra.push(l.replace(/\s+$/, "")); });
+      });
+    } else if (!spec.wrap) {
+      /* pack.yml：整份文件就是字段，没有外层 ID */
+      const doc = splitTop(text);
+      raw.head = doc.head;
+      doc.blocks.forEach(function (b) {
+        if (!handled[b.key]) raw.entry.push(b.lines.join("\n"));
+      });
+      body = (js && typeof js === "object" && !Array.isArray(js)) ? js : {};
+      key = p.key || spec.keyPrefix || "pack";
+    } else {
+      if (!js || typeof js !== "object" || Array.isArray(js)) {
+        return { ok: false, reason: "文件内容不是「ID: 配置」结构" };
+      }
+      const keys = Object.keys(js);
+      if (!keys.length) return { ok: false, reason: "文件里没有顶层条目" };
+      key = keys[0];
+      body = js[key];
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return { ok: false, reason: "「" + key + "」下面不是字段列表" };
+      }
+      const doc = splitTop(text);
+      raw.head = doc.head;
+      splitByIndent(entryLines(doc, key).slice(1), 2).forEach(function (b) {
+        if (!handled[b.key]) raw.entry.push(b.lines.join("\n"));
+      });
+      doc.blocks.forEach(function (b) {
+        if (b.key !== key) raw.others.push(b.lines.join("\n"));
+      });
+      if (keys.length > 1) warnings.push("这个文件里有 " + keys.length + " 个条目，已导入「" + key + "」，其余原样保留");
+    }
+
+    const r = MM_SPEC.fromYaml(fields, body || {});
+    p.data = p.data || {};
+    p.data.fields = r.store;
+    p.key = key;
+    if (parsed.filePath) p.filePath = parsed.filePath;
+    p.raw = raw;
+    return { ok: true, key: key, count: Object.keys(body || {}).length, warnings: warnings };
+  }
+
   function guessKind(js) {
+    /* pins.yml 整份是列表 */
+    if (Array.isArray(js)) return "pin";
     const keys = js && typeof js === "object" ? Object.keys(js) : [];
+
+    /* pack.yml 是平铺的，字段直接在顶层（Name / Version 都是字符串） */
+    if (js && typeof js === "object" && js.Name !== undefined && js.Version !== undefined &&
+        js.Type === undefined && js.Id === undefined) {
+      return "pack";
+    }
+
+    /* 通用配置类型：各挑最独特的一两个键认，认在 mob/item 前面，
+       否则 stats 的 Type、原版覆写的 Options 会被怪物抢走 */
+    const SIGNS = [
+      ["menu", function (b) { return b.Schema !== undefined && b.Icons !== undefined; }],
+      ["dialog", function (b) { return b.Title !== undefined && (b.Body !== undefined || b.Inputs !== undefined); }],
+      ["spawner", function (b) { return b.MobName !== undefined || (b.MobLevel !== undefined && b.Spawning !== undefined); }],
+      ["randomspawn", function (b) { return (b.MobType !== undefined || b.Types !== undefined) && (b.Worlds !== undefined || b.Chance !== undefined); }],
+      ["cinematic", function (b) { return b.points !== undefined || b.Points !== undefined; }],
+      ["stats", function (b) { return b.BaseValue !== undefined || b.FormulaKey !== undefined || b.Rounding !== undefined; }],
+      ["pack", function (b) { return b.Name !== undefined && b.Version !== undefined; }]
+    ];
+    for (let s = 0; s < SIGNS.length; s++) {
+      for (let i = 0; i < keys.length; i++) {
+        const b = js[keys[i]];
+        if (!b || typeof b !== "object" || Array.isArray(b)) continue;
+        if (SIGNS[s][1](b)) return SIGNS[s][0];
+      }
+    }
+
+    /* 原版覆写：顶层键是大写的生物名，下面没有 Type */
+    for (let i = 0; i < keys.length; i++) {
+      const b = js[keys[i]];
+      if (!b || typeof b !== "object" || Array.isArray(b)) continue;
+      if (/^[A-Z][A-Z_]+$/.test(keys[i]) && b.Type === undefined && b.Options !== undefined) return "vanillaoverride";
+    }
+
     /* 掉落表：没有 Type/Id，但带着掉落表的招牌字段 */
     for (let i = 0; i < keys.length; i++) {
       const b = js[keys[i]];
@@ -627,6 +771,7 @@ window.MM_IMPORT = (function () {
   /* 把解析结果灌进一个已建好的项目壳（MM_STATE.newMob/newItem 的产物）。
      只填第一个顶层条目，其余条目原文保留。 */
   function fill(p, parsed) {
+    if (window.MM_SPEC && MM_SPEC.type(p.kind)) return fillSpec(p, parsed);
     const js = parsed && parsed.js;
     if (!js || typeof js !== "object" || Array.isArray(js)) {
       return { ok: false, reason: "文件内容不是「ID: 配置」结构" };
@@ -655,6 +800,10 @@ window.MM_IMPORT = (function () {
     /* 物品的组件键也算「已处理」，否则会被当成陌生块重复写回一遍。
        但组件解析本身要看到这些键，所以另存一份不含组件的 handled */
     const handledBase = Object.assign({}, handled);
+    /* 0.7.0 补齐的 15 个怪物顶层字段也有表单了，别当陌生块原样保留 */
+    if (isMob && window.MM_SPEC) {
+      MM_SPEC.mobExtraFields().forEach(function (f) { handled[f.k] = true; });
+    }
     if (p.kind === "item") {
       Object.keys(knownItemComponents()).forEach(function (k) { handled[k] = true; });
     }
@@ -685,6 +834,9 @@ window.MM_IMPORT = (function () {
       d.damageModifiers = parseDamageModifiers(body.DamageModifiers);
       d.drops = parseDrops(body.Drops);
       d.skills = parseSkills(body.Skills);
+
+      /* 等级 / 阵营 / 血条 / 模块 / 交易… */
+      if (window.MM_SPEC) d.extra = MM_SPEC.fromYaml(MM_SPEC.mobExtraFields(), body).store;
 
       const known = knownMobOptions();
       Object.keys(body.Options || {}).forEach(function (k) {
@@ -744,11 +896,21 @@ window.MM_IMPORT = (function () {
     return { ok: true, key: key, count: keys.length, warnings: warnings };
   }
 
+  /* 通用引擎要按同一套语法反解条件行 */
+  if (window.MM_SPEC) {
+    MM_SPEC.adapters.parseCond = function (text) {
+      const one = parseConditionList([text]);
+      return one[0] || null;
+    };
+  }
+
   return {
     fill: fill,
+    fillSpec: fillSpec,
     guessKind: guessKind,
     /* 供测试用 */
     parseSkill: parseSkill,
-    splitTop: splitTop
+    splitTop: splitTop,
+    splitListItems: splitListItems
   };
 })();

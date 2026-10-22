@@ -12,7 +12,7 @@
   <div class="brand">
     <svg class="mark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
     <span class="app-name">MythicMobs 编辑器</span>
-    <span class="app-ver" id="appVer">0.6.0</span>
+    <span class="app-ver" id="appVer">0.7.0</span>
   </div>
   <div class="top-actions">
     <button id="btnOpenFolder" class="btn dark" hidden>
@@ -35,6 +35,13 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
       新建掉落表
     </button>
+    <details id="newMore" class="dropdown">
+      <summary class="btn dark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        更多类型
+      </summary>
+      <div class="dropdown-menu" id="newMoreMenu"></div>
+    </details>
     <button id="btnHelp" class="btn dark icon-only" title="使用说明">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.2a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.2 1-1.2 1.8v.4M12 17h.01"/></svg>
     </button>
@@ -107,6 +114,8 @@
 <script src="js/data.js"></script>
 <script src="js/catalog.js"></script>
 <script src="js/extras-data.js"></script>
+<script src="js/spec-data.js"></script>
+<script src="js/spec.js"></script>
 <script src="js/options-data.js"></script>
 <script src="js/yaml.js"></script>
 <script src="js/state.js"></script>

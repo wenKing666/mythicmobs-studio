@@ -1,0 +1,8 @@
+- name: boss_arena
+  location: world,100,64,-20
+  radius: 12
+  duration: 600
+  color: RED
+- name: tutorial_start
+  location: world,0,64,0
+  radius: 5

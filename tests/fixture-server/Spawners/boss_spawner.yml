@@ -1,0 +1,16 @@
+BossSpawner:
+  MobName: SkeletalKnight
+  MobLevel: 5
+  MobsPerSpawn: 1
+  MaxMobs: 2
+  World: world
+  X: 100
+  Y: 64
+  Z: -20
+  Radius: 6
+  Cooldown: 300
+  UseTimer: true
+  ShowFlames: true
+  Conditions:
+  - day true
+  UnknownSpawnerKey: keep-me

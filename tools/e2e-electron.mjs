@@ -74,11 +74,15 @@ async function main() {
   const dir = FIXTURE.replace(/\\/g, "\\\\");
   const scan = await ev(`MM_HOST.scan("${dir}")`);
   /* 夹具：Mobs/skeleton_king.yml、Mobs/ai_guard.yml、Items/flame_sword.yml、
-     Skills/boss_phase2.yml、Drops/boss_loot.yml */
-  check("扫描目录拿到 5 个文件", scan.files.length === 5, "count=" + scan.files.length);
+     Skills/boss_phase2.yml、Drops/boss_loot.yml、Spawners/boss_spawner.yml、pins.yml */
+  check("扫描目录拿到 7 个文件", scan.files.length === 7, "count=" + scan.files.length);
   check("识别出 mob / item / skill / droptable",
     ["mob", "item", "skill", "droptable"].every(k => scan.files.some(f => f.kind === k)),
     JSON.stringify(scan.files.map(f => f.kind)));
+  /* 0.7.0：刷怪点与 pins 是新认的类型，目录映射错了这里会先炸 */
+  check("识别出 spawner / pin",
+    ["spawner", "pin"].every(k => scan.files.some(f => f.kind === k)),
+    JSON.stringify(scan.files.map(f => f.kind + ":" + f.rel)));
 
   const mob = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Mobs/skeleton_king.yml");
   const read = await ev(`MM_HOST.read(${JSON.stringify(mob.path)})`);
@@ -286,6 +290,77 @@ async function main() {
     check("命令行掉落的花括号参数没丢",
       await ev(`document.getElementById("yamlOut").innerText.indexOf('cmd{cmd="crate give <trigger.name> RewardCrate 1"} 1 0.2') >= 0`),
       await ev(`document.getElementById("yamlOut").innerText.match(/cmd[^\\n]*/)`));
+  }
+
+  /* ---------- 0.7.0：spec 引擎带来的新配置类型 ---------- */
+
+  const spawnFile = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Spawners/boss_spawner.yml");
+  const pinFile = scan.files.find(f => f.rel.replace(/\\/g, "/") === "pins.yml");
+
+  if (!spawnFile || !pinFile) {
+    check("夹具里有刷怪点和 pins", false, JSON.stringify(scan.files.map(f => f.rel)));
+  } else {
+    /* 刷怪点：wrap 模式，顶层 key 是文件名，字段缩进在里面 */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: spawnFile.path, name: spawnFile.name, kind: "spawner", rel: spawnFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("刷怪点进表单而不是只读预览",
+      await ev(`document.querySelectorAll("#editor .card").length > 1
+        && !document.getElementById("editor").innerText.includes("只读预览")`));
+    check("刷怪点读数正确",
+      await ev(`document.getElementById("yamlOut").innerText.includes("MobName: SkeletalKnight")
+        && document.getElementById("yamlOut").innerText.includes("MobLevel: 5")`),
+      await ev(`document.getElementById("yamlOut").innerText.slice(0, 200)`));
+    /* 顶层 key 必须是文件里原来的 BossSpawner，不能被改成文件名 */
+    check("刷怪点顶层 key 用的是原来的 ID",
+      await ev(`/^BossSpawner:\\s*$/m.test(document.getElementById("yamlOut").innerText)`),
+      await ev(`document.getElementById("yamlOut").innerText.split("\\n")[0]`));
+    check("刷怪点里不认识的字段原样留着",
+      await ev(`document.getElementById("yamlOut").innerText.includes("UnknownSpawnerKey: keep-me")`));
+    /* 直接改字段，YAML 要跟着变；数字不能被引号包住 */
+    await ev(`(() => { MM_STATE.current().data.fields.MobsPerSpawn = "7"; MM_APP.refresh(true); return true; })()`);
+    await sleep(300);
+    check("刷怪点字段改了 YAML 跟着变",
+      await ev(`document.getElementById("yamlOut").innerText.includes("MobsPerSpawn: 7")
+        && !document.getElementById("yamlOut").innerText.includes("MobsPerSpawn: '7'")`),
+      await ev(`document.getElementById("yamlOut").innerText.match(/MobsPerSpawn[^\\n]*/)`));
+
+    /* pins：list 模式，整文件是列表，每行开头要有 "- " */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: pinFile.path, name: pinFile.name, kind: "pin", rel: pinFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("pins 进表单",
+      await ev(`document.querySelectorAll("#editor .card").length >= 1`));
+    check("pins 是列表形态（行首带 -）",
+      await ev(`/^-\\s+name:/m.test(document.getElementById("yamlOut").innerText)`),
+      await ev(`document.getElementById("yamlOut").innerText.split("\\n").slice(0, 3).join(" | ")`));
+
+    /* 内容包：flat 模式，整文件没有包裹 key，字段直接顶格写 */
+    await ev(`MM_APP.new("pack"); true`);
+    await sleep(400);
+    await ev(`(() => { MM_STATE.current().data.fields.Name = "MyPack"; MM_APP.refresh(true); return true; })()`);
+    await sleep(300);
+    check("内容包是 flat 形态（字段顶格，没有包裹 key）",
+      await ev(`(() => {
+        const t = document.getElementById("yamlOut").innerText.trim().split("\\n");
+        return t[0] === "Name: MyPack" && !/^my_pack:/m.test(t.join("\\n"));
+      })()`),
+      await ev(`document.getElementById("yamlOut").innerText.split("\\n").slice(0, 3).join(" | ")`));
+
+    /* 怪物扩展字段：0.7.0 补齐的等级 / 外观 / 模块卡片 */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: mob.path, name: mob.name, kind: "mob", rel: mob.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("怪物有「等级 / 外观 / 模块」卡片", await ev(`[...document.querySelectorAll("#editor .card")]
+      .some(c => c.textContent.indexOf("等级 / 外观 / 模块") >= 0)`));
+    await ev(`(() => { MM_STATE.current().data.extra.Level = "3to7"; MM_APP.refresh(true); return true; })()`);
+    await sleep(300);
+    check("等级写进怪物 YAML",
+      await ev(`document.getElementById("yamlOut").innerText.includes("Level: 3to7")`),
+      await ev(`document.getElementById("yamlOut").innerText.match(/Level[^\\n]*/)`));
   }
 
   /* 清掉导入的项目，别留在下次运行里 */

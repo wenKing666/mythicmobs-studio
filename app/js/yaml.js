@@ -57,9 +57,11 @@ window.MM_YAML = (function () {
     /* 导入来的 ID 原样保留（MM 允许 . 和 -），只在真的非法时才清洗 */
     if (/^[A-Za-z0-9_.\-]+$/.test(raw)) return raw;
     const k = raw.replace(/[^A-Za-z0-9_\-]/g, "_").replace(/^_+|_+$/g, "");
+    const sp = specOf(p.kind);
     return k || (p.kind === "mob" ? "my_mob"
       : p.kind === "skill" ? "my_skill"
-      : p.kind === "droptable" ? "my_droptable" : "my_item");
+      : p.kind === "droptable" ? "my_droptable"
+      : sp ? sp.keyPrefix : "my_item");
   }
 
   /* 全部怪物 Options（126 项），带类型与默认值 */
@@ -171,6 +173,14 @@ window.MM_YAML = (function () {
     if (num(d.health) !== null) L.push("  Health: " + fmtNum(d.health));
     if (num(d.damage) !== null && Number(d.damage) > 0) L.push("  Damage: " + fmtNum(d.damage));
     if (num(d.armor) !== null && Number(d.armor) > 0) L.push("  Armor: " + fmtNum(d.armor));
+
+    /* 0.7.0 补齐的 15 个顶层字段（Level / LevelModifiers / Faction / HealthBar /
+       Nameplate / DisplayOptions / MannequinOptions / Modules / Hearing /
+       AIPathfindingMalus / Variables / Trades / Totem / Mount / Disguise），
+       字段表在 spec-data.js 的 mobExtra 里，按表顺序接在基础属性后面 */
+    if (window.MM_SPEC) {
+      MM_SPEC.toYaml(MM_SPEC.mobExtraFields(), d.extra || {}, 2).forEach(function (line) { L.push(line); });
+    }
 
     // BOSS 血条
     const bb = d.bossbar;
@@ -436,7 +446,14 @@ window.MM_YAML = (function () {
       const entry = comps[id];
       if (!entry) return;
       const c = defOf[id];
+      const sf = window.MM_SPEC ? MM_SPEC.itemComponentFields(id) : null;
+      const fields = entry.params || {};
+      const keys = Object.keys(fields).filter(function (k) {
+        const v = fields[k];
+        return v !== undefined && v !== null && (typeof v === "object" || String(v).trim() !== "");
+      });
 
+      /* 列表形态（UnsetComponents / Hide 的单值列表） */
       if (entry.list && entry.list.length) {
         const vals = entry.list.filter(function (x) { return String(x).trim() !== ""; });
         if (!vals.length) return;
@@ -445,35 +462,58 @@ window.MM_YAML = (function () {
         return;
       }
 
-      const fields = entry.params || {};
-      const keys = Object.keys(fields);
-      if ((!c || !(c.params || []).length) && !keys.length) {
-        // 标量组件：Rarity / Enchantability / DamageResistant…
-        const v = entry.value;
-        if (v === undefined || v === null || String(v).trim() === "") return;
-        L.push("  " + id + ": " + scalarAny(v));
+      /* 标量形态优先：OminousBottleAmplifier / Rarity / PaintingVariant…
+         这类组件的值就一个，写成子块反而错 */
+      const scalarVal = entry.value;
+      if (!keys.length && scalarVal !== undefined && scalarVal !== null && String(scalarVal).trim() !== "") {
+        L.push("  " + id + ": " + scalarAny(scalarVal));
         return;
       }
 
-      const lines = [];
-      const pdefs = {};
-      ((c && c.params) || []).forEach(function (pp) { pdefs[pp.name] = pp; });
-      /* 先按 wiki 顺序输出已知子键，再补表单不认识的 */
-      const known = ((c && c.params) || []).map(function (pp) { return pp.name; });
-      const rest = keys.filter(function (k) { return known.indexOf(k) < 0; });
-      known.concat(rest).forEach(function (k) {
-        const v = fields[k];
-        if (v === undefined || v === null) return;
-        if (typeof v === "boolean") { lines.push("    " + k + ": " + (v ? "true" : "false")); return; }
-        const sv = String(v).trim();
-        if (sv === "") return;
-        const pp = pdefs[k];
-        if (pp && pp.def !== "" && pp.type !== "boolean" && sv === String(pp.def)) return;
-        /* 数字与布尔值都要保持原类型，写成 '1.5' 组件会读不到 */
-        if (pp && pp.type === "number" && /^-?\d+(\.\d+)?$/.test(sv)) { lines.push("    " + k + ": " + sv); return; }
-        if (/^(true|false)$/i.test(sv)) { lines.push("    " + k + ": " + sv.toLowerCase()); return; }
-        lines.push("    " + k + ": " + scalarAny(v));
-      });
+      if (!keys.length) return;
+
+      let lines = [];
+      if (sf) {
+        /* 有字段表的组件走通用引擎，列表 / 键值 / 数字类型都由它保证 */
+        lines = MM_SPEC.toYaml(sf, fields, 0).map(function (l) { return "    " + l; });
+      } else {
+        const pdefs = {};
+        ((c && c.params) || []).forEach(function (pp) { pdefs[pp.name] = pp; });
+        /* 先按 wiki 顺序输出已知子键，再补表单不认识的 */
+        const known = ((c && c.params) || []).map(function (pp) { return pp.name; });
+        const rest = keys.filter(function (k) { return known.indexOf(k) < 0; });
+        known.concat(rest).forEach(function (k) {
+          const v = fields[k];
+          if (v === undefined || v === null) return;
+          /* 列表 / 键值子键（Hide.flags、NBT.tags、BlockStates.states…）要展开写 */
+          if (Array.isArray(v)) {
+            const vals = v.filter(function (x) { return String(x).trim() !== ""; });
+            if (!vals.length) return;
+            lines.push("    " + k + ":");
+            vals.forEach(function (x) { lines.push("    - " + scalarAny(x)); });
+            return;
+          }
+          if (typeof v === "object") {
+            const ks = Object.keys(v).filter(function (kk) {
+              return v[kk] !== undefined && v[kk] !== null && String(v[kk]).trim() !== "";
+            });
+            if (!ks.length) return;
+            lines.push("    " + k + ":");
+            ks.forEach(function (kk) { lines.push("      " + kk + ": " + scalarAny(v[kk])); });
+            return;
+          }
+          if (typeof v === "boolean") { lines.push("    " + k + ": " + (v ? "true" : "false")); return; }
+          const sv = String(v).trim();
+          if (sv === "") return;
+          const pp = pdefs[k];
+          if (pp && pp.def !== "" && pp.type !== "boolean" && sv === String(pp.def)) return;
+          /* 数字与布尔值都要保持原类型，写成 '1.5' 组件会读不到 */
+          if (pp && pp.type === "number" && /^-?\d+(\.\d+)?$/.test(sv)) { lines.push("    " + k + ": " + sv); return; }
+          if (/^(true|false)$/i.test(sv)) { lines.push("    " + k + ": " + sv.toLowerCase()); return; }
+          lines.push("    " + k + ": " + scalarAny(v));
+        });
+      }
+
       if (!lines.length) return;
       L.push("  " + id + ":");
       L.push.apply(L, lines);
@@ -712,12 +752,63 @@ window.MM_YAML = (function () {
     return out;
   }
 
+  /* ---------- 通用配置类型（Spawners / RandomSpawns / Stats / Menus / Dialogs /
+     Cinematics / Pins / Packs / VanillaMobs），字段定义在 spec-data.js ---------- */
+
+  function specOf(kind) {
+    return (window.MM_SPEC && MM_SPEC.type(kind)) || null;
+  }
+
+  function specDoc(p) {
+    const spec = specOf(p.kind);
+    if (!spec) return "";
+    const fields = MM_SPEC.flatFields(spec);
+    const raw = rawOf(p);
+    const L = [];
+    pushHead(L, raw);
+    /* pins.yml 是列表（每项 - 开头）、pack.yml 直接写字段、其余包一层 ID */
+    const mode = spec.listFile ? "list" : (spec.wrap ? "wrap" : "flat");
+    const text = MM_SPEC.docYaml(keyOf(p), fields, p.data.fields || {}, { mode: mode });
+    String(text).split("\n").forEach(function (line) {
+      if (line.trim() !== "") L.push(line);
+    });
+    /* 列表项里没识别的字段：留在这一项里（缩进 2），不能甩到文件末尾 */
+    if (mode === "list") {
+      (raw.itemExtra || []).forEach(function (line) { L.push(line); });
+    }
+    pushTail(L, raw);
+    if (!L.length) return "";
+    return L.join("\n") + "\n";
+  }
+
+  function validateSpec(p, out) {
+    const spec = specOf(p.kind);
+    if (!spec) return;
+    const store = p.data.fields || {};
+    MM_SPEC.flatFields(spec).forEach(function (f) {
+      if (!f.r) return;
+      if (MM_SPEC.isEmpty(store[f.k])) out.push((f.z || f.k) + " 不能为空");
+    });
+    /* Dialog 的输入项键名只能是字母数字下划线，写错了 <dialog.x> 取不到值 */
+    if (p.kind === "dialog") {
+      (store.Inputs || []).forEach(function (row, i) {
+        const k = String(row.Key || "").trim();
+        if (!k) out.push("第 " + (i + 1) + " 个输入项没填键名");
+        else if (!/^[A-Za-z0-9_]+$/.test(k)) out.push("第 " + (i + 1) + " 个输入项的键名只能有字母、数字、下划线");
+      });
+    }
+  }
+
   function validate(p) {
     const out = [];
     if (!p) return out;
-    if (!String(p.key || "").trim()) out.push("ID 不能为空");
+    /* pack.yml 这种「一个目录只有一份」的文件没有 ID 概念 */
+    const single = specOf(p.kind) && specOf(p.kind).single;
+    if (!single && !String(p.key || "").trim()) out.push("ID 不能为空");
 
-    if (p.kind === "mob") {
+    if (specOf(p.kind)) {
+      validateSpec(p, out);
+    } else if (p.kind === "mob") {
       if (!p.data.type) out.push("生物类型未选择");
       checkSkillRows(p.data.skills, out);
       (p.data.equipment || []).forEach(function (e, i) {
@@ -778,6 +869,7 @@ window.MM_YAML = (function () {
     if (p.kind === "mob") return mob(p);
     if (p.kind === "skill") return metaskill(p);
     if (p.kind === "droptable") return droptable(p);
+    if (specOf(p.kind)) return specDoc(p);
     return item(p);
   }
 
@@ -816,6 +908,14 @@ window.MM_YAML = (function () {
     }).join("\n");
   }
 
-  return { generate: generate, validate: validate, refIssues: refIssues, mob: mob, item: item, highlight: highlight, scalar: scalar };
+  /* 通用引擎要用同两套渲染：条件去掉行内问号、技能行不带列表前缀 */
+  if (window.MM_SPEC) {
+    MM_SPEC.adapters.condText = function (c) { return metaskillCondLine(c); };
+    MM_SPEC.adapters.skillText = function (s) {
+      return String(skillLine(s) || "").replace(/^\s*-\s*/, "");
+    };
+  }
+
+  return { generate: generate, validate: validate, refIssues: refIssues, mob: mob, item: item, specDoc: specDoc, highlight: highlight, scalar: scalar };
 })();
 

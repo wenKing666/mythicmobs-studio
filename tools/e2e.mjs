@@ -521,9 +521,19 @@ async function main() {
     await evalJs(`MM_STATE.current().data.components.Rarity !== undefined
       && MM_STATE.current().data.options.CustomModelData === undefined`),
     await evalJs(`JSON.stringify(Object.keys(MM_STATE.current().data.components))`));
-  check("没做表单的组件也列出来了（知道它们存在）",
-    await evalJs(`/另外 \\d+ 项组件/.test(document.body.textContent)`),
-    await evalJs(`(document.body.textContent.match(/另外 \\d+ 项组件/) || [""])[0]`));
+  /* 0.7.0 之前只有 23 项有表单，剩下 35 项塞在「另外 N 项」里。
+     现在用 spec 引擎给 28 项补了子键表单，可编辑的应该涨到 51 项。 */
+  const compStat = await evalJs(`(() => {
+    const c = [...document.querySelectorAll("#editor .card")]
+      .find(x => x.textContent.indexOf("物品组件") >= 0 && x.querySelector("summary").textContent.indexOf("物品组件") === 0);
+    const m = c && c.textContent.match(/(\\d+) 项可编辑 \\/ 共 (\\d+) 项/);
+    return m ? m[1] + "/" + m[2] : "none";
+  })()`);
+  /* 卡片里显示的是 50：58 项组件里 51 项有表单，扣掉单独做成「掉落特效」卡片的 DropOptions */
+  check("物品组件表单数量涨到 50 / 58", compStat === "50/58", compStat);
+  /* 剩下的 7 项都是物品基础卡片里已经能改的顶层键，不该再单列一节 */
+  const restShown = await evalJs(`/另外 \\d+ 项组件/.test(document.body.textContent)`);
+  check("基础卡片里已有的组件不再重复列出", restShown === false, String(restShown));
 
   /* 新建掉落表 */
   await evalJs(`document.getElementById("btnNewDropTable").click(); true`);
@@ -548,7 +558,62 @@ async function main() {
 
   await shot("e2e-droptable");
 
-  // 9. 使用说明弹窗
+  /* ---------- 0.7.0：spec 引擎带来的新配置类型与怪物扩展字段 ---------- */
+
+  // 9. 更多类型下拉
+  const menuCount = await evalJs(`document.querySelectorAll("#newMoreMenu .dropdown-item").length`);
+  check("「更多类型」列出 9 种新配置", menuCount === 9, String(menuCount));
+
+  await evalJs(`document.querySelector('#newMoreMenu .dropdown-item[data-kind="spawner"]').click(); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("能新建刷怪点", await evalJs(`MM_STATE.current().kind === "spawner"`),
+    await evalJs(`String(MM_STATE.current().kind)`));
+  check("刷怪点渲染出表单卡片", await evalJs(`document.querySelectorAll("#editor .card").length >= 4`),
+    await evalJs(`String(document.querySelectorAll("#editor .card").length)`));
+  check("刷怪点带说明条", await evalJs(`!!document.querySelector("#editor .spec-note-bar")`));
+
+  /* 在「每次刷几只」里打字，YAML 必须吐裸数字而不是字符串 */
+  const perSpawn = await evalJs(`(() => {
+    const f = [...document.querySelectorAll("#editor .field")]
+      .find(x => x.querySelector("label") && x.querySelector("label").textContent === "每次刷几只");
+    const inp = f && f.querySelector("input");
+    if (!inp) return "no-input";
+    inp.value = "4";
+    inp.dispatchEvent(new Event("input", {bubbles:true}));
+    return inp.value;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("刷怪点数字框能输入", perSpawn === "4", String(perSpawn));
+  check("刷怪点数字没被加引号",
+    await evalJs(`document.getElementById("yamlOut").innerText.includes("MobsPerSpawn: 4")
+      && !document.getElementById("yamlOut").innerText.includes("MobsPerSpawn: '4'")`),
+    await evalJs(`String(document.getElementById("yamlOut").innerText.match(/MobsPerSpawn[^\\n]*/))`));
+
+  await shot("e2e-spawner");
+
+  // 10. 怪物扩展字段（等级 / 外观 / 模块）
+  await evalJs(`MM_APP.new("mob"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("怪物有「等级 / 外观 / 模块」卡片",
+    await evalJs(`[...document.querySelectorAll("#editor .card")]
+      .some(c => c.textContent.indexOf("等级 / 外观 / 模块") >= 0)`));
+  const lvl = await evalJs(`(() => {
+    const f = [...document.querySelectorAll("#editor .field")]
+      .find(x => x.querySelector("label") && x.querySelector("label").textContent === "默认等级");
+    const inp = f && f.querySelector("input");
+    if (!inp) return "no-input";
+    inp.value = "3to7";
+    inp.dispatchEvent(new Event("input", {bubbles:true}));
+    return inp.value;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("等级能填并写进 YAML",
+    lvl === "3to7" && await evalJs(`document.getElementById("yamlOut").innerText.includes("Level: 3to7")`),
+    await evalJs(`String(document.getElementById("yamlOut").innerText.match(/Level[^\\n]*/))`));
+
+  await shot("e2e-mob-extra");
+
+  // 11. 使用说明弹窗
   await evalJs(`document.getElementById("btnHelp").click(); true`);
   await new Promise(r => setTimeout(r, 250));
   check("使用说明能打开", await evalJs(`!document.getElementById("helpModal").hidden`));
@@ -557,7 +622,7 @@ async function main() {
   await new Promise(r => setTimeout(r, 200));
   check("使用说明能关闭", await evalJs(`document.getElementById("helpModal").hidden`));
 
-  // 10. 删除
+  // 12. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);
   await evalJs(`(() => {

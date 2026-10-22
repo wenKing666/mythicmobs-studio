@@ -350,7 +350,7 @@ window.MM_UI = (function () {
         class: "project-item" + (p.id === MM_STATE.currentId() ? " active" : ""),
         onclick: function () { onSelect(p.id); }
       }, [
-        ico(p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap" : p.kind === "droptable" ? "box" : "sword", 14),
+        ico(kindIcon(p.kind), 14),
         el("div", { class: "meta" }, [
           el("div", { class: "name", text: plain(p.data.display) || p.key }),
           el("div", { class: "sub", text: p.key })
@@ -379,6 +379,251 @@ window.MM_UI = (function () {
     });
   }
 
+  /* ---------- 通用配置类型表单（9 种，字段表在 spec-data.js） ---------- */
+
+  function specTouch() { MM_STATE.touch(); changed(); }
+
+  function specLabel(f) { return f.z || f.k; }
+
+  function specHint(f) {
+    if (f.h) return f.h;
+    if (f.d !== undefined && f.d !== null && f.d !== "") return "默认 " + f.d;
+    return null;
+  }
+
+  /* 一行一条的列表（世界名、路径点、附魔…） */
+  function linesField(store, f) {
+    const ta = el("textarea", { class: "input", rows: 3, placeholder: "一行一条" });
+    ta.value = (store[f.k] || []).join("\n");
+    ta.addEventListener("input", function () {
+      store[f.k] = ta.value.split("\n")
+        .map(function (s) { return s.replace(/\s+$/, ""); })
+        .filter(function (s) { return s.trim() !== ""; });
+      specTouch();
+    });
+    return field(specLabel(f), specHint(f), ta, { full: true });
+  }
+
+  function rawField(store, f) {
+    const ta = el("textarea", { class: "input mono", rows: 4, placeholder: "按 wiki 语法写，会原样输出" });
+    const v = store[f.k];
+    ta.value = v === undefined || v === null ? "" : String(v);
+    ta.addEventListener("input", function () {
+      store[f.k] = ta.value; specTouch();
+    });
+    return field(specLabel(f), specHint(f), ta, { full: true });
+  }
+
+  /* 键值对（Variables / NBT / Options） */
+  function kvEditor(store, f) {
+    const box = el("div", { class: "list" });
+    let rows = [];
+    function sync() {
+      const n = {};
+      rows.forEach(function (r) {
+        const kk = String(r.k || "").trim();
+        if (kk) n[kk] = r.v;
+      });
+      store[f.k] = n;
+      specTouch();
+    }
+    function draw() {
+      box.innerHTML = "";
+      rows.forEach(function (r, i) {
+        box.appendChild(el("div", { class: "list-row" }, [
+          el("div", { class: "row-body" }, [
+            el("div", { class: "grid" }, [
+              field("键", null, textInput(r.k, function (v) { r.k = v; sync(); }, { placeholder: "键名" })),
+              field("值", null, textInput(r.v, function (v) { r.v = v; sync(); }, { placeholder: "值" }))
+            ])
+          ]),
+          rmButton("删除", function () { rows.splice(i, 1); sync(); draw(); })
+        ]));
+      });
+      box.appendChild(addButton("添加一行", function () { rows.push({ k: "", v: "" }); draw(); }));
+    }
+    const cur = store[f.k] || {};
+    rows = Object.keys(cur).map(function (k) {
+      const v = cur[k];
+      return { k: k, v: v === undefined || v === null ? "" : String(v) };
+    });
+    draw();
+    return el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: specLabel(f) }),
+      specHint(f) ? el("div", { class: "spec-note", text: specHint(f) }) : null,
+      box
+    ]);
+  }
+
+  /* 嵌套结构（obj）：子字段平铺成一个小格子 */
+  function subGrid(store, subs) {
+    const g = el("div", { class: "grid" });
+    (subs || []).forEach(function (s) {
+      const c = specControl(store, s);
+      if (c) g.appendChild(c);
+    });
+    return g;
+  }
+
+  function objField(store, f) {
+    const inner = store[f.k] || (store[f.k] = {});
+    return el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: specLabel(f) }),
+      specHint(f) ? el("div", { class: "spec-note", text: specHint(f) }) : null,
+      subGrid(inner, f.f)
+    ]);
+  }
+
+  /* 具名多条（菜单图标 / 交易表）：名字 + 一组子字段 */
+  function mapEditor(store, f) {
+    const box = el("div", { class: "list" });
+    const cur = store[f.k] || (store[f.k] = {});
+    let rows = Object.keys(cur).map(function (n) {
+      return { name: n, data: Object.assign(MM_SPEC.blank(f.f || []), cur[n] || {}) };
+    });
+    function sync() {
+      const n = {};
+      rows.forEach(function (r) {
+        const name = String(r.name || "").trim();
+        if (name) n[name] = r.data;
+      });
+      store[f.k] = n;
+      specTouch();
+    }
+    function draw() {
+      box.innerHTML = "";
+      rows.forEach(function (r, i) {
+        box.appendChild(el("div", { class: "list-row" }, [
+          el("div", { class: "row-body" }, [
+            el("div", { class: "grid" }, [
+              field("名字", "这一项的键名", textInput(r.name, function (v) { r.name = v; sync(); }, { placeholder: "名字" }))
+            ]),
+            subGrid(r.data, f.f)
+          ]),
+          rmButton("删除这一项", function () { rows.splice(i, 1); sync(); draw(); })
+        ]));
+      });
+      box.appendChild(addButton("添加一项", function () {
+        rows.push({ name: "", data: MM_SPEC.blank(f.f || []) });
+        draw();
+      }));
+    }
+    draw();
+    return el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: specLabel(f) }),
+      specHint(f) ? el("div", { class: "spec-note", text: specHint(f) }) : null,
+      box
+    ]);
+  }
+
+  /* 无名字的多条（对话正文 / 输入项 / 按钮） */
+  function objListEditor(store, f) {
+    const box = el("div", { class: "list" });
+    const list = store[f.k] || (store[f.k] = []);
+    function draw() {
+      box.innerHTML = "";
+      list.forEach(function (row, i) {
+        if (!row || typeof row !== "object") return;
+        box.appendChild(el("div", { class: "list-row" }, [
+          el("div", { class: "row-body" }, [subGrid(row, f.f)]),
+          rmButton("删除", function () { list.splice(i, 1); MM_STATE.touch(); changed(true); })
+        ]));
+      });
+      box.appendChild(addButton("添加一项", function () {
+        list.push(MM_SPEC.blank(f.f || []));
+        MM_STATE.touch(); changed(true);
+      }));
+    }
+    draw();
+    return el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: specLabel(f) }),
+      specHint(f) ? el("div", { class: "spec-note", text: specHint(f) }) : null,
+      box
+    ]);
+  }
+
+  /* 技能列表：和技能组共用同一套行编辑器 */
+  function skillsField(store, f) {
+    const list = store[f.k] || (store[f.k] = []);
+    const shim = { skills: list };
+    const body = el("div", { class: "list" });
+    list.forEach(function (s, i) { body.appendChild(skillRow(shim, s, i, {})); });
+    body.appendChild(addButton("添加技能", function () {
+      list.push({ trigger: "onSpawn", mechanic: "damage", targeter: "target", params: { amount: 10 } });
+      MM_STATE.touch(); changed(true);
+    }));
+    return el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: specLabel(f) }),
+      specHint(f) ? el("div", { class: "spec-note", text: specHint(f) }) : null,
+      body
+    ]);
+  }
+
+  /* 单个字段 → DOM；map / objlist / conds / skills 这些整块返回，调用方放进卡片 */
+  function specControl(store, f) {
+    const t = f.t || "text";
+    const k = f.k;
+    if (t === "bool") {
+      return switchRow(specLabel(f), specHint(f) || "", MM_SPEC.truthy(store[k]), function (v) {
+        store[k] = v ? "true" : "false"; specTouch();
+      });
+    }
+    if (t === "num") {
+      return field(specLabel(f), specHint(f), numberInput(store[k], function (v) {
+        store[k] = v; specTouch();
+      }, { step: "any" }));
+    }
+    if (t === "enum") {
+      const opts = (f.o || []).map(function (x) { return { id: x, zh: x }; });
+      const fallback = f.d !== undefined && f.d !== "" ? f.d : (opts[0] ? opts[0].id : "");
+      return field(specLabel(f), specHint(f), selectInput(opts, store[k] || fallback, function (v) {
+        store[k] = v; specTouch();
+      }));
+    }
+    if (t === "list") return linesField(store, f);
+    if (t === "raw") return rawField(store, f);
+    if (t === "kv") return kvEditor(store, f);
+    if (t === "obj") return objField(store, f);
+    if (t === "map") return mapEditor(store, f);
+    if (t === "objlist") return objListEditor(store, f);
+    if (t === "skills") return skillsField(store, f);
+    if (t === "conds") return null;   /* 条件块单独按卡片渲染，见 renderSpec */
+    return field(specLabel(f), specHint(f), textInput(store[k], function (v) {
+      store[k] = v; specTouch();
+    }, { placeholder: f.d === undefined ? "" : String(f.d) }), { full: MM_SPEC.isWide(f) });
+  }
+
+  function renderSpec(root, p) {
+    const spec = MM_STATE.specOf(p.kind);
+    if (!spec) {
+      root.appendChild(el("div", { class: "hint", text: "这种配置类型没有字段表，只能看原文" }));
+      return;
+    }
+    const store = p.data.fields || (p.data.fields = {});
+    if (spec.note) {
+      root.appendChild(el("div", { class: "spec-note-bar", text: spec.note }));
+    }
+    (spec.groups || []).forEach(function (g, gi) {
+      const body = el("div", { class: "list" });
+      const grid = el("div", { class: "grid" });
+      const conds = [];
+      (g.fields || []).forEach(function (f) {
+        if ((f.t || "text") === "conds") { conds.push(f); return; }
+        const c = specControl(store, f);
+        if (c) grid.appendChild(c);
+      });
+      if (grid.childNodes.length) body.appendChild(grid);
+      if (body.childNodes.length) {
+        root.appendChild(card(spec.icon || "file", g.title || spec.title, "", gi === 0, [body]));
+      }
+      /* 条件块自带一张卡片，直接挂到 root 上，别套在里面 */
+      conds.forEach(function (f) {
+        const sub = f.h || (f.k === "Conditions" ? "满足这些条件才生效" : "刷出来的怪带这些条件");
+        root.appendChild(condCardFor(store, f.k, f.z || f.k, sub, f.k === "Conditions", false));
+      });
+    });
+  }
+
   /* ---------- 编辑器外壳 ---------- */
   function renderEditor(root, project) {
     root.innerHTML = "";
@@ -396,19 +641,29 @@ window.MM_UI = (function () {
       return;
     }
     root.appendChild(editorHeader(project));
-    if (project.kind === "mob") renderMob(root, project);
+    if (window.MM_STATE.specOf && MM_STATE.specOf(project.kind)) renderSpec(root, project);
+    else if (project.kind === "mob") renderMob(root, project);
     else if (project.kind === "skill") renderSkill(root, project);
     else if (project.kind === "droptable") renderDropTable(root, project);
     else renderItem(root, project);
   }
 
+  /* 配置类型 → 图标名（侧栏、文件列表、编辑器头都用这一份） */
+  function kindIcon(kind) {
+    const sp = window.MM_STATE && MM_STATE.specOf && MM_STATE.specOf(kind);
+    if (sp) return sp.icon || "file";
+    return kind === "mob" ? "skull" : kind === "skill" ? "zap"
+      : kind === "droptable" ? "box" : kind === "item" ? "sword" : "file";
+  }
+
   function editorHeader(p) {
-    const kindName = p.kind === "mob" ? "怪物" : p.kind === "skill" ? "技能组"
+    const sp = window.MM_STATE.specOf && MM_STATE.specOf(p.kind);
+    const kindName = sp ? (sp.one || sp.title) : p.kind === "mob" ? "怪物" : p.kind === "skill" ? "技能组"
       : p.kind === "droptable" ? "掉落表" : "物品";
-    const iconName = p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap"
-      : p.kind === "droptable" ? "box" : "sword";
-    const isSkill = p.kind === "skill" || p.kind === "droptable";
-    const idPlaceholder = p.kind === "skill" ? "my_boss_phase2"
+    const iconName = kindIcon(p.kind);
+    const isSkill = p.kind === "skill" || p.kind === "droptable" || !!sp;
+    const idPlaceholder = sp ? (sp.keyPrefix || "")
+      : p.kind === "skill" ? "my_boss_phase2"
       : p.kind === "droptable" ? "boss_loot"
       : p.kind === "mob" ? "my_boss" : "my_sword";
 
@@ -444,7 +699,8 @@ window.MM_UI = (function () {
             idErr,
             el("div", {
               class: "hint",
-              text: p.kind === "droptable" ? "掉落表名，怪物的 Drops 里直接写这个名字引用它"
+              text: sp ? (sp.single ? "这个文件只有一个条目，名字不影响效果" : "配置名，写进文件名或作为这一项的键")
+                : p.kind === "droptable" ? "掉落表名，怪物的 Drops 里直接写这个名字引用它"
                 : isSkill ? "技能组名，别的技能用 skill{s=这个名字} 调用它"
                 : "服务器里用它刷怪 / 给物品，只能英文、数字、下划线"
             })
@@ -1000,6 +1256,27 @@ window.MM_UI = (function () {
       MM_STATE.touch(); changed(true);
     }));
     root.appendChild(card("zap", "技能", "", d.skills.length > 0, [skBody]));
+
+    /* 等级 / 外观 / 模块：0.7.0 补齐的 15 个顶层字段，字段表在 spec-data.js 的 mobExtra */
+    if (window.MM_SPEC) {
+      if (!d.extra) d.extra = MM_SPEC.blank(MM_SPEC.mobExtraFields());
+      const filled = MM_SPEC.mobExtraFields().filter(function (f) {
+        return !MM_SPEC.isEmpty(d.extra[f.k]);
+      }).length;
+      const exBody = el("div", { class: "list" });
+      MM_SPEC.mobExtraGroups().forEach(function (g) {
+        const grid = el("div", { class: "grid" });
+        (g.fields || []).forEach(function (f) {
+          const c = specControl(d.extra, f);
+          if (c) grid.appendChild(c);
+        });
+        exBody.appendChild(el("div", { class: "spec-block" }, [
+          el("div", { class: "spec-title", text: g.title }), grid
+        ]));
+      });
+      root.appendChild(card("crown", "等级 / 外观 / 模块",
+        "等级成长、阵营、血条、仇恨表、交易、图腾" + (filled ? " · 已填 " + filled + " 项" : ""), filled > 0, [exBody]));
+    }
 
     /* 掉落 */
     if (!d.drops) d.drops = [];
@@ -1565,27 +1842,67 @@ window.MM_UI = (function () {
     });
     root.appendChild(card("sliders", "其他选项", "官方全部 " + (optList.length || 0) + " 项", false, [optBody]));
 
+    /* 掉落特效（FancyDrops）：和 DropOptions 组件是同一个容器，
+       单独给一张卡更找得到，组件列表里就不重复列了 */
+    if (window.MM_SPEC) {
+      const fd = MM_SPEC.fancyDrops();
+      const entry = d.components.DropOptions;
+      const on = !!entry;
+      const box = el("div", { class: "list" }, [
+        switchRow("启用掉落特效", "发光、光柱、爆散、全息", on, function (v) {
+          if (v) d.components.DropOptions = { params: {} };
+          else delete d.components.DropOptions;
+          MM_STATE.touch(); changed(true);
+        }),
+        on ? subGrid(entry.params || (entry.params = {}), fd.fields) : null
+      ].filter(Boolean));
+      root.appendChild(card("sparkle", fd.title || "掉落特效",
+        "掉落物发光 / 光柱 / 爆散 / 全息，写进 DropOptions", on, [box]));
+    }
+
     /* 1.20.5+ 组件：只把有明确子键的做成表单，其余列出来供参考 */
     root.appendChild(itemComponentsCard(d));
   }
 
   /* 物品组件卡片：wiki 的 Items 页把 1.20.5+ 的 data component 都映射成了根级键，
      这里挑「值形态明确」的那些做成输入框，剩下的一律不硬凑。 */
+  /* 物品 1.20.5+ 组件。三档：
+     ① extras 里有子键表的 23 项 → 按表渲染输入框
+     ② spec-data 里补了子键的 28 项 → 走通用引擎（列表 / 键值 / 枚举）
+     ③ 剩下的是物品自己的顶层键（Id / Lore / Options…），在基础卡片里改，不在这儿重复 */
+  const ITEM_BASE_KEYS = ["Internal_Name", "Id", "Display", "Lore", "Attributes", "Options", "Enchantments"];
+
+  function componentFieldsFor(id) {
+    return (window.MM_SPEC && MM_SPEC.itemComponentFields(id)) || null;
+  }
+
   function itemComponentsCard(d) {
-    const spec = ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []).filter(function (c) { return c.form; });
+    const all = ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []);
+    /* DropOptions 有独立的「掉落特效」卡片，这里不再重复 */
+    const spec = all.filter(function (c) {
+      return c.id !== "DropOptions" && (c.form || componentFieldsFor(c.id));
+    });
     const body = el("div", { class: "list" });
     if (!spec.length) return card("layers", "物品组件", "数据没加载", false, [body]);
 
     spec.forEach(function (c) {
       const entry = d.components[c.id];
       const on = !!entry;
+      const sf = componentFieldsFor(c.id);
       const toggle = switchRow(c.zh, c.id + (on ? "" : " · 未启用"), on, function (v) {
         if (v) d.components[c.id] = { params: {}, value: "" };
         else delete d.components[c.id];
         MM_STATE.touch(); changed(true);
       });
       const box = el("div", { class: "comp-box" }, [toggle]);
-      if (on) {
+
+      if (on && sf) {
+        /* 通用引擎：子键在 entry.params 里，和另一条路径共用同一个容器 */
+        if (!entry.params || typeof entry.params !== "object") entry.params = {};
+        const grid = subGrid(entry.params, sf);
+        grid.style.marginTop = "10px";
+        box.appendChild(grid);
+      } else if (on) {
         if (entry.list) {
           const ta = el("textarea", { class: "input", rows: 3, placeholder: "一行一个，例如：food" });
           ta.value = (entry.list || []).join("\n");
@@ -1638,9 +1955,10 @@ window.MM_UI = (function () {
       body.appendChild(wrap);
     });
 
-    /* wiki 没给子键表的组件做不了安全的表单，但得让人知道有这些，
-       并且说明导进来会原样保留，别以为编辑器把它们吃掉了 */
-    const rest = ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []).filter(function (c) { return !c.form; });
+    /* 剩下的是物品自身的顶层键，在基础卡片里改过了 */
+    const rest = all.filter(function (c) {
+      return !c.form && !componentFieldsFor(c.id) && ITEM_BASE_KEYS.indexOf(c.id) < 0;
+    });
     if (rest.length) {
       const list = el("div", { class: "grid", style: "margin-top:8px" });
       rest.forEach(function (c) {
@@ -1660,7 +1978,8 @@ window.MM_UI = (function () {
     init: function (opts) { changed = opts.onChange; },
     renderSidebar: renderSidebar,
     renderTemplates: renderTemplates,
-    renderEditor: renderEditor
+    renderEditor: renderEditor,
+    kindIcon: kindIcon
   };
 })();
 

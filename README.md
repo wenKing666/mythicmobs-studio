@@ -2,7 +2,9 @@
 
 一个给「不会写 YAML 的人」用的 MythicMobs 可视化编辑器。
 
-当前状态：**0.6.0** —— 怪物 / 物品 / 技能组 / **掉落表**四类配置的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；wiki 的 **302 机制 / 196 条件 / 91 目标器 / 38 触发器 / 120 粒子 / 51 AI 行为 / 14 AI 目标** 已全部接进界面并中文化。0.6.0 补上了 **AI 选择器、33 种伤害修正、掉落三形态与 DropTables、物品 1.20.5+ 组件**，以及「引用的技能组 / 掉落表到底存不存在」的检查。
+当前状态：**0.7.0** —— 怪物 / 物品 / 技能组 / **掉落表**四类配置的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；wiki 的 **302 机制 / 196 条件 / 91 目标器 / 38 触发器 / 120 粒子 / 51 AI 行为 / 14 AI 目标** 已全部接进界面并中文化。
+
+0.7.0 把 wiki 上剩下没做的功能**全部补齐**了：新增**通用字段引擎**，一次描述字段树就同时拿到界面、YAML 生成和导入反向映射，于是又多了 **9 种配置类型**（刷怪点 / 随机刷怪 / 自定义属性 / 菜单 / 对话 / 过场镜头 / 定位点 / 内容包 / 原版覆写）、怪物的 **17 个顶层字段**（等级成长、阵营伪装、血条、仇恨表、村民交易、图腾、模块开关…），物品 58 项组件里有表单的也从 23 项涨到 **51 项**，外加掉落特效（FancyDrops）。
 
 ![怪物编辑器](docs/img/editor-mob.png)
 
@@ -10,13 +12,23 @@
 
 1. 双击 **`启动编辑器(无窗口).vbs`**（推荐，不会有黑框）或 **`启动编辑器.bat`**，打开独立窗口。
    没装 Electron 运行时会自动回落到浏览器（功能少掉文件读写）；`.bat` 会显示提示，`.vbs` 不会。
-2. 左边挑一个模板，或点右上角「新建怪物 / 新建物品 / 新建技能组 / 新建掉落表」。
+2. 左边挑一个模板，或点右上角「新建怪物 / 新建物品 / 新建技能组 / 新建掉落表」；
+   再右边的「更多类型」下拉里还有刷怪点、随机刷怪、自定义属性、菜单、对话、过场镜头、定位点、内容包、原版覆写。
 3. 中间填表格，右侧实时显示生成的配置。
 4. 点「下载 .yml」，把文件放进服务器：
    - 怪物 → `plugins/MythicMobs/Mobs/`
    - 物品 → `plugins/MythicMobs/Items/`
    - 技能组 → `plugins/MythicMobs/Skills/`
    - 掉落表 → `plugins/MythicMobs/Drops/`
+   - 刷怪点 → `plugins/MythicMobs/Spawners/`
+   - 随机刷怪 → `plugins/MythicMobs/RandomSpawns/`
+   - 自定义属性 → `plugins/MythicMobs/stats/`
+   - 菜单 → `plugins/MythicMobs/menus/`
+   - 对话 → `plugins/MythicMobs/dialogs/`
+   - 过场镜头 → `plugins/MythicMobs/cutscenes/`
+   - 定位点 → `plugins/MythicMobs/pins.yml`（整份文件是一个列表）
+   - 内容包 → `plugins/MythicMobs/pack.yml`（整份文件没有外层 ID）
+   - 原版覆写 → `plugins/MythicMobs/VanillaMobs/`
 5. 游戏里 `/mm reload`。
 
 数据存在浏览器本地（localStorage），关掉再打开还在；换电脑请用「下载 .yml」或重新填。
@@ -28,6 +40,7 @@
 - **126 个官方 Options 全部实现**（通用 37 / 生物大类 15 / 生物专属 74），每个都有中文名 + 一句话说明；顶部可搜索，当前生物的专属选项会自动展开，其余折叠
 - **AI 行为选择器（51 项）与 AI 目标选择器（14 项）**：都带中文名 + 英文 ID + 一句话说明，参数只写与默认值不同的；**拖拽排序**（也可以 Alt+↑/↓，或用行尾的上下移按钮），原来的优先级数字（`- 0 clear`）原样保留
 - **伤害修正（33 种伤害类型）**：一键「免疫 / 减半 / 常通 / 弱点 1.5× / 反吸 -1」，倍率语义直接写在输入框旁边（`0` 免疫但有受伤动画、`<0` 取消伤害并按绝对值回血）
+- **等级 / 外观 / 模块（17 个顶层字段）**：等级与成长 —— `Level`（可写 `3to7` / `3-7` 表示每次生成随机）、`LevelModifiers`（每级成长）、`Template`（继承模板）；外观 —— `Faction` 阵营、`Disguise` 伪装、`KillMessages`、`HealthBar`、`Nameplate`、`DisplayOptions`、`MannequinOptions`（模特）；行为与模块 —— `Mount` 默认坐骑、`Modules` 模块开关、`Hearing` 听觉、`AIPathfindingMalus` 寻路惩罚、`Variables` 初始变量、`Trades` 村民交易、`Totem` 图腾召唤；空值整行不写，导进来的陌生字段原样保留
 - BOSS 血条（标题 / 颜色 / 分段样式 / 显示范围）
 - 装备（6 个槽位，物品中文下拉）
 - 技能：**38 种触发器 × 302 种机制 × 91 种目标器 × 196 种条件**（wiki 全量），机制按用途分 11 组，下拉可搜索；参数按类型自动出控件，默认值不写进配置
@@ -45,12 +58,38 @@
 - `TotalItems` / `MinItems` / `MaxItems` / `BonusLevelItems` / `BonusLuckItems` / `BiasStat` 全量字段；数字保持数字类型（写成 `'2'` 服务端会当字符串读）
 - `Conditions`（判掉落者）/ `TriggerConditions`（判击杀者）两块条件
 - 掉落列表与怪物那边共用同一套三形态编辑器，所以掉落表里也能再引用别的掉落表
+- **掉落特效（FancyDrops）**：掉落物的模型 / 光效 / 缩放 / 旋转 / 悬浮高度 / 亮度，写在 `DropOptions` 里；不填就不写这一行
 
 **技能组（Metaskill）**
 - 技能组名 + 冷却 + `CancelIfNoTargets` / `Hidden`
 - **三块独立条件**：`Conditions`（判施法者）/ `TargetConditions`（判继承到的目标）/ `TriggerConditions`（判触发者），每条可标「成立 / 不成立」（写 `false` 后缀）
 - 技能列表复用怪物编辑器那套（机制 / 目标器 / 条件 / 通用修饰），只是不带触发器
 - 条件不满足 / 冷却中 / 并发执行时改跑别的技能组（`FailedConditionsSkill` / `OnCooldownSkill` / `Skill`）
+
+**其余 9 种配置类型（0.7.0）**
+
+顶栏「更多类型」下拉里可以新建；桌面版扫目录时会按目录自动归组：
+
+| 类型 | 放在哪 | 字段数 | 说明 |
+|---|---|---:|---|
+| 刷怪点 Spawner | `Spawners/` | 26 | 刷什么怪、刷在哪、冷却预热、要不要玩家在附近、拴绳距离、激活条件 |
+| 随机刷怪 RandomSpawn | `RandomSpawns/` | 14 | 按世界 / 生物群系随机刷怪 |
+| 自定义属性 Stat | `stats/` | 14 | 自定义属性与显示格式 |
+| 菜单 Menu | `menus/` | 5 | 自定义菜单 |
+| 对话 Dialog | `dialogs/` | 9 | NPC 对话窗口 |
+| 过场镜头 Cinematic | `cutscenes/` | 4 | 镜头路径与时间点 |
+| 定位点 Pin | `pins.yml` | 5 | 整份文件是一个列表，供 pin 相关机制与目标器使用 |
+| 内容包 Pack | `pack.yml` | 10 | 包名 / 版本 / 作者 / 依赖与覆写，整份文件没有外层 ID |
+| 原版覆写 VanillaOverride | `VanillaMobs/` | 11 | 给原版生物套 MythicMobs 配置 |
+
+这九种共用一套**通用字段引擎**：字段表写在 `data/spec/*.json`，由 `tools/build_spec.py` 生成 `app/js/spec-data.js`，
+界面渲染、YAML 生成、导入反向映射全部读同一份描述，所以不会出现「界面加了字段、生成器没跟上」这类不同步。
+文件外层形态分三种：`wrap`（顶层 ID + 缩进体）、`flat`（无外层 ID，如 `pack.yml`）、`list`（整份是列表，如 `pins.yml`）。
+认不出的字段一律原样保留，保存时写回。
+
+![刷怪点编辑器](docs/img/spawner-ui.png)
+
+![怪物扩展字段](docs/img/mob-extra-ui.png)
 
 ![技能组编辑器](docs/img/metaskill-ui.png)
 
@@ -59,7 +98,7 @@
 - 附魔（40 种，可搜索）
 - 属性加成（32 种属性 × 7 个槽位 × 3 种计算方式，可搜索）
 - **选项 17 项**（按「显示 / 附魔 / 属性 / 其他」分组）：无法破坏、附魔光效、隐藏提示、自定义模型数据、染色、物品标记…
-- **1.20.5+ 组件 58 项**：其中 23 项做了表单（`Food` 的营养值与饱和度、`Tool`、`Rarity` 标量、`UnsetComponents` 列表…），其余列出名字与说明、导入时原样保留；数字布尔保持原类型（`ConsumeSeconds: 1.5` 不会变成 `'1.5'`）
+- **1.20.5+ 组件 58 项，其中 51 项有表单**：`Food` 的营养值与饱和度、`Tool`、`Rarity` 标量、`UnsetComponents` 列表…；0.7.0 又给 28 项补了子键表单，像 `NBT.tags`（键值对）、`Hide.flags`（列表）、`BlockStates.states`、`Book` 多行这类都能填了。剩下 7 项（`Internal_Name` / `Id` / `Display` / `Lore` / `Attributes` / `Options` / `Enchantments`）就是物品基础卡片里已经能改的顶层键，不重复列。数字布尔保持原类型（`ConsumeSeconds: 1.5` 不会变成 `'1.5'`）
 - 老文件的 `Options.CustomModelData` 会自动迁移到根级 `CustomModelData` 组件
 
 **桌面版（Electron）**
@@ -82,10 +121,12 @@
 ## 还没做的（下一步）
 
 1. 打包成 exe（Tauri 需要 Rust 环境，当前机器没有；Electron 是备选，`electron-builder` 还没装）。
-2. 导入的局限：一个文件多条目只编辑第一个；已有项目的「重新从磁盘读取」还没做。
+2. 导入的局限：一个文件多条目只编辑第一个（`pins.yml` 这类列表文件同理）；已有项目的「重新从磁盘读取」还没做。
 3. 技能组之间的引用关系图（现在是右上角文字提示「找不到」，没有可视化）。
-4. 物品组件的剩余 35 项只有数据没有表单（wiki 没给子键表，硬凑输入框会生成错的东西）。
-5. 刷怪点（Spawners）、随机刷怪（RandomSpawns）、自定义 Stat 等其余配置类型还没做成第四、第五种项目。
+4. 对话（Dialog）与过场镜头（Cinematic）只做了 wiki 给出的骨架字段，实际内容多半是逐帧剧本，
+   真正好用还得等一套「时间轴」式的编辑方式。
+5. 没有做模板 / 仇恨表 / 免疫表这三种东西的**独立文件**编辑入口 —— wiki 只说它们存在，
+   没给文件结构，现在对应的字段都并进了怪物表单（继承模板、仇恨表、模块开关）。
 
 ## 工程结构
 
@@ -103,6 +144,8 @@ app/
   js/options-data.js  怪物 Options 全量 126 项（自动生成）
   js/catalog.js       ★ wiki 全量目录 302+196+91+38+120+51+14+33+16（自动生成，别手改）
   js/extras-data.js   ★ 伤害类型 33 / 掉落类型 16 / 物品选项 17 / 物品组件 58（自动生成，别手改）
+  js/spec-data.js     ★ 9 种配置类型 281 个字段 + 怪物 17 扩展字段 + 物品组件子键 28 项 + 掉落特效（自动生成，别手改）
+  js/spec.js          通用字段引擎：一份字段树同时喂给表单渲染 / YAML 生成 / 导入反向映射
   js/yaml.js          YAML 生成 + 预览高亮 + 引用检查
   js/state.js         项目模型、localStorage、模板
   js/import.js        yml → 表单模型（认不出的字段原样保留）
@@ -115,18 +158,20 @@ tools/
   make_docs.py        生成中文索引      ┘
   build_catalog.py    schema + 中文 → app/js/catalog.js（分组 / 类型推断 / 别名）
   build_extras.py     data/raw 的表格 → app/js/extras-data.js（伤害 / 掉落 / 物品选项与组件）
+  build_spec.py       data/spec/*.json → app/js/spec-data.js（9 种类型 / 怪物扩展 / 组件子键 / 掉落特效）
   demo_query.py       查 schema 示例
   test_yaml.mjs       YAML 生成器 + 校验单测（11 项）
   test_import.mjs     导入映射 / 往返保真单测（56 项）
   test_catalog.mjs    全量目录测试（41 项：数量、必填推断、条件、通用修饰、302/196/91 逐个生成、版本号）
   test_metaskill.mjs  技能组 + 目标器通用筛选 + 参数上下文中文（34 项）
   test_ai.mjs         AI 选择器 / 伤害修正 / 掉落三形态 / 掉落表 / 物品组件 / 引用检查（69 项）
-  e2e.mjs             无头浏览器交互测试（79 项）
-  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查（41 项）
+  test_spec.mjs       通用字段引擎 + 9 种类型 / 三种文件形态 / 组件子键 / 掉落特效（126 项）
+  e2e.mjs             无头浏览器交互测试（88 项）
+  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写（52 项）
   shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
   shot_skill.mjs      截一张「技能组 + 独立条件块」的界面图
 tests/
-  fixture-server/     测试用的假服务器目录（Mobs 2 个 / Items 1 个 / Skills 1 个 / Drops 1 个）
+  fixture-server/     测试用的假服务器目录（Mobs 2 / Items 1 / Skills 1 / Drops 1 / Spawners 1 / pins.yml）
 ```
 
 ## 测试
@@ -137,11 +182,12 @@ node tools/test_import.mjs                     # 56  导入映射 / 往返保真
 node tools/test_catalog.mjs                    # 41  全量目录单测（不需要浏览器）
 node tools/test_metaskill.mjs                  # 34  技能组 / 通用筛选 / 参数中文（不需要浏览器）
 node tools/test_ai.mjs                         # 69  AI / 伤害修正 / 掉落 / 物品组件 / 引用检查（不需要浏览器）
-node tools/e2e.mjs 9333 .                      # 79  界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
-node tools/e2e-electron.mjs 9350 tests/fixture-server   # 41  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
+node tools/test_spec.mjs                       # 126  通用字段引擎 / 9 种类型 / 三种文件形态（不需要浏览器）
+node tools/e2e.mjs 9333 .                      # 88  界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
+node tools/e2e-electron.mjs 9350 tests/fixture-server   # 52  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 ```
 
-合计 **331 项**，全绿。
+`npm test` 会把前六条单测串起来跑。合计 **477 项**（单测 337 + 界面 140），全绿。
 
 ---
 
@@ -190,6 +236,8 @@ data/
   zh/ai.json                ★ 51 AI 行为 + 14 AI 目标的中文名、说明、参数中文、8 个分组
   zh/items.json             ★ 58 物品组件 / 17 物品选项 / 16 掉落类型 / 33 伤害类型的中文名与子键中文
   mob-options.json          怪物 Options 126 项（含分组/默认值/说明）
+  spec/modules.json         9 种配置类型的字段表（281 个字段，手写）
+  spec/mobs.json            怪物 17 个扩展字段 + 物品组件子键 28 项 + 掉落特效（手写）
   raw/*.html                原始页面缓存（960 个，80 MB，可断点重跑，可删）
 docs/
   字段中文对照.md            怪物/物品字段中文释义表
@@ -234,6 +282,7 @@ python tools/crawl_wiki.py    # 抓取（有缓存，第二次约 30 秒；无�
 python tools/build_schema.py  # 去重、归类、生成 schema.json
 python tools/make_docs.py     # 生成中文索引与字段对照
 python tools/build_catalog.py # schema.json + data/zh/*.json → app/js/catalog.js
+python tools/build_spec.py    # data/spec/*.json → app/js/spec-data.js（9 种类型 / 怪物扩展 / 组件子键）
 python tools/demo_query.py message   # 试用：查一个机制
 python tools/demo_query.py --list mechanics
 ```

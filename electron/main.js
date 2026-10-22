@@ -42,14 +42,38 @@ app.on("window-all-closed", () => {
 
 const YAML_EXT = /\.(ya?ml)$/i;
 
+/* 目录名 → 项目类型。顺序有意义：/Packs/xxx/Spawners/ 这类嵌套目录先匹配到 Spawners，
+   所以按「最具体的先」排，不用包含关系乱猜。 */
+const DIR_KIND = [
+  ["mobs", "mob"],
+  ["items", "item"],
+  ["skills", "skill"],
+  ["drops", "droptable"],
+  ["spawners", "spawner"],
+  ["randomspawns", "randomspawn"],
+  ["menus", "menu"],
+  ["dialogs", "dialog"],
+  ["cutscenes", "cinematic"],
+  ["vanillamobs", "vanillaoverride"]
+];
+
+/* 整份文件就是一个条目的类型，按文件名认 */
+const FILE_KIND = [
+  ["pack.yml", "pack"],
+  ["pins.yml", "pin"],
+  ["stats.yml", "stats"],
+  ["vanillamobs.yml", "vanillaoverride"]
+];
+
 function classify(rel) {
   const p = rel.replace(/\\/g, "/").toLowerCase();
-  if (p.includes("/mobs/") || p.startsWith("mobs/")) return "mob";
-  if (p.includes("/items/") || p.startsWith("items/")) return "item";
-  /* 技能组（Metaskill）在 Skills 目录下 */
-  if (p.includes("/skills/") || p.startsWith("skills/")) return "skill";
-  /* 掉落表（DropTables）在 Drops 目录下 */
-  if (p.includes("/drops/") || p.startsWith("drops/")) return "droptable";
+  const base = p.split("/").pop();
+  for (const [name, kind] of FILE_KIND) {
+    if (base === name) return kind;
+  }
+  for (const [dir, kind] of DIR_KIND) {
+    if (p.includes("/" + dir + "/") || p.startsWith(dir + "/")) return kind;
+  }
   return "other";
 }
 
@@ -84,9 +108,13 @@ async function walk(dir, base, depth, out) {
 async function scan(dir) {
   const out = [];
   await walk(dir, dir, 4, out);
-  const ORDER = { mob: 0, skill: 1, item: 2, droptable: 3, other: 4 };
+  const ORDER = {
+    mob: 0, skill: 1, item: 2, droptable: 3, spawner: 4, randomspawn: 5,
+    menu: 6, dialog: 7, cinematic: 8, pin: 9, pack: 10, vanillaoverride: 11,
+    stats: 12, other: 99
+  };
   out.sort((a, b) => {
-    const d = (ORDER[a.kind] ?? 4) - (ORDER[b.kind] ?? 4);
+    const d = (ORDER[a.kind] ?? 99) - (ORDER[b.kind] ?? 99);
     return d || a.rel.localeCompare(b.rel);
   });
   return out;
