@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("MM_HOST", {
   openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
   scan: (dir) => ipcRenderer.invoke("fs:scan", dir),
   read: (file) => ipcRenderer.invoke("fs:read", file),
+  readParsed: (file) => ipcRenderer.invoke("fs:readParsed", file),
   write: (file, text) => ipcRenderer.invoke("fs:write", file, text),
   saveAs: (name) => ipcRenderer.invoke("dialog:saveFile", name),
   reveal: (file) => ipcRenderer.invoke("shell:showItem", file)

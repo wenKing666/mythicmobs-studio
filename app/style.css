@@ -358,6 +358,29 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
 }
 .list-row .rm:hover { background: #f3e6e4; color: var(--danger); }
 
+/* 导入时无法结构化的技能行：只读 */
+.raw-skill {
+  border-left: 2px solid var(--line);
+  padding-left: 9px;
+}
+.raw-skill-tag {
+  font-size: 11.5px;
+  color: var(--ink-4);
+  margin-bottom: 4px;
+}
+.raw-skill-code {
+  display: block;
+  font-family: var(--mono, "Cascadia Mono", Consolas, monospace);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--panel-3, #f7f7f5);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 5px 7px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .add-row {
   align-self: flex-start;
   display: inline-flex;

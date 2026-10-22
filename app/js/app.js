@@ -179,7 +179,7 @@
     });
 
     // 给空状态里的按钮用
-    window.MM_APP = { new: newProject, template: useTemplate, download: download };
+    window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject };
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

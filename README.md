@@ -2,7 +2,7 @@
 
 一个给「不会写 YAML 的人」用的 MythicMobs 可视化编辑器。
 
-当前状态：**MVP 可试玩** —— 怪物 / 物品的表单编辑 + 实时生成配置已经跑通；数据层（wiki 全站 813 个组件）也已就绪。
+当前状态：**MVP + 导入** —— 怪物 / 物品的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；数据层（wiki 全站 813 个组件）也已就绪。
 
 ![怪物编辑器](docs/img/editor-mob.png)
 
@@ -37,8 +37,10 @@
 
 **桌面版（Electron）**
 - 「打开文件夹」直接选 `plugins/MythicMobs`，左侧列出服务器里所有怪物 / 物品配置
-- 点文件只读预览原始内容（导入到表单是下一步）
-- 保存走系统对话框，**覆盖前自动备份**为 `xxx.yml.bak-日期时间`
+- **点文件直接进表单编辑**：Type / 血量 / 伤害 / Options / 装备 / 技能 / 掉落 都会被读进表格
+- **表单管不了的字段不会丢**：`AIGoalSelectors`、`DamageModifiers`、陌生 Option、带行内条件的技能行，都整块原样保留，保存时写回
+- 保存回原文件，**覆盖前自动备份**为 `xxx.yml.bak-日期时间`
+- 一个文件里有多个怪物时，只导入第一个，其余原样保留
 
 **其他**
 - 4 个模板：普通小怪 / BOSS / 近战武器 / 防具
@@ -49,11 +51,11 @@
 
 ## 还没做的（下一步）
 
-1. **导入已有 yml**（反向解析），目前只能新建和只读预览。
-2. 技能只放出了 21 个常用机制，schema 里其实有 303 个 —— 需要按使用频率分批放出来。
-3. 条件（Conditions）、技能树、掉落表（DropTable）还没做。
-4. 物品 1.20.5+ 的组件（Food / Tool / Equippable 等）只有数据没做 UI。
-5. 打包成 exe（Tauri 需要 Rust 环境，当前机器没有；Electron 是备选）。
+1. **技能只放出了 21 个常用机制**，schema 里其实有 303 个 —— 需要按使用频率分批放出来（`data/schema.json` 里现成有）。
+2. 条件（Conditions）、技能树、掉落表（DropTable）还没做，带行内条件的技能行目前只读保留。
+3. 物品 1.20.5+ 的组件（Food / Tool / Equippable 等）只有数据没做 UI。
+4. 打包成 exe（Tauri 需要 Rust 环境，当前机器没有；Electron 是备选，`electron-builder` 还没装）。
+5. 导入的局限：一个文件多条目只编辑第一个；已有项目的「重新从磁盘读取」还没做。
 
 ## 工程结构
 
@@ -71,6 +73,7 @@ app/
   js/options-data.js  怪物 Options 全量 126 项（自动生成）
   js/yaml.js          YAML 生成 + 预览高亮
   js/state.js         项目模型、localStorage、模板
+  js/import.js        yml → 表单模型（认不出的字段原样保留）
   js/ui.js            表单渲染
   js/app.js           交互与下载
   js/host.js          Electron 里的文件浏览与保存
@@ -80,8 +83,9 @@ tools/
   make_docs.py        生成中文索引      ┘
   demo_query.py       查 schema 示例
   test_yaml.mjs       YAML 生成器 + 校验单测（11 项）
+  test_import.mjs     导入映射 / 往返保真单测（52 项）
   e2e.mjs             无头浏览器交互测试（37 项）
-  e2e-electron.mjs    Electron 文件系统测试（9 项）
+  e2e-electron.mjs    Electron 文件系统与导入测试（15 项，含磁盘写回）
 tests/
   fixture-server/     测试用的假服务器目录（Mobs/Items 各一个文件）
 ```
@@ -90,8 +94,9 @@ tests/
 
 ```powershell
 node tools/test_yaml.mjs                       # 生成器单测
+node tools/test_import.mjs                     # 导入映射 / 往返保真单测（不需要浏览器）
 node tools/e2e.mjs 9333 .                      # 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
-node tools/e2e-electron.mjs 9350 tests/fixture-server   # 文件系统测试（先 electron . --remote-debugging-port=9350）
+node tools/e2e-electron.mjs 9350 tests/fixture-server   # 文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 ```
 
 ---

@@ -90,19 +90,50 @@
     }
   }
 
+  /* 点服务器文件：能解析就进表单编辑，解析不了退回只读预览 */
   async function openFile(f) {
     try {
-      const r = await MM_HOST.read(f.path);
-      showFileView(f, r);
+      if (!MM_HOST.readParsed) {
+        const old = await MM_HOST.read(f.path);
+        showFileView(f, old, ["宿主没有解析接口，请重启编辑器"]);
+        return;
+      }
+      const r = await MM_HOST.readParsed(f.path);
+      if (r.errors && r.errors.length) {
+        showFileView(f, r, r.errors);
+        return;
+      }
+      const kind = (f.kind === "mob" || f.kind === "item") ? f.kind : MM_IMPORT.guessKind(r.js);
+
+      const opened = MM_STATE.all().find(function (p) { return p.filePath === f.path; });
+      if (opened) {
+        MM_STATE.select(opened.id);
+        MM_APP.refresh(true);
+        toast("已切到「" + opened.key + "」，保存会写回原文件");
+        return;
+      }
+
+      const base = kind === "mob" ? MM_STATE.newMob() : MM_STATE.newItem();
+      const res = MM_IMPORT.fill(base, { js: r.js, text: r.text, filePath: f.path });
+      if (!res.ok) {
+        showFileView(f, r, [res.reason]);
+        return;
+      }
+      MM_STATE.add(base);
+      MM_APP.refresh(true);
+      toast(res.warnings.length
+        ? "已导入「" + res.key + "」：" + res.warnings.join("；")
+        : "已导入「" + res.key + "」，改完保存会覆盖原文件（自动备份）");
     } catch (e) {
       toast("读取失败：" + e.message);
     }
   }
 
-  function showFileView(f, r) {
+  function showFileView(f, r, errors) {
     const root = $("editor");
     root.innerHTML = "";
     root.scrollTop = 0;
+    const why = (errors && errors.length) ? "　这个文件没能解析成表单（" + errors[0] + "），只能查看原文。" : "";
     root.appendChild(el("div", { class: "card" }, [
       el("div", { class: "card-head" }, [
         el("span", { class: "card-icon", html: MM_ICONS.get("file", 15) }),
@@ -112,7 +143,7 @@
       el("div", { class: "card-body", style: "padding-left:16px" }, [
         el("div", { class: "file-note" }, [
           el("b", { text: "只读预览" }),
-          document.createTextNode("　这是服务器上的原始文件。导入到表单编辑是下一步的功能，现在只能查看。")
+          document.createTextNode(why || "　这是服务器上的原始文件。编辑后保存会覆盖它（覆盖前自动备份）。")
         ]),
         el("div", { class: "file-path", text: f.path }),
         el("div", { class: "file-actions" }, [

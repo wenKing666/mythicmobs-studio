@@ -644,6 +644,21 @@ window.MM_UI = (function () {
   }
 
   function skillRow(d, s, i) {
+    /* 导入时认不出的技能行：只读展示，可删，不猜语义 */
+    if (s.raw) {
+      return el("div", { class: "list-row skill-row" }, [
+        el("div", { class: "row-body" }, [
+          el("div", { class: "raw-skill" }, [
+            el("div", { class: "raw-skill-tag", text: "原始技能行 · 表单改不了，只读保留" }),
+            el("code", { class: "raw-skill-code", text: s.raw })
+          ])
+        ]),
+        rmButton("删除", function () {
+          d.skills.splice(i, 1); MM_STATE.touch(); changed(true);
+        })
+      ]);
+    }
+
     const mech = D.mechanics.find(function (m) { return m.id === s.mechanic; }) || D.mechanics[0];
     const tg = D.targeters.find(function (x) { return x.id === s.targeter; });
     const trg = D.triggers.find(function (x) { return x.id === s.trigger; });

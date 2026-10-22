@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
+const YAML = require("yaml");
 
 let win = null;
 
@@ -106,6 +107,22 @@ ipcMain.handle("fs:read", async (_e, file) => {
   const text = await fsp.readFile(file, "utf8");
   const st = await fsp.stat(file);
   return { text, size: st.size, mtime: st.mtimeMs };
+});
+
+/* 解析后返回：渲染层要用 js 对象做映射，同时保留 text 用来切"未识别块"。
+   解析放在主进程，因为渲染层没有 Node、也没有打包进来的 yaml 依赖。 */
+ipcMain.handle("fs:readParsed", async (_e, file) => {
+  const text = await fsp.readFile(file, "utf8");
+  const st = await fsp.stat(file);
+  const doc = YAML.parseDocument(text);
+  const errors = doc.errors.map((e) => e.message);
+  let js = null;
+  try {
+    js = doc.toJS();
+  } catch (e) {
+    errors.push(String(e && e.message ? e.message : e));
+  }
+  return { text, js, errors, size: st.size, mtime: st.mtimeMs };
 });
 
 ipcMain.handle("fs:write", async (_e, file, text) => {
