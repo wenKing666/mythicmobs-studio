@@ -1102,22 +1102,74 @@
       while (keys.some(function (k) { return existing[prefix + k]; })) prefix = "i_" + prefix;
     }
     let last = null;
+    /* 引用同步改写（0.20.0）：结构化字段与 raw 文本里命中 bundle 原始 key 的引用统一加前缀 */
+    const oldKeys = {};
+    bundle.items.forEach(function (it) { oldKeys[it.key.toLowerCase()] = it.key; });
+    function escKey(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+    function rewriteRefsIn(p, prefix) {
+      /* 1) 结构化：技能行的 s/name、掉落行 table、技能组两个 Skill 键 */
+      (p.data.skills || []).forEach(function (s) {
+        if (!s || s.raw) return;
+        ["s", "name", "skill"].forEach(function (k) {
+          if (s.params && s.params[k] && oldKeys[String(s.params[k]).toLowerCase()]) {
+            s.params[k] = prefix + s.params[k];
+          }
+        });
+        if (s.raw === undefined && s.trigger === undefined && s.skill) {
+          if (oldKeys[String(s.skill).toLowerCase()]) s.skill = prefix + s.skill;
+        }
+      });
+      if (p.data.skill && oldKeys[String(p.data.skill).toLowerCase()]) {
+        p.data.skill = prefix + p.data.skill;
+      }
+      if (p.data.failedConditionsSkill && oldKeys[String(p.data.failedConditionsSkill).toLowerCase()]) {
+        p.data.failedConditionsSkill = prefix + p.data.failedConditionsSkill;
+      }
+      if (p.data.onCooldownSkill && oldKeys[String(p.data.onCooldownSkill).toLowerCase()]) {
+        p.data.onCooldownSkill = prefix + p.data.onCooldownSkill;
+      }
+      (p.data.drops || []).forEach(function (d) {
+        if (d && d.table && oldKeys[String(d.table).replace(/^table\s*:\s*/i, "").toLowerCase()]) {
+          d.table = prefix + d.table;
+        }
+      });
+      /* 2) raw 文本：skill{s=旧} / metaskill{s=旧} / table:旧 / Skill: 旧 */
+      ["head", "entry", "others"].forEach(function (part) {
+        const lines = p.raw && p.raw[part];
+        if (!Array.isArray(lines)) return;
+        for (let i = 0; i < lines.length; i++) {
+          let line = String(lines[i]);
+          let next = line;
+          next = next.replace(
+            new RegExp("((?:skill|metaskill)\\s*\\{[^}]*\\b(?:s|skill|name)\\s*=\\s*['\"]?)(" +
+              Object.keys(oldKeys).map(escKey).join("|") + ")(?=['\"]|[,;}]|\\s|$)", "gi"),
+            function (all, pre, name) { return pre + prefix + name; });
+          next = next.replace(
+            new RegExp("((?:table|droptable)\\s*[:=]\\s*['\"]?)(" +
+              Object.keys(oldKeys).map(escKey).join("|") + ")(?=['\"]|\\s|$)", "gi"),
+            function (all, pre, name) { return pre + prefix + name; });
+          if (next !== line) lines[i] = next;
+        }
+      });
+      /* 3) raw 里存的 unknown options 里的 Skill: 键也补一下（metadata 保真） */
+      const opts = p.raw && p.raw.options;
+      if (opts) {
+        Object.keys(opts).forEach(function (k) {
+          if (/skill/i.test(k) && oldKeys[String(opts[k]).toLowerCase()]) {
+            opts[k] = prefix + opts[k];
+          }
+        });
+      }
+    }
     bundle.items.forEach(function (it) {
       const key = prefix ? prefix + it.key : it.key;
       const p = { kind: it.kind, key: key, data: JSON.parse(JSON.stringify(it.data)),
         raw: JSON.parse(JSON.stringify(it.raw || {})) };
+      if (prefix) rewriteRefsIn(p, prefix);
       last = MM_STATE.add(p);
     });
     if (prefix) {
-      /* 包内互相引用的名字同步加前缀（替换生成文本里的引用 token） */
-      MM_STATE.all().forEach(function (p) {
-        if (!p.raw || keys.indexOf(p.key.replace(prefix, "")) < 0) return;
-        bundle.items.forEach(function (it) {
-          /* 无文本级替换——引用存在 data.skills.params.s 与 raw 文本两处，重建成本高，
-             第一版策略：冲突时提示用户用「重命名」工具自己统一 */
-        });
-      });
-      toast("已导入 " + bundle.items.length + " 个配置（加了前缀 " + prefix + "，包内引用如断开可用引用检查一键重建）");
+      toast("已导入 " + bundle.items.length + " 个配置（key 冲突，加了前缀 " + prefix + "，包内引用已同步改写）");
     } else {
       toast("已导入 " + bundle.items.length + " 个配置");
     }

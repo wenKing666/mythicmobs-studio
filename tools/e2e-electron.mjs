@@ -680,6 +680,75 @@ async function main() {
   })()`);
   check("配置包导出入口就绪", bundleText === "ready");
 
+  /* 引用同步改写：构造与 exportBundle 同构的 bundle（互引 + key 冲突），导入验证 */
+  const bundleResult = await ev(`(async () => {
+    const bundle = {
+      type: "mmstudio-bundle",
+      items: [
+        { kind: "mob", key: "skeleton_king", data: { type: "SKELETON", health: 500,
+            skills: [{ mechanic: "skill", targeter: "target", params: { s: "boss_nova" } }],
+            drops: [{ table: "boss_loot" }] },
+          raw: { head: [], entry: ["skeleton_king:\\n  Skills:\\n  - skill{s=boss_nova}\\n  Drops:\\n  - table:boss_loot"], others: [], options: {} } },
+        { kind: "skill", key: "boss_nova", data: { skills: [], cooldown: "5" },
+          raw: { head: [], entry: ["boss_nova:\\n  Cooldown: 5"], others: [], options: {} } },
+        { kind: "droptable", key: "boss_loot", data: { drops: [{ item: "diamond", amount: "1", chance: "1" }] },
+          raw: { head: [], entry: ["boss_loot:\\n  Drops:\\n  - diamond 1 1"], others: [], options: {} } }
+      ]
+    };
+    /* 与 importBundle 相同的入库路径：直接调用暴露的导入（走文件）——这里内联同款逻辑验证改写 */
+    const existing = {};
+    MM_STATE.all().forEach(function (p) { existing[p.key] = true; });
+    const keys = bundle.items.map(function (it) { return it.key; });
+    const clash = keys.some(function (k) { return existing[k]; });
+    let prefix = "";
+    if (clash) {
+      prefix = (bundle.items[0].key.split("_")[0] || "pack") + "_";
+      while (keys.some(function (k) { return existing[prefix + k]; })) prefix = "i_" + prefix;
+    }
+    const escKey = function (x) { return String(x).replace(/[-]/g, "\\$&"); }; /* key 来自文件名，只可能带连字符 */
+    function rewriteRefsIn(p, pf) {
+      (p.data.skills || []).forEach(function (s) {
+        if (!s || s.raw) return;
+        ["s", "name", "skill"].forEach(function (k) {
+          if (s.params && s.params[k] && keys.indexOf(String(s.params[k]).toLowerCase()) >= 0) {
+            s.params[k] = pf + s.params[k];
+          }
+        });
+      });
+      (p.data.drops || []).forEach(function (d) {
+        if (d && d.table && keys.indexOf(String(d.table).replace(/^table\\s*:\\s*/i, "").toLowerCase()) >= 0) {
+          d.table = pf + d.table;
+        }
+      });
+      ["head", "entry", "others"].forEach(function (part) {
+        const lines = p.raw && p.raw[part];
+        if (!Array.isArray(lines)) return;
+        for (let i = 0; i < lines.length; i++) {
+          let next = String(lines[i]);
+          next = next.replace(
+            new RegExp("((?:skill|metaskill)\\\\s*\\\\{[^}]*\\\\b(?:s|skill|name)\\\\s*=\\\\s*['\\"]?)(" +
+              keys.map(escKey).join("|") + ")(?=['\\"]|[,;}]|\\\\s|$)", "gi"),
+            function (all, pre, name) { return pre + pf + name; });
+          next = next.replace(
+            new RegExp("((?:table|droptable)\\\\s*[:=]\\\\s*['\\"]?)(" +
+              keys.map(escKey).join("|") + ")(?=['\\"]|\\\\s|$)", "gi"),
+            function (all, pre, name) { return pre + pf + name; });
+          lines[i] = next;
+        }
+      });
+      return { prefix: pf, key: pf + bundle.items[0].key };
+    }
+    if (clash) {
+      const probe = { kind: "mob", key: "x", data: JSON.parse(JSON.stringify(bundle.items[0].data)),
+        raw: JSON.parse(JSON.stringify(bundle.items[0].raw)) };
+      return JSON.stringify(rewriteRefsIn(probe, prefix));
+    }
+    return JSON.stringify({ prefix: "", key: bundle.items[0].key });
+  })()`);
+  const br = typeof bundleResult === "string" ? JSON.parse(bundleResult) : bundleResult;
+  check("冲突时整包加前缀", br.prefix.length > 0, JSON.stringify(br));
+  check("改写函数无异常返回前缀 key", br.key && br.key.indexOf(br.prefix) === 0);
+
   /* 清掉导入的项目，别留在下次运行里 */
   await ev(`(() => {
     MM_STATE.all().filter(p => p.filePath).forEach(p => MM_STATE.remove(p.id));
