@@ -104,10 +104,10 @@ tools/
   demo_query.py       查 schema 示例
   test_yaml.mjs       YAML 生成器 + 校验单测（11 项）
   test_import.mjs     导入映射 / 往返保真单测（52 项）
-  test_catalog.mjs    全量目录测试（39 项：数量、必填推断、条件、通用修饰、302/196/91 逐个生成）
+  test_catalog.mjs    全量目录测试（41 项：数量、必填推断、条件、通用修饰、302/196/91 逐个生成、版本号）
   test_metaskill.mjs  技能组 + 目标器通用筛选 + 参数上下文中文（34 项）
   e2e.mjs             无头浏览器交互测试（62 项）
-  e2e-electron.mjs    Electron 文件系统与导入测试（21 项，含技能组磁盘写回）
+  e2e-electron.mjs    Electron 文件系统与导入测试（22 项，含技能组磁盘写回与版本号显示）
   shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
   shot_skill.mjs      截一张「技能组 + 独立条件块」的界面图
 tests/

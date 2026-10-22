@@ -63,6 +63,10 @@ async function main() {
 
   const info = await ev(`MM_HOST.info()`);
   check("能拿到版本信息", !!info.electron, JSON.stringify(info));
+  /* 以前 host.js 里写死 "0.2 · Electron ..."，版本一路涨到 0.5.0 界面还显示 0.2。
+     现在顶栏必须显示 app.getVersion() 的值。 */
+  const badge = await ev(`document.getElementById("appVer").textContent`);
+  check("顶栏版本号与 package.json 一致", badge.indexOf(info.version) === 0, badge);
 
   // 上一次跑挂掉可能留下残留，先清一遍再断言文件数
   cleanWriteTest(FIXTURE);

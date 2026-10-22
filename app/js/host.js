@@ -210,7 +210,7 @@
     // 显示版本
     MM_HOST.info().then(function (i) {
       const el = $("appVer");
-      if (el) el.textContent = "0.2 · Electron " + i.electron;
+      if (el) el.textContent = (i.version || "?") + " · Electron " + i.electron;
     });
   }
 

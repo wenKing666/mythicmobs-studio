@@ -194,5 +194,17 @@ if (IMP && typeof IMP.parseSkill === "function") {
   console.log("  （跳过：导入模块没暴露 parseSkill）");
 }
 
+console.log("\n[10] 版本号");
+/* 以前 index.html 与 host.js 各写死一个 "0.2"，发到 0.5.0 界面还显示 0.2。
+   现在 Electron 里取 app.getVersion()，浏览器模式的兜底文本必须与 package.json 对齐。 */
+{
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const html = fs.readFileSync(path.join(ROOT, "app/index.html"), "utf8");
+  const host = fs.readFileSync(path.join(ROOT, "app/js/host.js"), "utf8");
+  const m = /id="appVer"[^>]*>([^<]*)</.exec(html);
+  eq("index.html 的版本兜底与 package.json 一致", m && m[1].trim(), pkg.version);
+  ok("host.js 版本取自 app.getVersion()", /i\.version/.test(host));
+}
+
 console.log("\n" + pass + " 通过, " + fail + " 失败");
 process.exit(fail ? 1 : 0);

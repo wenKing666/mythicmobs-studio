@@ -281,15 +281,24 @@ async function main() {
   check("机制已放开 302 个", cd.m === 302, cat);
   check("条件已放开 196 个", cd.c === 196, cat);
   check("目标器已放开 91 个", cd.t === 91, cat);
-  check("机制下拉带分组标题", await evalJs(`(() => {
+  /* 这条以前偶尔假失败：输入框正好已在前一步被聚焦时，focus() 不会再触发 open()，
+     弹出层根本没建出来。先 blur 再 focus，并且轮询等它渲染完，别用固定 260ms。 */
+  check("机制下拉带分组标题", await evalJs(`(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     const row = document.querySelector('.skill-row');
     const inp = row.querySelectorAll('.combo-field input')[1];
+    inp.blur();
+    inp.dispatchEvent(new Event('blur', { bubbles: false }));
+    await sleep(30);
     inp.focus();
-    return new Promise(res => setTimeout(() => {
-      const n = document.querySelectorAll('.combo-pop .combo-group').length;
-      document.body.click();
-      res(n > 3);
-    }, 260));
+    inp.dispatchEvent(new Event('click', { bubbles: true }));
+    for (let i = 0; i < 30; i++) {
+      if (document.querySelectorAll('.combo-pop .combo-group').length > 3) break;
+      await sleep(60);
+    }
+    const n = document.querySelectorAll('.combo-pop .combo-group').length;
+    document.body.click();
+    return n > 3;
   })()`));
 
   // 8.2 条件预设能直接写进 YAML
