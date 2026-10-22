@@ -61,9 +61,10 @@ async function main() {
   check("Electron 环境在打包后仍然注入", await ev(`!!(window.MM_HOST && window.MM_HOST.isElectron)`));
 
   const info = await ev(`MM_HOST.info()`);
-  check("打包后版本号正确", info.version === "0.9.0", JSON.stringify(info));
+  const wantVer = JSON.parse(fs.readFileSync(process.cwd() + "/package.json", "utf8")).version;
+  check("打包后版本号正确", info.version === wantVer, JSON.stringify(info));
   const badge = await ev(`document.getElementById("appVer").textContent`);
-  check("顶栏显示打包版本", badge.indexOf("0.9.0") === 0, badge);
+  check("顶栏显示打包版本", badge.indexOf(wantVer) === 0, badge);
 
   /* 扫描 → 打开 → 改 → 保存 → 磁盘验证：asar 不影响文件链路 */
   cleanWriteTest(FIXTURE);
