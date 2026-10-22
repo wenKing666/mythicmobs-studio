@@ -74,7 +74,7 @@
 |---|---|---:|---|
 | 刷怪点 Spawner | `Spawners/` | 26 | 刷什么怪、刷在哪、冷却预热、要不要玩家在附近、拴绳距离、激活条件 |
 | 随机刷怪 RandomSpawn | `RandomSpawns/` | 14 | 按世界 / 生物群系随机刷怪 |
-| 自定义属性 Stat | `stats/` | 14 | 自定义属性与显示格式 |
+| 自定义属性 Stat | `stats/` | 19 | 自定义属性与显示格式 |
 | 菜单 Menu | `menus/` | 5 | 自定义菜单 |
 | 对话 Dialog | `dialogs/` | 9 | NPC 对话窗口 |
 | 过场镜头 Cinematic | `cutscenes/` | 4 | 镜头路径与时间点 |
@@ -144,7 +144,7 @@ app/
   js/options-data.js  怪物 Options 全量 126 项（自动生成）
   js/catalog.js       ★ wiki 全量目录 302+196+91+38+120+51+14+33+16（自动生成，别手改）
   js/extras-data.js   ★ 伤害类型 33 / 掉落类型 16 / 物品选项 17 / 物品组件 58（自动生成，别手改）
-  js/spec-data.js     ★ 9 种配置类型 281 个字段 + 怪物 17 扩展字段 + 物品组件子键 28 项 + 掉落特效（自动生成，别手改）
+  js/spec-data.js     ★ 9 种配置类型 286 个字段 + 怪物 17 扩展字段 + 物品组件子键 28 项 + 掉落特效（自动生成，别手改）
   js/spec.js          通用字段引擎：一份字段树同时喂给表单渲染 / YAML 生成 / 导入反向映射
   js/yaml.js          YAML 生成 + 预览高亮 + 引用检查
   js/state.js         项目模型、localStorage、模板
@@ -165,7 +165,7 @@ tools/
   test_catalog.mjs    全量目录测试（41 项：数量、必填推断、条件、通用修饰、302/196/91 逐个生成、版本号）
   test_metaskill.mjs  技能组 + 目标器通用筛选 + 参数上下文中文（34 项）
   test_ai.mjs         AI 选择器 / 伤害修正 / 掉落三形态 / 掉落表 / 物品组件 / 引用检查（69 项）
-  test_spec.mjs       通用字段引擎 + 9 种类型 / 三种文件形态 / 组件子键 / 掉落特效（126 项）
+  test_spec.mjs       通用字段引擎 + 9 种类型 / 三种文件形态 / 组件子键 / 掉落特效（127 项）
   e2e.mjs             无头浏览器交互测试（88 项）
   e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写（52 项）
   shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
@@ -187,7 +187,7 @@ node tools/e2e.mjs 9333 .                      # 88  界面测试（需先启动
 node tools/e2e-electron.mjs 9350 tests/fixture-server   # 52  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 ```
 
-`npm test` 会把前六条单测串起来跑。合计 **477 项**（单测 337 + 界面 140），全绿。
+`npm test` 会把前六条单测串起来跑。合计 **478 项**（单测 338 + 界面 140），全绿。
 
 ---
 
@@ -236,7 +236,7 @@ data/
   zh/ai.json                ★ 51 AI 行为 + 14 AI 目标的中文名、说明、参数中文、8 个分组
   zh/items.json             ★ 58 物品组件 / 17 物品选项 / 16 掉落类型 / 33 伤害类型的中文名与子键中文
   mob-options.json          怪物 Options 126 项（含分组/默认值/说明）
-  spec/modules.json         9 种配置类型的字段表（281 个字段，手写）
+  spec/modules.json         9 种配置类型的字段表（286 个字段，手写）
   spec/mobs.json            怪物 17 个扩展字段 + 物品组件子键 28 项 + 掉落特效（手写）
   raw/*.html                原始页面缓存（960 个，80 MB，可断点重跑，可删）
 docs/

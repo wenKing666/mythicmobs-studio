@@ -63,6 +63,11 @@ ok("同一类型里键名不重复", ALL.every(function (k) {
   const ks = MM_SPEC.flatFields(MM_SPEC.type(k)).map(f => f.k);
   return new Set(ks).size === ks.length;
 }));
+/* stats 的字段表按 wiki「Custom Stat Options」逐项核对过：
+   Enabled/AlwaysActive/Type/Display/Formatting/ShowInLore/Priority/MinValue/MaxValue/
+   Triggers/ParentStats/TriggerStats/Formula/FormulaKey/BaseValue/ExecutionPoint/Skills
+   （Conditions 与 Rounding 是编辑器侧补充），漏一个这里就会炸 */
+eq("stats 字段数与 wiki 选项表一致", MM_SPEC.flatFields(MM_SPEC.type("stats")).length, 19);
 
 console.log("\n[2] 新建空壳 + 校验");
 const sp0 = specP("spawner");

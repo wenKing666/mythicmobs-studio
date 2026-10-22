@@ -406,7 +406,14 @@ window.MM_SPEC_DATA = {
        "k": "BaseValue",
        "z": "基础值",
        "t": "num",
-       "d": "0"
+       "d": "0",
+       "h": "没有父属性时用的静态基础值"
+      },
+      {
+       "k": "Formula",
+       "z": "基础值公式",
+       "t": "text",
+       "h": "有父属性时按公式算基础值，公式键用 FormulaKey 指定的短名"
       },
       {
        "k": "MinValue",
@@ -417,6 +424,41 @@ window.MM_SPEC_DATA = {
        "k": "MaxValue",
        "z": "最大值",
        "t": "num"
+      }
+     ]
+    },
+    {
+     "id": "trigger",
+     "title": "触发与依赖",
+     "fields": [
+      {
+       "k": "Triggers",
+       "z": "触发时机",
+       "t": "list",
+       "h": "写触发器去掉 on 前缀的短名，如 Attack / Damaged / Death"
+      },
+      {
+       "k": "ExecutionPoint",
+       "z": "计算时机",
+       "t": "enum",
+       "o": [
+        "PRE",
+        "POST"
+       ],
+       "d": "PRE",
+       "h": "PRE 在触发的事件之前算，POST 在之后算"
+      },
+      {
+       "k": "ParentStats",
+       "z": "依赖的父属性",
+       "t": "list",
+       "h": "本属性要靠哪些属性算出来，一行一个属性名"
+      },
+      {
+       "k": "TriggerStats",
+       "z": "触发者的属性",
+       "t": "list",
+       "h": "触发实体可能带的属性与公式键，空格分隔，如 FIRE_RESISTANCE FR"
       }
      ]
     },
