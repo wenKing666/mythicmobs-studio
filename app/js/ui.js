@@ -587,10 +587,164 @@ window.MM_UI = (function () {
     if (t === "map") return mapEditor(store, f);
     if (t === "objlist") return objListEditor(store, f);
     if (t === "skills") return skillsField(store, f);
+    if (t === "timeline") return timelineEditor(store, f);
     if (t === "conds") return null;   /* 条件块单独按卡片渲染，见 renderSpec */
     return field(specLabel(f), specHint(f), textInput(store[k], function (v) {
       store[k] = v; specTouch();
     }, { placeholder: f.d === undefined ? "" : String(f.d) }), { full: MM_SPEC.isWide(f) });
+  }
+
+  /* ---------- 0.12.0：过场镜头时间轴 ----------
+     points 数据仍是字符串数组（与生成/导入零改动），这里只是把每帧解析成
+     锚点 / 坐标 / 视角 / 停留 / 缓动分开编辑，上方按帧画节点条。 */
+  function kfEasings() {
+    const sp = window.MM_SPEC && MM_SPEC.type("cinematic");
+    if (!sp) return [];
+    const ef = MM_SPEC.flatFields(sp).filter(function (x) { return x.k === "easing"; })[0];
+    return (ef && ef.o) || [];
+  }
+  function parseKf(s) {
+    const p = String(s || "").split(",").map(function (x) { return x.trim(); });
+    return {
+      base: p[0] || "world", x: p[1] || "0", y: p[2] || "0", z: p[3] || "0",
+      yaw: p[4] || "0", pitch: p[5] || "0",
+      hold: /^\d+$/.test(p[6] || "") ? p[6] : "",
+      easing: kfEasings().indexOf(p[7]) >= 0 ? p[7] : ""
+    };
+  }
+  function serKf(k) {
+    let s = [k.base, k.x, k.y, k.z, k.yaw, k.pitch].join(",");
+    const hold = k.hold === "" ? "" : String(parseInt(k.hold, 10) || 0);
+    if (k.easing && hold === "") s += ",0"; else if (hold !== "") s += "," + hold;
+    if (k.easing) s += "," + k.easing;
+    return s;
+  }
+  function kfSummary(s) {
+    const k = parseKf(s);
+    return (k.base === "~" ? "相对锚点" : k.base) + "  " + k.x + "," + k.y + "," + k.z +
+      (k.hold !== "" ? " · 停留 " + k.hold : "");
+  }
+  function timelineEditor(store, f) {
+    const list = store[f.k] || (store[f.k] = []);
+    let sel = 0;
+    const bar = el("div", { class: "tl-bar" });
+    const edit = el("div", { class: "tl-edit" });
+    const box = el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: specLabel(f) }),
+      specHint(f) ? el("div", { class: "spec-note", text: specHint(f) }) : null,
+      el("div", { class: "tl-strip" }, [bar]),
+      edit
+    ]);
+
+    function drawEdit() {
+      edit.innerHTML = "";
+      const k = parseKf(list[sel]);
+      const set = function (key, v) {
+        if (key === "hold") k.hold = String(v).trim() === "" ? "" : String(parseInt(v, 10) || 0);
+        else k[key] = String(v).trim();
+        list[sel] = serKf(k);
+        MM_STATE.touch(); changed(true);   /* 重建让节点条摘要同步 */
+      };
+      const easings = [{ id: "", zh: "（用路径默认）" }].concat(kfEasings().map(function (e) { return { id: e, zh: e }; }));
+      edit.appendChild(el("div", { class: "grid" }, [
+        field("锚点", "世界名；填 ~ 表示相对施法位置", textInput(k.base, function (v) { set("base", v); })),
+        field("X", null, numberInput(k.x, function (v) { set("x", v); }, { step: "any" })),
+        field("Y", null, numberInput(k.y, function (v) { set("y", v); }, { step: "any" })),
+        field("Z", null, numberInput(k.z, function (v) { set("z", v); }, { step: "any" })),
+        field("水平视角 yaw", null, numberInput(k.yaw, function (v) { set("yaw", v); }, { step: "any" })),
+        field("俯仰 pitch", null, numberInput(k.pitch, function (v) { set("pitch", v); }, { step: "any" })),
+        field("停留（刻）", "本帧到下一帧的时长；有帧填了停留时，没填的帧均分剩余时长", numberInput(k.hold, function (v) { set("hold", v); }, { step: "1" })),
+        field("缓动", "只影响本帧出发的那一段", selectInput(easings, k.easing, function (v) { set("easing", v); }))
+      ]));
+      const ops = el("div", { class: "tl-ops" });
+      if (sel > 0) ops.appendChild(el("button", {
+        class: "mini-btn", text: "← 前移", type: "button",
+        onclick: function () { const t = list[sel - 1]; list[sel - 1] = list[sel]; list[sel] = t; sel--; MM_STATE.touch(); changed(true); }
+      }));
+      if (sel < list.length - 1) ops.appendChild(el("button", {
+        class: "mini-btn", text: "后移 →", type: "button",
+        onclick: function () { const t = list[sel + 1]; list[sel + 1] = list[sel]; list[sel] = t; sel++; MM_STATE.touch(); changed(true); }
+      }));
+      ops.appendChild(el("button", {
+        class: "mini-btn", text: "删除本帧", type: "button",
+        onclick: function () { list.splice(sel, 1); sel = Math.max(0, sel - 1); MM_STATE.touch(); changed(true); }
+      }));
+      edit.appendChild(ops);
+    }
+
+    function draw() {
+      bar.innerHTML = ""; edit.innerHTML = "";
+      if (sel >= list.length) sel = Math.max(0, list.length - 1);
+      if (!list.length) {
+        edit.appendChild(el("div", { class: "hint", text: "还没有关键帧，点「加一帧」开始；播放顺序就是从左到右。" }));
+      }
+      list.forEach(function (line, i) {
+        const k = parseKf(line);
+        bar.appendChild(el("button", {
+          class: "tl-node" + (i === sel ? " on" : ""), type: "button",
+          title: kfSummary(line),
+          onclick: function () { sel = i; draw(); }
+        }, [
+          el("span", { class: "tl-idx", text: String(i + 1) }),
+          el("span", { class: "tl-sub", text: k.hold !== "" ? k.hold + "刻" : (k.easing ? k.easing.replace("EASE_", "") : "均分") })
+        ]));
+      });
+      bar.appendChild(addButton("加一帧", function () {
+        const last = parseKf(list[list.length - 1] || "");
+        const nk = Object.assign({}, last, { x: String((parseFloat(last.x) || 0) + 5), hold: "", easing: "" });
+        list.push(serKf(nk));
+        sel = list.length - 1;
+        MM_STATE.touch(); changed(true);
+      }));
+      if (list.length) drawEdit();
+    }
+    draw();
+    return box;
+  }
+
+  /* ---------- 0.12.0：对话预览 ----------
+     标题 + 正文流（text/item）+ 输入 + 按钮条，模拟玩家看到的窗口骨架。
+     只读；结构增删会随表单重建刷新，子字段改完点「刷新预览」。 */
+  function mmPlain(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .replace(/<[^>]+>/g, "").replace(/&[0-9a-fk-or]/gi, "");
+  }
+  function dialogPreview(store) {
+    const body = el("div", { class: "dlg-prev" });
+    function draw() {
+      body.innerHTML = "";
+      body.appendChild(el("div", { class: "dlg-title", text: mmPlain(store.Title) || "（无标题）" }));
+      const bBody = store.Body || [];
+      if (!bBody.length) body.appendChild(el("div", { class: "hint", text: "正文还没有内容，在下方「正文元素」里加。" }));
+      bBody.forEach(function (b) {
+        if (!b) return;
+        if (b.Type === "item") body.appendChild(el("div", { class: "dlg-item", text: "◆ 物品：" + (b.Item || "stone") }));
+        else body.appendChild(el("div", { class: "dlg-msg", text: mmPlain(b.Message) || "（空消息）" }));
+      });
+      (store.Inputs || []).forEach(function (inp) {
+        if (!inp) return;
+        body.appendChild(el("div", { class: "dlg-input" }, [
+          el("span", { class: "dlg-key", text: mmPlain(inp.Label || inp.Key || "输入") + "：" }),
+          el("span", { class: "dlg-box", text: mmPlain(inp.Initial) })
+        ]));
+      });
+      const btns = (store.Buttons || []).filter(function (b) { return b; });
+      if (btns.length) {
+        const row = el("div", { class: "dlg-btns" });
+        btns.forEach(function (b) { row.appendChild(el("span", { class: "dlg-btn", text: mmPlain(b.Label) || "按钮" })); });
+        body.appendChild(row);
+      }
+    }
+    draw();
+    const box = el("div", { class: "spec-block" }, [
+      el("div", { class: "spec-title", text: "窗口预览" }),
+      body,
+      el("div", {}, [el("button", {
+        class: "mini-btn", text: "↻ 刷新预览", type: "button",
+        onclick: function () { draw(); }
+      })])
+    ]);
+    return box;
   }
 
   function renderSpec(root, p) {
@@ -622,6 +776,8 @@ window.MM_UI = (function () {
         root.appendChild(condCardFor(store, f.k, f.z || f.k, sub, f.k === "Conditions", false));
       });
     });
+    /* 对话窗口：正文流的可视化预览（0.12.0）——整个表单一份，放最底下 */
+    if (spec.kind === "dialog") root.appendChild(dialogPreview(store));
   }
 
   /* ---------- 引用影响（0.11.0）：反向引用扫描 ---------- */

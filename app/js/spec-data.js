@@ -922,9 +922,9 @@ window.MM_SPEC_DATA = {
       },
       {
        "k": "points",
-       "z": "路径点",
-       "t": "list",
-       "h": "每行 world,x,y,z,yaw,pitch 或 ~,dx,dy,dz,yaw,pitch，可再加 hold 和 easing"
+       "z": "镜头关键帧",
+       "t": "timeline",
+       "h": "每帧 world,x,y,z,yaw,pitch（~ 开头为相对锚点），可再加 hold（到下一帧的刻数）与 easing"
       }
      ]
     }

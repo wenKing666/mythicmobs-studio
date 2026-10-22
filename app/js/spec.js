@@ -87,7 +87,7 @@ window.MM_SPEC = (function () {
       });
       return L;
     }
-    if (t === "list") {
+    if (t === "list" || t === "timeline") {
       const arr = normList(v);
       if (!arr.length) return L;
       L.push(pad + f.k + ":");
@@ -226,7 +226,7 @@ window.MM_SPEC = (function () {
       }
       return String(v);
     }
-    if (t === "list") {
+    if (t === "list" || t === "timeline") {
       if (Array.isArray(v)) {
         return v.map(function (x) { return typeof x === "object" ? JSON.stringify(x) : String(x); });
       }
@@ -312,7 +312,7 @@ window.MM_SPEC = (function () {
     const store = {};
     (fields || []).forEach(function (f) {
       const t = f.t || "text";
-      if (t === "list" || t === "objlist" || t === "conds" || t === "skills") store[f.k] = [];
+      if (t === "list" || t === "objlist" || t === "conds" || t === "skills" || t === "timeline") store[f.k] = [];
       else if (t === "obj" || t === "kv" || t === "map") store[f.k] = {};
       else store[f.k] = "";
     });

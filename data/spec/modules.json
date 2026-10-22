@@ -319,7 +319,7 @@
             { "k": "duration", "z": "总时长（tick）", "t": "num", "d": "100" },
             { "k": "loop", "z": "循环播放", "t": "bool", "d": "false" },
             { "k": "easing", "z": "默认缓动", "t": "enum", "o": ["LINEAR", "EASE_IN_QUAD", "EASE_OUT_QUAD", "EASE_IN_OUT_QUAD", "EASE_IN_CUBIC", "EASE_OUT_CUBIC", "EASE_IN_OUT_CUBIC", "EASE_IN_SINE", "EASE_OUT_SINE", "EASE_IN_OUT_SINE", "SMOOTHSTEP", "SMOOTHERSTEP", "CATMULL_ROM", "STEP"], "d": "EASE_IN_OUT_CUBIC" },
-            { "k": "points", "z": "路径点", "t": "list", "h": "每行 world,x,y,z,yaw,pitch 或 ~,dx,dy,dz,yaw,pitch，可再加 hold 和 easing" }
+            { "k": "points", "z": "镜头关键帧", "t": "timeline", "h": "每帧 world,x,y,z,yaw,pitch（~ 开头为相对锚点），可再加 hold（到下一帧的刻数）与 easing" }
           ]
         }
       ]

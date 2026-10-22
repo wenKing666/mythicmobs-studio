@@ -515,7 +515,7 @@ window.MM_STATE = (function () {
         f.duration = "200"; f.loop = "false"; f.easing = "EASE_IN_OUT_CUBIC";
         f.points = [
           "world,0,80,25,0,-20",
-          "world,12,74,14,0,-15 hold=40",
+          "world,12,74,14,0,-15,40",
           "world,0,70,6,0,0"
         ];
         return p;

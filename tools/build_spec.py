@@ -22,7 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC_DIR = os.path.join(ROOT, "data", "spec")
 OUT = os.path.join(ROOT, "app", "js", "spec-data.js")
 
-VALID_TYPES = {"text", "num", "bool", "list", "kv", "obj", "map", "objlist", "enum", "conds", "skills", "raw"}
+VALID_TYPES = {"text", "num", "bool", "list", "kv", "obj", "map", "objlist", "enum", "conds", "skills", "raw", "timeline"}
 REQUIRED_KEYS = {"k"}
 ALLOWED_KEYS = {"k", "z", "t", "d", "h", "o", "f", "r"}
 

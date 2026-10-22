@@ -772,11 +772,77 @@ async function main() {
   check("过场镜头模板 points 带引号",
     await evalJs(`(() => {
       const y = document.getElementById("yamlOut").innerText;
-      return /points:/.test(y) && /'world,/.test(y) && y.includes("hold=40");
+      return /points:/.test(y) && /'world,/.test(y) && y.includes(",-15,40");
     })()`),
     await evalJs(`document.getElementById("yamlOut").innerText.slice(0, 300)`));
 
   await shot("e2e-sim");
+
+  /* ---------- 0.12.0：时间轴 + 对话预览 ---------- */
+
+  // 19. 过场镜头时间轴
+  await evalJs(`MM_APP.template("tpl_cinematic_boss"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("镜头关键帧渲染成时间轴节点", await evalJs(`document.querySelectorAll("#editor .tl-node").length === 3`),
+    await evalJs(`String(document.querySelectorAll("#editor .tl-node").length)`));
+  await evalJs(`(() => {
+    document.querySelectorAll("#editor .tl-node")[1].click(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("点节点展开该帧编辑", await evalJs(`(() => {
+    const card = [...document.querySelectorAll("#editor .spec-block")]
+      .find(b => b.querySelector(".tl-edit"));
+    if (!card) return "no-edit";
+    const fields = [...card.querySelectorAll(".tl-edit .field label")].map(l => l.textContent);
+    return fields.indexOf("停留（刻）") >= 0 && fields.indexOf("缓动") >= 0;
+  })()`),
+    await evalJs(`(() => {
+      const card = [...document.querySelectorAll("#editor .spec-block")].find(b => b.querySelector(".tl-edit"));
+      return card ? [...card.querySelectorAll(".tl-edit .field label")].map(l => l.textContent).join(",") : "no-edit";
+    })()`));
+  check("选中帧的停留值读对了", await evalJs(`(() => {
+    const card = [...document.querySelectorAll("#editor .spec-block")].find(b => b.querySelector(".tl-edit"));
+    /* 8 个字段里 number 输入框依次是 X / Y / Z / yaw / pitch / 停留 */
+    const nums = [...card.querySelectorAll(".tl-edit input[type=number]")];
+    return nums[5] && nums[5].value === "40";
+  })()`));
+  await evalJs(`(() => {
+    const card = [...document.querySelectorAll("#editor .spec-block")].find(b => b.querySelector(".tl-edit"));
+    const nums = [...card.querySelectorAll(".tl-edit input[type=number]")];
+    const inp = nums[5];
+    inp.value = "60";
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("改停留写回关键帧字符串", await evalJs(`MM_STATE.current().data.fields.points[1] === "world,12,74,14,0,-15,60"`),
+    await evalJs(`JSON.stringify(MM_STATE.current().data.fields.points)`));
+  check("时间轴写进 YAML 且带引号", await evalJs(`(() => {
+    const y = document.getElementById("yamlOut").innerText;
+    return y.includes("- 'world,12,74,14,0,-15,60'");
+  })()`),
+    await evalJs(`document.getElementById("yamlOut").innerText.match(/points:[\\s\\S]{0,140}/)`));
+
+  // 20. 对话预览
+  await evalJs(`MM_APP.template("tpl_dialog_npc"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("对话有「窗口预览」", await evalJs(`(() => {
+    const t = [...document.querySelectorAll("#editor .spec-title")].find(x => x.textContent === "窗口预览");
+    return !!t;
+  })()`));
+  check("预览里能看到标题与两条正文", await evalJs(`(() => {
+    const prev = document.querySelector("#editor .dlg-prev");
+    return prev && prev.querySelector(".dlg-title").textContent.includes("村长你好")
+      && prev.querySelectorAll(".dlg-msg").length === 2;
+  })()`),
+    await evalJs(`(document.querySelector("#editor .dlg-prev")||{textContent:"无"}).textContent.slice(0,120)`));
+  check("预览里有两个按钮", await evalJs(`document.querySelectorAll("#editor .dlg-btn").length === 2`));
+  check("预览剥掉了 <gold> 之类的标签", await evalJs(`(() => {
+    const prev = document.querySelector("#editor .dlg-prev");
+    return !/<gold>/.test(prev.textContent) && !/&[0-9a-f]/.test(prev.textContent);
+  })()`));
+
+  await shot("e2e-timeline");
 
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
