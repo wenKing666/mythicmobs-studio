@@ -173,37 +173,59 @@
     $("editor").scrollTop = 0;
   }
 
-  /* 导入过的项目：丢掉本地改动，按磁盘上的最新内容重填表单 */
+  /* 导入过的项目：丢掉本地改动，按磁盘上的最新内容重填表单。
+     0.18.0：先弹「磁盘 vs 本地」行级差异，确认后才真的覆盖。 */
   async function reloadFromDisk() {
     const p = MM_STATE.current();
     if (!p || !p.filePath) { toast("这个项目不是从文件导入的"); return; }
     if (!window.MM_HOST || !MM_HOST.readParsed) { toast("纯浏览器模式没有文件系统"); return; }
-    if (!window.confirm("从磁盘重新读取会丢掉这个项目里没保存的修改，继续？")) return;
+    let r;
+    try { r = await MM_HOST.readParsed(p.filePath); }
+    catch (e) { toast("读取失败：" + e.message); return; }
+    if (r.errors && r.errors.length) { toast("文件解析失败：" + r.errors[0]); return; }
+    const sp = MM_SPEC && MM_SPEC.type(p.kind);
+    const base = p.kind === "mob" ? MM_STATE.newMob()
+      : p.kind === "skill" ? MM_STATE.newSkill()
+      : p.kind === "droptable" ? MM_STATE.newDropTable()
+      : sp ? MM_STATE.newSpecProject(p.kind)
+      : MM_STATE.newItem();
+    const res = MM_IMPORT.fill(base, { js: r.js, text: r.text, filePath: p.filePath });
+    if (!res.ok) { toast(res.reason || "重新读取失败"); return; }
+    /* 磁盘版 YAML（编辑器格式）：在深拷贝的临时壳上切到当前条目、entryOnly 摘出
+       单条目文本——不碰 base 本身，后面 applyReload 还要用它的整份骨架 */
+    const wantKey = p.key;
+    let diskText;
     try {
-      const r = await MM_HOST.readParsed(p.filePath);
-      if (r.errors && r.errors.length) { toast("文件解析失败：" + r.errors[0]); return; }
-      const sp = MM_SPEC && MM_SPEC.type(p.kind);
-      const base = p.kind === "mob" ? MM_STATE.newMob()
-        : p.kind === "skill" ? MM_STATE.newSkill()
-        : p.kind === "droptable" ? MM_STATE.newDropTable()
-        : sp ? MM_STATE.newSpecProject(p.kind)
-        : MM_STATE.newItem();
-      const res = MM_IMPORT.fill(base, { js: r.js, text: r.text, filePath: p.filePath });
-      if (!res.ok) { toast(res.reason || "重新读取失败"); return; }
-      /* 多条目文件：fill 只吃第一个条目；原来编辑的是第 N 个就切回第 N 个 */
-      if (base.key !== p.key && MM_IMPORT.entryKeys(base).indexOf(p.key) >= 0) {
-        const back = await MM_IMPORT.switchEntry(base, MM_IMPORT.entryKeys(base).indexOf(p.key));
-        if (!back.ok) { toast("切回条目失败：" + back.reason); return; }
+      const tmp = JSON.parse(JSON.stringify(base));
+      if (tmp.key !== wantKey) {
+        /* entryKeys 只列 others 里的条目，下标与 raw.others 一一对应 */
+        const oi = MM_IMPORT.entryKeys(tmp).indexOf(wantKey);
+        if (oi >= 0) await MM_IMPORT.switchEntry(tmp, oi);
       }
-      p.key = base.key;
-      p.data = base.data;
-      p.raw = base.raw;
-      p.mtime = r.mtime;
-      refresh(true);
-      toast("已从磁盘重新读取「" + p.key + "」");
-    } catch (e) {
-      toast("读取失败：" + e.message);
+      diskText = MM_IMPORT.entryOnly(tmp);
+    } catch (e) { diskText = r.text; }
+    showDiffModal(currentYaml(), diskText, function (apply) {
+      if (!apply) { toast("已取消，保留本地修改"); return; }
+      applyReload(p, r, base, wantKey);
+    });
+  }
+
+  /* diff 确认后真正覆盖：p.raw 拿磁盘整份骨架（未切过），数据切到原来编辑的条目 */
+  async function applyReload(p, r, base, wantKey) {
+    p.raw = base.raw;
+    const tmp = JSON.parse(JSON.stringify(base));
+    if (tmp.key !== wantKey) {
+      const oi = MM_IMPORT.entryKeys(tmp).indexOf(wantKey);
+      if (oi >= 0) {
+        const back = await MM_IMPORT.switchEntry(tmp, oi);
+        if (!back.ok) toast("原条目在磁盘上已不存在，已切回第一个条目");
+      }
     }
+    p.key = tmp.key;
+    p.data = tmp.data;
+    p.mtime = r.mtime;
+    refresh(true);
+    toast("已从磁盘重新读取「" + p.key + "」");
   }
 
   /* 多条目文件：切到另一个条目（当前条目会原样写回 others，保存时不丢） */
@@ -755,6 +777,189 @@
     });
   }
 
+  /* 0.18.0：行级 diff（LCS 简化版：剥共同前后缀，中段小规模才做 DP） */
+  function diffLines(oldText, newText) {
+    const A = String(oldText || "").split("\n");
+    const B = String(newText || "").split("\n");
+    const out = [];
+    let pre = 0;
+    while (pre < A.length && pre < B.length && A[pre] === B[pre]) pre++;
+    let sufA = A.length - 1, sufB = B.length - 1;
+    while (sufA >= pre && sufB >= pre && A[sufA] === B[sufB]) { sufA--; sufB--; }
+    for (let i = 0; i < pre; i++) out.push({ t: " ", s: A[i] });
+    const midA = A.slice(pre, sufA + 1), midB = B.slice(pre, sufB + 1);
+    if (midA.length * midB.length <= 640000) {
+      /* LCS DP */
+      const n = midA.length, m = midB.length;
+      const dp = new Array((n + 1) * (m + 1)).fill(0);
+      for (let i = n - 1; i >= 0; i--)
+        for (let j = m - 1; j >= 0; j--)
+          dp[i * (m + 1) + j] = midA[i] === midB[j]
+            ? dp[(i + 1) * (m + 1) + j + 1] + 1
+            : Math.max(dp[(i + 1) * (m + 1) + j], dp[i * (m + 1) + j + 1]);
+      let i = 0, j = 0;
+      while (i < n && j < m) {
+        if (midA[i] === midB[j]) { out.push({ t: " ", s: midA[i] }); i++; j++; }
+        else if (dp[(i + 1) * (m + 1) + j] >= dp[i * (m + 1) + j + 1]) { out.push({ t: "-", s: midA[i] }); i++; }
+        else { out.push({ t: "+", s: midB[j] }); j++; }
+      }
+      while (i < n) { out.push({ t: "-", s: midA[i] }); i++; }
+      while (j < m) { out.push({ t: "+", s: midB[j] }); j++; }
+    } else {
+      midA.forEach(function (s) { out.push({ t: "-", s: s }); });
+      midB.forEach(function (s) { out.push({ t: "+", s: s }); });
+    }
+    for (let i = sufA + 1; i < A.length; i++) out.push({ t: " ", s: A[i] });
+    return out;
+  }
+
+  /* 0.18.0：重新读取的确认弹层——先看「磁盘 vs 本地」差异再决定覆盖 */
+  function showDiffModal(curText, diskText, onDone) {
+    let modal = $("diffModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "diffModal";
+      modal.className = "modal";
+      modal.innerHTML = '<div class="modal-box diff-box"><div class="modal-head"><h2>磁盘 vs 本地</h2>' +
+        '<span class="diff-legend"><i class="dl-del"></i>本地将被丢弃 <i class="dl-add"></i>磁盘上的新内容</span>' +
+        '<button class="modal-close" title="关闭">✕</button></div>' +
+        '<div class="diff-body"></div>' +
+        '<div class="diff-actions"><button class="btn dark" data-act="cancel">取消（保留本地）</button>' +
+        '<button class="btn" data-act="apply">应用（覆盖本地）</button></div></div>';
+      document.body.appendChild(modal);
+    }
+    const body = modal.querySelector(".diff-body");
+    const rows = diffLines(curText, diskText);
+    let adds = 0, dels = 0;
+    body.innerHTML = rows.map(function (r) {
+      if (r.t === "+") adds++;
+      if (r.t === "-") dels++;
+      const cls = r.t === "+" ? "l-add" : r.t === "-" ? "l-del" : "l-ctx";
+      return '<div class="diff-line ' + cls + '">' +
+        '<span class="diff-mark">' + (r.t === "+" ? "+" : r.t === "-" ? "-" : " ") + "</span>" +
+        '<code>' + String(r.s).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</code></div>";
+    }).join("");
+    modal.querySelector(".diff-legend").innerHTML =
+      '<i class="dl-del"></i>本地将被丢弃（' + dels + " 行） <i class='dl-add'></i>磁盘新内容（" + adds + " 行）";
+    modal.hidden = false;
+    modal.querySelector("[data-act=apply]").onclick = function () { modal.hidden = true; onDone(true); };
+    modal.querySelector("[data-act=cancel]").onclick = function () { modal.hidden = true; onDone(false); };
+    modal.querySelector(".modal-close").onclick = function () { modal.hidden = true; onDone(false); };
+  }
+
+  /* 0.18.0：批量编辑（带预览）——按类型选文件，数值字段统一调整 */
+  function showBatchModal() {
+    if (!window.MM_HOST_ROOT || !MM_HOST_ROOT()) { toast("先打开服务器文件夹"); return; }
+    let modal = $("batchModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "batchModal";
+      modal.className = "modal";
+      modal.innerHTML = '<div class="modal-box diff-box"><div class="modal-head"><h2>批量编辑</h2>' +
+        '<button class="modal-close" title="关闭">✕</button></div>' +
+        '<div class="batch-form"></div><div class="batch-preview"></div>' +
+        '<div class="diff-actions"><button class="btn dark" data-act="cancel">取消</button>' +
+        '<button class="btn" data-act="run" disabled>应用（写回并备份）</button></div></div>';
+      document.body.appendChild(modal);
+    }
+    const form = modal.querySelector(".batch-form");
+    const preview = modal.querySelector(".batch-preview");
+    const runBtn = modal.querySelector("[data-act=run]");
+    const kinds = [
+      { id: "mob", zh: "怪物" }, { id: "item", zh: "物品" },
+      { id: "skill", zh: "技能组" }, { id: "droptable", zh: "掉落表" }
+    ];
+    form.innerHTML =
+      '<div class="batch-row"><span class="batch-label">类型</span>' +
+      kinds.map(k => '<label class="batch-chk"><input type="checkbox" value="' + k.id + '" checked> ' + k.zh + "</label>").join("") +
+      '</div>' +
+      '<div class="batch-row"><span class="batch-label">字段</span>' +
+      '<select id="batchField"><option value="health">血量 Health</option><option value="damage">伤害 Damage</option>' +
+      '<option value="armor">护甲 Armor</option><option value="level">等级 Level</option></select></div>' +
+      '<div class="batch-row"><span class="batch-label">操作</span>' +
+      '<select id="batchOp"><option value="mul">×（乘）</option><option value="add">+（加）</option><option value="set">=（设为）</option></select>' +
+      '<input id="batchVal" type="text" placeholder="例如 1.1 或 20" style="width:110px;margin-left:8px"></div>' +
+      '<div class="batch-hint">只改有该字段的配置；写回前每份自动备份。预览确认后才动手。</div>';
+
+    let pending = [];
+    function collect() {
+      preview.innerHTML = '<div class="gs-empty">点「预览」查看将发生的改动。</div>';
+      runBtn.disabled = true;
+    }
+    collect();
+
+    async function doPreview() {
+      const want = [...form.querySelectorAll(".batch-chk input:checked")].map(x => x.value);
+      const field = form.querySelector("#batchField").value;
+      const op = form.querySelector("#batchOp").value;
+      const val = parseFloat(form.querySelector("#batchVal").value);
+      preview.innerHTML = '<div class="gs-empty">正在读取与计算…</div>';
+      if (isNaN(val)) { preview.innerHTML = '<div class="gs-empty">请先填一个数字。</div>'; return; }
+      pending = [];
+      let lines = "";
+      for (const f of (window.MM_HOST_SEARCH_FILES ? await MM_HOST.searchFilesForKinds ? [] : [] : [])) { break; }
+      const list = (await collectFilesByKinds(want)).filter(function (f) { return !!f; });
+      for (const f of list) {
+        try {
+          const rp = await MM_HOST.readParsed(f.path);
+          const shell = { kind: f.kind, key: guessKeyFromText(rp.text) || f.name.replace(/\.yml$/i, ""), data: {}, raw: { head: [], entry: [], others: [], options: [] } };
+          try { MM_IMPORT.fill(shell, rp); } catch (e) { continue; }
+          const d = shell.data;
+          if (d[field] === undefined || d[field] === null || d[field] === "") continue;
+          const oldV = parseFloat(d[field]);
+          if (isNaN(oldV)) continue;
+          const newV = op === "mul" ? oldV * val : op === "add" ? oldV + val : val;
+          const newVr = Math.round(newV * 100) / 100;
+          if (newVr === oldV) continue;
+          d[field] = newVr;
+          const gen = MM_YAML.generate(shell);
+          pending.push({ path: f.path, rel: f.rel, name: f.name, kind: f.kind, key: shell.key, text: gen,
+            summary: field + " " + oldV + " → " + newVr });
+          lines += '<div class="batch-file"><b>' + f.name + "</b> — " + field + " " + oldV + " → " + newVr + "</div>";
+        } catch (e) { /* 单文件失败跳过 */ }
+      }
+      preview.innerHTML = lines || '<div class="gs-empty">范围内没有带这个字段的配置。</div>';
+      runBtn.disabled = !pending.length;
+      runBtn.textContent = "应用（" + pending.length + " 份，写回并备份）";
+    }
+
+    async function collectFilesByKinds(want) {
+      const scan = await MM_HOST.scan(MM_HOST_ROOT());
+      return scan.files.filter(function (f) { return want.indexOf(f.kind) >= 0; });
+    }
+    function guessKeyFromText(text) {
+      const m = String(text || "").match(/^([A-Za-z_][\w\-]*):/m);
+      return m ? m[1] : null;
+    }
+
+    runBtn.onclick = async function () {
+      if (!pending.length) return;
+      if (!window.confirm("将写回 " + pending.length + " 份文件（覆盖前自动备份），确定吗？")) return;
+      let n = 0;
+      for (const it of pending) {
+        try { await MM_HOST.write(it.path, it.text); n++; }
+        catch (e) { /* 单份失败继续 */ }
+      }
+      modal.hidden = true;
+      toast("批量编辑完成：写回 " + n + " 份（各留备份）。重新扫描后生效");
+      const dir = MM_HOST_ROOT();
+      await MM_HOST_OPEN_DIR(dir);
+    };
+    modal.querySelector(".modal-close").onclick = function () { modal.hidden = true; };
+    modal.querySelector("[data-act=cancel]").onclick = function () { modal.hidden = true; };
+    modal.querySelector("[data-act=run]").disabled = true;
+    const oldPreview = modal.querySelector("[data-act=preview]");
+    if (!oldPreview) {
+      const pb = document.createElement("button");
+      pb.className = "btn dark";
+      pb.textContent = "预览";
+      pb.setAttribute("data-act", "preview");
+      pb.addEventListener("click", doPreview);
+      modal.querySelector(".diff-actions").insertBefore(pb, runBtn);
+    }
+    modal.hidden = false;
+  }
+
   function init() {
 
     MM_UI.init({
@@ -780,6 +985,7 @@
     themeInit();
     phInit();
     $("btnCleanBak").addEventListener("click", cleanBackups);
+    $("btnBatch").addEventListener("click", showBatchModal);
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });
@@ -824,7 +1030,8 @@
     // 给空状态里的按钮用
     window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
       reload: reloadFromDisk, switchEntry: switchEntry, clone: cloneProject, saveAsTemplate: saveAsTemplate,
-      undo: doUndo, redo: doRedo, saveToServer: saveToServer, exportTemplate: exportTemplate, importTemplate: importTemplate };
+      undo: doUndo, redo: doRedo, saveToServer: saveToServer, exportTemplate: exportTemplate, importTemplate: importTemplate,
+      showBatchModal: showBatchModal };
     restoreLastDir();
   }
 

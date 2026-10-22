@@ -823,6 +823,66 @@ window.MM_YAML = (function () {
     }
   }
 
+  /* 配置体检（0.18.0）：用 catalog 的参数表查技能行的四类问题——
+     未知参数（疑似拼写错误）、缺必填、数值参数填非数字、布尔参数填非布尔。
+     只查结构化行；raw 行整行原样保留是设计，不猜它的语义。 */
+  function healthCheck(p) {
+    const issues = [];
+    const skills = (p && p.data && p.data.skills) || [];
+    const cat = window.MM_CATALOG;
+    const mechOf = {};
+    if (cat && cat.mechanics) cat.mechanics.forEach(function (m) { mechOf[m.id] = m; });
+    const trigOk = {};
+    if (cat && cat.triggers) cat.triggers.forEach(function (t) { trigOk[t.id] = true; });
+    const uni = {};
+    if (cat && cat.universal) cat.universal.forEach(function (u) {
+      uni[u.name] = u;
+      (u.aliases || []).forEach(function (a) { uni[a] = u; });
+    });
+    skills.forEach(function (s, idx) {
+      if (!s || s.raw) return;                    /* raw 行不猜语义 */
+      const mid = String(s.mechanic || "").toLowerCase();
+      const mech = mechOf[mid];
+      if (!mech) return;                          /* 目录里没有的机制不武断报错 */
+      const params = s.params || {};
+      const spec = {};                            /* 规范名 → 参数定义 */
+      (mech.params || []).forEach(function (x) {
+        spec[x.name.toLowerCase()] = x;
+        (x.aliases || []).forEach(function (a) { spec[a.toLowerCase()] = x; });
+      });
+      Object.keys(params).forEach(function (k) {
+        const lk = k.toLowerCase();
+        const v = params[k];
+        if (v === "" || v === undefined || v === null) return;
+        if (spec[lk]) {
+          const def = spec[lk];
+          const shown = mid + "{" + k + "=" + v + "}";
+          if (def.type === "number" && !/^[\-\d.]+$/.test(String(v)) && !/[<>]/.test(String(v))) {
+            issues.push({ row: idx, kind: "type", msg: "「" + shown + "」的 " + k + " 应该是数字（现在是 " + v + "）" });
+          } else if (def.type === "boolean" && !/^(true|false)$/i.test(String(v))) {
+            issues.push({ row: idx, kind: "type", msg: "「" + shown + "」的 " + k + " 只能是 true / false" });
+          }
+        } else if (!uni[lk]) {
+          issues.push({ row: idx, kind: "unknown", msg: "「" + mid + "」没有参数 " + k + "（可能拼写错误，或该参数不在此机制上）" });
+        }
+      });
+      (mech.params || []).forEach(function (x) {
+        if (!x.required) return;
+        const hit = Object.keys(params).some(function (k) {
+          return k.toLowerCase() === x.name.toLowerCase() ||
+            (x.aliases || []).some(function (a) { return k.toLowerCase() === a.toLowerCase(); });
+        });
+        if (!hit && !x.def) {
+          issues.push({ row: idx, kind: "missing", msg: "「" + mid + "」缺少必填参数 " + x.name + "（" + (x.zh || x.name) + "）" });
+        }
+      });
+      if (s.trigger && s.trigger.trim() && !trigOk[String(s.trigger).toLowerCase()]) {
+        issues.push({ row: idx, kind: "trigger", msg: "触发器 " + s.trigger + " 在 wiki 触发器列表里找不到（可能拼错）" });
+      }
+    });
+    return issues;
+  }
+
   function validate(p) {
     const out = [];
     if (!p) return out;
@@ -940,6 +1000,6 @@ window.MM_YAML = (function () {
     };
   }
 
-  return { generate: generate, validate: validate, refIssues: refIssues, refMissing: refMissing, refFound: refFound, mob: mob, item: item, specDoc: specDoc, highlight: highlight, scalar: scalar };
+  return { generate: generate, validate: validate, refIssues: refIssues, refMissing: refMissing, refFound: refFound, healthCheck: healthCheck, mob: mob, item: item, specDoc: specDoc, highlight: highlight, scalar: scalar };
 })();
 

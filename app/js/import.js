@@ -983,6 +983,7 @@ window.MM_IMPORT = (function () {
     fillSpec: fillSpec,
     guessKind: guessKind,
     entryKeys: entryKeys,
+    entryOnly: entryOnly,
     switchEntry: switchEntry,
     /* 供测试用 */
     parseSkill: parseSkill,

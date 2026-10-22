@@ -1043,3 +1043,37 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 .tpl-btn .tpl-del { right: 30px; }
 .tpl-btn .tpl-del.tpl-del-danger { right: 8px; }
 .tpl-group .side-mini { margin-left: 8px; }
+
+/* 0.18.0 配置体检 */
+.health-card .card-head .health-sum { margin-left: auto; font-size: 11.5px; color: var(--danger); }
+.health-list { display: flex; flex-direction: column; gap: 4px; }
+.health-row { display: flex; gap: 10px; padding: 6px 9px; border-radius: 6px;
+  background: var(--panel-2); cursor: pointer; font-size: 12.5px; }
+.health-row:hover { background: var(--accent-soft); }
+.health-idx { color: var(--ink-3); white-space: nowrap; }
+.skill-row.flash { outline: 2px solid var(--accent); border-radius: 8px; }
+
+/* 0.18.0 diff 视图与批量编辑 */
+.diff-box { width: min(880px, 92vw); }
+.diff-legend { font-size: 11.5px; color: var(--ink-3); margin-left: 10px; flex: 1; }
+.diff-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 3px -1px 8px; }
+.diff-legend .dl-del { background: color-mix(in srgb, var(--danger) 45%, transparent); }
+.diff-legend .dl-add { background: color-mix(in srgb, #3f9d5a 45%, transparent); }
+.diff-body { max-height: 58vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--code-bg); padding: 8px 0; font-family: ui-monospace, monospace; font-size: 12px; }
+.diff-line { display: flex; padding: 0 10px; line-height: 1.55; }
+.diff-mark { width: 16px; color: var(--ink-4); flex: none; }
+.diff-line code { white-space: pre-wrap; word-break: break-all; color: #d6d8db; }
+.diff-line.l-del { background: rgba(214, 69, 65, .16); }
+.diff-line.l-del .diff-mark { color: #e08a85; }
+.diff-line.l-add { background: rgba(63, 157, 90, .16); }
+.diff-line.l-add .diff-mark { color: #7fcf97; }
+.diff-actions { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+.batch-form { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+.batch-row { display: flex; align-items: center; gap: 10px; }
+.batch-label { width: 44px; font-size: 12.5px; color: var(--ink-2); flex: none; }
+.batch-chk { font-size: 12.5px; margin-right: 12px; }
+.batch-hint { font-size: 11.5px; color: var(--ink-3); }
+.batch-preview { max-height: 34vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel-2); padding: 8px; min-height: 60px; }
+.batch-file { padding: 4px 6px; font-size: 12.5px; }

@@ -403,13 +403,19 @@ async function main() {
       })()`),
       await ev(`MM_YAML.generate(MM_STATE.current())`));
 
-    /* 重新读取：改血量 → 不保存 → ↻ → 回到磁盘上的值 */
+    /* 重新读取：改血量 → 不保存 → ↻ → 差异确认 → 回到磁盘上的值 */
     await ev(`(() => { MM_STATE.current().data.health = 777; MM_APP.refresh(true); return true; })()`);
     await sleep(300);
     await ev(`window.confirm = () => true;
       [...document.querySelectorAll("#editor .card-head .mini-btn")]
         .find(b => b.textContent.includes("重新读取")).click(); true`);
-    await sleep(600);
+    await sleep(700);
+    await ev(`(() => {
+      const m = document.getElementById("diffModal");
+      if (m && !m.hidden) { m.querySelector("[data-act=apply]").click(); }
+      return true;
+    })()`);
+    await sleep(700);
     check("重新读取后丢掉本地改动", await ev(`MM_STATE.current().data.health === 20`),
       await ev(`String(MM_STATE.current().data.health)`));
   }
@@ -456,6 +462,13 @@ async function main() {
     await ev(`window.confirm = () => true;
       [...document.querySelectorAll("#editor .card-head .mini-btn")]
         .find(b => b.textContent.includes("重新读取")).click(); true`);
+    await sleep(600);
+    /* 0.18.0：差异确认后点「应用」 */
+    await ev(`(() => {
+      const m = document.getElementById("diffModal");
+      if (m && !m.hidden) { m.querySelector("[data-act=apply]").click(); }
+      return true;
+    })()`);
     await sleep(600);
     check("重新读取拿到磁盘上的新血量", await ev(`MM_STATE.current().data.health === 999`),
       await ev(`String(MM_STATE.current().data.health)`));

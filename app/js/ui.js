@@ -810,6 +810,37 @@ window.MM_UI = (function () {
     if (spec.kind === "dialog") root.appendChild(dialogPreview(store));
   }
 
+  /* ---------- 配置体检（0.18.0） ---------- */
+  function healthCard(p) {
+    let issues = [];
+    try { issues = MM_YAML.healthCheck(p) || []; } catch (e) { return null; }
+    if (!issues.length) return null;
+    const box = el("div", { class: "health-list" });
+    issues.forEach(function (iss) {
+      box.appendChild(el("div", {
+        class: "health-row", title: "点击跳到这条技能",
+        onclick: function () {
+          const row = document.querySelector('#editor .skill-row[data-skill-idx="' + iss.row + '"]');
+          if (!row) return;
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+          row.classList.add("flash");
+          setTimeout(function () { row.classList.remove("flash"); }, 1600);
+        }
+      }, [
+        el("span", { class: "health-idx", text: "第 " + (iss.row + 1) + " 条" }),
+        el("span", { class: "health-msg", text: iss.msg })
+      ]));
+    });
+    return el("div", { class: "card health-card" }, [
+      el("div", { class: "card-head" }, [
+        el("span", { class: "card-icon", html: MM_ICONS.get("warning", 15) }),
+        el("span", { text: "配置体检" }),
+        el("span", { class: "health-sum", text: issues.length + " 个疑点" })
+      ]),
+      el("div", { class: "card-body" }, [box])
+    ]);
+  }
+
   /* ---------- 引用影响（0.11.0）：反向引用扫描 ---------- */
   function referrerCard(p) {
     if (!window.MM_HOST_FIND_REFERRERS) return null;
@@ -857,6 +888,12 @@ window.MM_UI = (function () {
     const tabs = entryTabs(project);
     if (tabs) root.appendChild(tabs);
     root.appendChild(editorHeader(project));
+    /* 配置体检（0.18.0）：catalog 驱动的四类问题，点击跳到对应技能行 */
+    if (project.data && project.data.skills && project.data.skills.length &&
+        window.MM_YAML && MM_YAML.healthCheck) {
+      const hc = healthCard(project);
+      if (hc) root.appendChild(hc);
+    }
     /* 技能组 / 掉落表：显示「服务器里谁在引用我」，改名前先看影响面（0.11.0） */
     if ((project.kind === "skill" || project.kind === "droptable") && project.filePath) {
       const rc = referrerCard(project);
@@ -2052,7 +2089,7 @@ window.MM_UI = (function () {
       el("div", { class: "grid three", style: "margin-top:10px" }, uniFields)
     ]);
 
-    return el("div", { class: "list-row skill-row" }, [
+    return el("div", { class: "list-row skill-row", "data-skill-idx": String(i) }, [
       el("div", { class: "row-body" },
         [head, descLine, targParamWrap]
           .concat(paramNodes.concat(targeterExtraNodes(s)))
