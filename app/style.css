@@ -1003,3 +1003,37 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
   background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
 .sim-bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
 .sim-row { grid-template-columns: minmax(110px, 1fr) 90px auto auto; }
+
+/* 0.16.0 深色主题（默认浅色；切换按钮在顶栏） */
+:root[data-theme="dark"] {
+  --bg: #141619;
+  --panel: #1d2025;
+  --panel-2: #22262c;
+  --line: #31353c;
+  --line-2: #3e434b;
+  --ink: #e7e8ea;
+  --ink-2: #b2b5ba;
+  --ink-3: #85888e;
+  --ink-4: #6a6d73;
+  --accent: #45bd94;
+  --accent-soft: #22332d;
+  --danger: #e05a4f;
+  --code-bg: #0f1114;
+}
+
+/* 0.16.0 主题按钮 / 备份清理 / 占位符速查 / 循环引用警告 */
+.side-title { display: flex; align-items: center; gap: 6px; }
+.side-mini { margin-left: auto; font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-3); cursor: pointer; }
+.side-mini:hover { color: var(--ink); border-color: var(--line-2); }
+.graph-cycles { margin-bottom: 10px; padding: 9px 12px; border-radius: 7px;
+  border: 1px solid var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--ink); font-size: 12.5px; line-height: 1.8; }
+.graph-cycles b { color: var(--danger); }
+.ph-list { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; }
+.ph-group { font-size: 11px; font-weight: 700; color: var(--ink-3); padding: 7px 6px 3px; }
+.ph-row { display: flex; align-items: center; gap: 12px; padding: 5px 8px; border-radius: 6px;
+  border: none; background: transparent; cursor: pointer; text-align: left; width: 100%; }
+.ph-row:hover { background: var(--accent-soft); }
+.ph-row code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); min-width: 180px; }
+.ph-row span { font-size: 12px; color: var(--ink-3); }

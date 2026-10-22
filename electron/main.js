@@ -198,6 +198,37 @@ ipcMain.handle("shell:showItem", async (_e, file) => {
   shell.showItemInFolder(file);
 });
 
+/* 备份清理（0.16.0）：递归找保存时产生的 *.bak-*，按修改时间升序 */
+ipcMain.handle("fs:listBackups", async (_e, dir) => {
+  const out = [];
+  async function walk(d) {
+    let entries;
+    try { entries = await fsp.readdir(d, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      const full = path.join(d, ent.name);
+      if (ent.isDirectory()) {
+        if (ent.name.startsWith(".") || ent.name === "node_modules") continue;
+        await walk(full);
+      } else if (/\.bak-\d{8}-\d{6}$/.test(ent.name)) {
+        const st = await fsp.stat(full).catch(() => null);
+        if (st) out.push({ path: full, rel: path.relative(dir, full), size: st.size, mtime: st.mtimeMs });
+      }
+    }
+  }
+  if (dir && fs.existsSync(dir)) await walk(dir);
+  out.sort((a, b) => a.mtime - b.mtime);
+  return out;
+});
+
+/* 批量删除（渲染层决定保留策略，这里只管删，逐个跳过占用） */
+ipcMain.handle("fs:deleteFiles", async (_e, paths) => {
+  let n = 0;
+  for (const p of paths || []) {
+    try { await fsp.unlink(p); n++; } catch { /* 占用跳过 */ }
+  }
+  return n;
+});
+
 ipcMain.handle("app:info", async () => ({
   version: app.getVersion(),
   electron: process.versions.electron,

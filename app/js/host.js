@@ -236,6 +236,8 @@
     rootDir = r.dir;
     files = r.files;
     Object.keys(textCache).forEach(function (k) { delete textCache[k]; });
+    /* 记住这次打开的目录，下次启动自动恢复（0.16.0） */
+    try { localStorage.setItem("mm_last_dir", rootDir); } catch (e) { /* 隐私模式忽略 */ }
     $("serverDir").textContent = rootDir;
     $("serverDir").title = rootDir;
     $("serverBlock").hidden = false;
@@ -243,6 +245,12 @@
     return files.length;
   };
   window.MM_HOST_OPEN_FILE = openFile;
+
+  /* 备份清理（0.16.0）：列表 + 批量删除 */
+  window.MM_HOST_BACKUPS = function (dir) { return MM_HOST.listBackups(dir); };
+  window.MM_HOST_DELETE_FILES = function (paths) { return MM_HOST.deleteFiles(paths); };
+  /* 当前扫过的服务器根目录（另存到服务器 / 备份清理用） */
+  window.MM_HOST_ROOT = function () { return rootDir || null; };
 
   /* 全局搜索（0.14.0）：在扫过的服务器文件里找关键字。
      带内容缓存（重扫目录时清空；单文件外部改动由「已改动」标记提示）。 */
@@ -408,6 +416,40 @@
     edges.forEach(function (e) { linked[e.from] = linked[e.to] = true; });
     const shown = nodeList.filter(function (n) { return linked[n.id]; });
     return { nodes: shown, edges: edges, skipped: nodeList.length - shown.length };
+  };
+
+  /* 循环引用检测（0.16.0）：在关系图的边上 DFS 找回到起点的路径。
+     返回 [[名字…], …]，每个环一行（首个名字取字典序最小的节点，避免同环多报）。 */
+  window.MM_HOST_FIND_CYCLES = function (nodes, edges) {
+    const adj = {};
+    edges.forEach(function (e) { (adj[e.from] || (adj[e.from] = [])).push(e.to); });
+    const nameOf = {};
+    nodes.forEach(function (n) { nameOf[n.id] = n.name; });
+    const seen = {};
+    const cycles = [];
+    nodes.forEach(function (start) {
+      /* 从每个节点出发找回到自己的路径（trail 查重防死循环，长度上限防爆栈） */
+      const stack = [[start.id, [start.id]]];
+      while (stack.length) {
+        const item = stack.pop();
+        const cur = item[0], trail = item[1];
+        (adj[cur] || []).forEach(function (next) {
+          if (next === start.id && trail.length > 0) {
+            /* 找到环：规范成「字典序最小文件名开头」，同环只报一次 */
+            const names = trail.map(function (id) { return nameOf[id] || id; });
+            let minI = 0;
+            names.forEach(function (nm, i) { if (nm < names[minI]) minI = i; });
+            const key = names.slice(minI).concat(names.slice(0, minI)).join("→");
+            if (!seen[key]) { seen[key] = true; cycles.push(names.slice(minI).concat(names.slice(0, minI))); }
+            return;
+          }
+          if (trail.indexOf(next) >= 0) return;
+          if (trail.length > 12) return;
+          stack.push([next, trail.concat([next])]);
+        });
+      }
+    });
+    return cycles;
   };
 
   function init() {

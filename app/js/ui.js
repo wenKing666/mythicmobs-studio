@@ -951,9 +951,19 @@ window.MM_UI = (function () {
           onclick: function () { window.MM_APP && MM_APP.reload(); }
         })
       : null;
+    /* 克隆 / 模板新建的项目还没有落盘：一键保存成服务器新文件（0.16.0） */
+    const saveAsBtn = (!p.filePath && window.MM_HOST && MM_HOST.isElectron &&
+      MM_HOST_ROOT && MM_HOST_ROOT() && window.MM_APP)
+      ? el("button", {
+          class: "mini-btn", text: "💾 保存到服务器", type: "button",
+          title: "把这份配置存成服务器上的新文件（按类型放进对应目录）",
+          onclick: function () { window.MM_APP.saveToServer(); }
+        })
+      : null;
     /* 0.13.0：克隆与存为模板 */
     const headBtns = el("span", { class: "head-btns" }, [
       reloadBtn,
+      saveAsBtn,
       el("button", {
         class: "mini-btn", text: "⧉ 克隆", type: "button",
         title: "复制一份当前配置继续改（保存时会另存新文件）",

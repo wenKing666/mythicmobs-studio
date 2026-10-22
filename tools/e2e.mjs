@@ -1043,6 +1043,35 @@ async function main() {
 
   await shot("e2e-graph");
 
+  /* ---------- 0.16.0：主题 / 占位符 / 保存到服务器 ---------- */
+
+  // 28. 主题切换
+  check("默认浅色主题", await evalJs(`document.documentElement.dataset.theme !== "dark"`));
+  await evalJs(`document.getElementById("btnTheme").click(); true`);
+  check("切到深色", await evalJs(`document.documentElement.dataset.theme === "dark"
+    && localStorage.getItem("mm_theme") === "dark"`));
+  await evalJs(`document.getElementById("btnTheme").click(); true`);
+  check("切回浅色并记住", await evalJs(`document.documentElement.dataset.theme !== "dark"
+    && localStorage.getItem("mm_theme") === "light"`));
+
+  // 29. 占位符速查
+  await evalJs(`document.getElementById("btnHelp").click(); true`);
+  check("占位符速查有分组与条目", await evalJs(`document.querySelectorAll("#phList .ph-group").length >= 4
+    && document.querySelectorAll("#phList .ph-row").length >= 15`));
+  check("条目 code 与说明齐全", await evalJs(`(() => {
+    const row = document.querySelector("#phList .ph-row");
+    return row.querySelector("code").textContent.startsWith("<") && row.querySelector("span").textContent.length > 1;
+  })()`));
+  await evalJs(`document.getElementById("btnCloseHelp").click(); true`);
+
+  // 30. 保存到服务器（浏览器无文件系统：按钮不该出现）
+  await evalJs(`MM_APP.clone(); true`);
+  await new Promise(r => setTimeout(r, 350));
+  check("纯浏览器不显示「保存到服务器」", await evalJs(`![...document.querySelectorAll("#editor .mini-btn")]
+    .some(b => b.textContent.includes("保存到服务器"))`));
+
+  await shot("e2e-theme");
+
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);

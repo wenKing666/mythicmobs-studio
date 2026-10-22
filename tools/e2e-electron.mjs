@@ -562,6 +562,85 @@ async function main() {
     && gp.nodes.every(n => gp.edges.some(e => e.from === n.id || e.to === n.id))
     && gp.skipped >= 1);
 
+  /* ---------- 0.16.0：另存到服务器 / 备份清理 / 循环引用 / 目录记忆 ---------- */
+
+  /* 克隆 skill 项目 → 「保存到服务器」落盘成新文件 → 原文件不受影响 */
+  await ev(`(() => {
+    const cur = MM_STATE.current();
+    if (cur.kind !== "skill") { MM_APP.template("tpl_skill_nova"); }
+    MM_APP.clone();
+    return true;
+  })()`);
+  await sleep(600);
+  check("克隆项目显示「保存到服务器」", await ev(`[...document.querySelectorAll("#editor .mini-btn")]
+    .some(b => b.textContent.indexOf("保存到服务器") >= 0)`));
+  const clonedKey = await ev(`MM_STATE.current().key`);
+  await ev(`MM_APP.saveToServer(); true`);
+  await sleep(600);
+  const savedPath = await ev(`MM_STATE.current().filePath`);
+  check("另存落盘且接管 filePath", !!savedPath && savedPath.replace(/\\\\/g, "/").includes("/Skills/"),
+    String(savedPath));
+  const savedText = await ev(`MM_HOST.read(${JSON.stringify(savedPath)})`);
+  check("新文件内容是该项目的 YAML", typeof savedText === "object"
+    && String(savedText.text).startsWith(clonedKey + ":"),
+    String(typeof savedText === "object" ? savedText.text.slice(0, 40) : savedText));
+  /* 测试产物清干净，别影响后面的「扫描 8 个文件」断言 */
+  fs.rmSync(savedPath, { force: true });
+
+  /* 备份清理：MM_HOST.write 连写三次产生 2 份备份 → 验证列表与删除。
+     备份名的时间戳只到秒，写入间隔必须 >1 秒，否则同名备份互相覆盖。 */
+  const bakTarget = path.join(FIXTURE, "Mobs", "_bak_probe.yml");
+  await ev(`MM_HOST.write(${JSON.stringify(bakTarget)}, "probe: 1\\n"); true`);
+  await sleep(1100);
+  await ev(`MM_HOST.write(${JSON.stringify(bakTarget)}, "probe: 2\\n"); true`);
+  await sleep(1100);
+  await ev(`MM_HOST.write(${JSON.stringify(bakTarget)}, "probe: 3\\n"); true`);
+  const baks = await ev(`MM_HOST_BACKUPS(${JSON.stringify(FIXTURE)})`);
+  const probeBaks = (baks || []).filter(b => b.rel.replace(/\\\\/g, "/").includes("_bak_probe.yml.bak-"));
+  check("备份列表按时间排序", probeBaks.length >= 2
+    && probeBaks.every((b, i) => i === 0 || probeBaks[i - 1].mtime <= b.mtime),
+    "probeBaks=" + probeBaks.length);
+  /* 删最旧的一份 */
+  const delN = await ev(`MM_HOST_DELETE_FILES(${JSON.stringify([probeBaks[0].path])})`);
+  check("删除指定的旧备份", delN === 1 && !fs.existsSync(probeBaks[0].path));
+  /* 清理入口：UI 层清理（保留最近 5 份，当前只剩 1 份 → 提示不删） */
+  await ev(`MM_APP ? true : true; document.getElementById("btnCleanBak").click(); true`);
+  await sleep(400);
+  fs.rmSync(bakTarget, { force: true });
+  fs.readdirSync(path.join(FIXTURE, "Mobs"))
+    .filter(n => n.startsWith("_bak_probe.yml.bak-"))
+    .forEach(n => fs.rmSync(path.join(FIXTURE, "Mobs", n), { force: true }));
+
+  /* 目录记忆：OPEN_DIR 后 localStorage 里有 mm_last_dir */
+  check("记住上次打开的目录", await ev(`(localStorage.getItem("mm_last_dir") || "").length > 0`));
+
+  /* 循环引用：造两个互引的技能组文件 → 图里检出环 → 删除现场 */
+  const cycA = path.join(FIXTURE, "Skills", "_cyc_a.yml");
+  const cycB = path.join(FIXTURE, "Skills", "_cyc_b.yml");
+  fs.writeFileSync(cycA, "_cyc_a:\n  Skills:\n  - skill{s=_cyc_b}\n");
+  fs.writeFileSync(cycB, "_cyc_b:\n  Skills:\n  - skill{s=_cyc_a}\n");
+  /* 新文件不在开头扫出的列表里：重扫（同时清内容缓存）再构图 */
+  await ev(`MM_HOST_OPEN_DIR(${JSON.stringify(FIXTURE)}); true`);
+  await sleep(400);
+  const g2 = await ev(`MM_HOST_BUILD_GRAPH()`);
+  const g2p = typeof g2 === "string" ? JSON.parse(g2) : g2;
+  const cycles = await ev(`MM_HOST_FIND_CYCLES(${JSON.stringify(g2p.nodes)}, ${JSON.stringify(g2p.edges)})`);
+  const cp = typeof cycles === "string" ? JSON.parse(cycles) : cycles;
+  check("检出互引成环", Array.isArray(cp) && cp.length >= 1
+    && cp.some(c => c.length === 2 && c.join("|").includes("_cyc_a") && c.join("|").includes("_cyc_b")),
+    JSON.stringify(cp));
+  /* 清理弹层里的循环警告渲染正确 */
+  await ev(`MM_APP && document.getElementById("btnGraph").click(); true`);
+  await sleep(700);
+  check("关系图顶部显示循环警告", await ev(`(() => {
+    const w = document.querySelector("#graphBody .graph-cycles");
+    return !!w && w.textContent.includes("循环引用");
+  })()`),
+    await ev(`(document.querySelector("#graphBody .graph-cycles")||{textContent:"无"}).textContent.slice(0, 80)`));
+  await ev(`document.getElementById("btnCloseGraph").click(); true`);
+  fs.rmSync(cycA, { force: true });
+  fs.rmSync(cycB, { force: true });
+
   /* 清掉导入的项目，别留在下次运行里 */
   await ev(`(() => {
     MM_STATE.all().filter(p => p.filePath).forEach(p => MM_STATE.remove(p.id));

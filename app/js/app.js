@@ -455,7 +455,21 @@
         return;
       }
     }
+    /* 循环引用检测（0.16.0）：技能组互相引用成环会让服务端递归卡死 */
+    let cycles = [];
+    if (window.MM_HOST_FIND_CYCLES) {
+      try { cycles = MM_HOST_FIND_CYCLES(g.nodes, g.edges) || []; } catch (e) { cycles = []; }
+    }
     drawGraph(g, body, stat);
+    if (cycles.length) {
+      const warn = document.createElement("div");
+      warn.className = "graph-cycles";
+      warn.innerHTML = "<b>发现 " + cycles.length + " 处循环引用（服务端会一直递归，直到卡死）：</b><br>" +
+        cycles.slice(0, 6).map(function (c) {
+          return "↻ " + c.map(function (n) { return n.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }).join(" → ");
+        }).join("<br>");
+      body.insertBefore(warn, body.firstChild);
+    }
   }
 
   /* 用已打开项目构建同结构图（无文件系统时的降级） */
@@ -567,6 +581,126 @@
     });
   }
 
+  /* 0.16.0：主题切换（默认浅色，深色记住偏好） */
+  function themeInit() {
+    const btn = $("btnTheme");
+    if (!btn) return;
+    let theme = "light";
+    try { theme = localStorage.getItem("mm_theme") === "dark" ? "dark" : "light"; } catch (e) { /* 忽略 */ }
+    apply();
+    btn.addEventListener("click", function () {
+      theme = theme === "dark" ? "light" : "dark";
+      try { localStorage.setItem("mm_theme", theme); } catch (e) { /* 忽略 */ }
+      apply();
+    });
+    function apply() {
+      document.documentElement.dataset.theme = theme;
+      $("themeSun").hidden = theme === "dark";
+      $("themeMoon").hidden = theme !== "dark";
+    }
+  }
+
+  /* 0.16.0：启动时恢复上次打开的服务器目录 */
+  function restoreLastDir() {
+    if (!window.MM_HOST || !MM_HOST.isElectron) return;
+    let dir = null;
+    try { dir = localStorage.getItem("mm_last_dir"); } catch (e) { /* 忽略 */ }
+    if (!dir) return;
+    MM_HOST_OPEN_DIR(dir).then(function (n) {
+      if (n) toast("已恢复上次打开的目录（" + n + " 个文件）");
+    }).catch(function () { /* 目录没了就静默 */ });
+  }
+
+  /* 0.16.0：把没有 filePath 的项目（克隆 / 模板新建）落盘成服务器新文件 */
+  const KIND_DIR = {
+    mob: "Mobs", item: "Items", skill: "Skills", droptable: "Drops",
+    spawner: "Spawners", randomspawn: "RandomSpawns", menu: "Menus",
+    dialog: "Dialogs", cinematic: "Cutscenes", vanillaoverride: "VanillaMobs"
+  };
+  async function saveToServer() {
+    const p = MM_STATE.current();
+    if (!p) { toast("先选一个项目"); return; }
+    const root = window.MM_HOST_ROOT && MM_HOST_ROOT();
+    if (!root) { toast("先打开服务器文件夹"); return; }
+    const dir = KIND_DIR[p.kind];
+    if (!dir) { toast("这种类型（" + p.kind + "）没有独立目录，请用「下载 .yml」手动放置"); return; }
+    const target = root.replace(/[\\/]+$/, "") + "/" + dir + "/" + p.key + ".yml";
+    try {
+      const r = await MM_HOST.write(target, currentYaml());
+      p.filePath = r.file;
+      p.rel = dir + "/" + p.key + ".yml";
+      try { const st = await MM_HOST.read(r.file); p.mtime = st.mtime; } catch (e) { /* 无碍 */ }
+      MM_STATE.touch();
+      refresh(true);
+      toast("已保存到 " + dir + "/" + p.key + ".yml" + (r.backup ? "（覆盖前已备份）" : ""));
+    } catch (e) {
+      toast("保存失败：" + e.message);
+    }
+  }
+
+  /* 0.16.0：清理旧备份（保留最近 5 份） */
+  async function cleanBackups() {
+    const root = window.MM_HOST_ROOT && MM_HOST_ROOT();
+    if (!root) { toast("先打开服务器文件夹"); return; }
+    let list = [];
+    try { list = await MM_HOST_BACKUPS(root); } catch (e) { list = []; }
+    if (!list.length) { toast("没有找到任何 .bak 备份，很干净"); return; }
+    const keep = Math.max(0, 5);
+    const toDelete = list.slice(0, Math.max(0, list.length - keep));
+    if (!toDelete.length) { toast("共 " + list.length + " 份备份，都在最近 5 份内，不用清理"); return; }
+    if (!window.confirm("找到 " + list.length + " 份备份。将删除最旧的 " + toDelete.length +
+      " 份（保留最近 " + keep + " 份），确定吗？")) return;
+    const n = await MM_HOST_DELETE_FILES(toDelete.map(function (b) { return b.path; }));
+    toast("已删除 " + n + " 份旧备份");
+  }
+
+  /* 0.16.0：占位符速查（帮助弹层里，点击复制） */
+  const PH_GROUPS = [
+    { g: "触发者（谁触发了技能）", items: [
+      ["<trigger.name>", "触发者名字"], ["<trigger.health>", "触发者当前血量"],
+      ["<trigger.uuid>", "触发者 UUID"], ["<trigger.display>", "触发者显示名"],
+      ["<trigger.stance>", "触发者站姿（站/蹲/游）"]
+    ] },
+    { g: "施法者（放技能的怪）", items: [
+      ["<caster.name>", "施法者名字"], ["<caster.health>", "施法者当前血量"],
+      ["<caster.maxhealth>", "施法者最大血量"], ["<caster.l.x>", "施法者 X 坐标"],
+      ["<caster.l.y>", "施法者 Y 坐标"], ["<caster.l.z>", "施法者 Z 坐标"],
+      ["<caster.hp.full>", "满血时的血量"]
+    ] },
+    { g: "目标（技能作用的对象）", items: [
+      ["<target.name>", "目标名字"], ["<target.health>", "目标当前血量"],
+      ["<target.uuid>", "目标 UUID"], ["<target.threat>", "目标对施法者的仇恨值"]
+    ] },
+    { g: "通用", items: [
+      ["<skill.var.名称>", "技能变量"], ["<skill.vardiff.名称>", "技能变量变化量"],
+      ["<global.var.名称>", "全局变量"], ["<random.1to5>", "1~5 随机数"],
+      ["<random.amount>", "0~100 随机数"]
+    ] }
+  ];
+  function phInit() {
+    const list = $("phList");
+    if (!list) return;
+    PH_GROUPS.forEach(function (grp) {
+      const t = document.createElement("div");
+      t.className = "ph-group";
+      t.textContent = grp.g;
+      list.appendChild(t);
+      grp.items.forEach(function (item) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "ph-row";
+        row.title = "点击复制";
+        row.innerHTML = '<code>' + item[0].replace(/</g, "&lt;") + '</code><span>' + item[1] + "</span>";
+        row.addEventListener("click", function () {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(item[0]).then(function () { toast("已复制 " + item[0]); }, function () { /* 忽略 */ });
+          }
+        });
+        list.appendChild(row);
+      });
+    });
+  }
+
   function init() {
 
     MM_UI.init({
@@ -589,6 +723,9 @@
     $("btnNewDropTable").addEventListener("click", function () { newProject("droptable"); });
     buildNewMenu();
     gsInit();
+    themeInit();
+    phInit();
+    $("btnCleanBak").addEventListener("click", cleanBackups);
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });
@@ -633,7 +770,8 @@
     // 给空状态里的按钮用
     window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
       reload: reloadFromDisk, switchEntry: switchEntry, clone: cloneProject, saveAsTemplate: saveAsTemplate,
-      undo: doUndo, redo: doRedo };
+      undo: doUndo, redo: doRedo, saveToServer: saveToServer };
+    restoreLastDir();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
