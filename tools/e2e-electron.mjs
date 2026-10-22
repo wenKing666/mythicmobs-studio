@@ -524,6 +524,25 @@ async function main() {
   /* 还原 ai_guard.yml（改名联动测试改写了它） */
   if (aiFile && guardOrig) fs.writeFileSync(aiFile.path, guardOrig);
 
+  /* ---------- 0.14.0：服务器文件内容搜索 ---------- */
+
+  const skelHits = await ev(`MM_HOST_SEARCH_FILES("SKELETON")`);
+  check("文件内容搜索命中 skeleton_king", Array.isArray(skelHits)
+    && skelHits.some(h => h.rel.replace(/\\/g, "/").includes("skeleton_king")
+      && /Type:\s*SKELETON/.test(h.snippet)),
+    JSON.stringify((skelHits || []).slice(0, 2)));
+  check("搜索带行号与摘要", Array.isArray(skelHits) && skelHits.length
+    && skelHits.every(h => h.line >= 1 && typeof h.snippet === "string"));
+  /* 命中文件能直接打开进表单 */
+  const firstHit = (skelHits || []).find(h => h.rel.replace(/\\/g, "/").includes("skeleton_king"));
+  if (firstHit) {
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: firstHit.path, name: firstHit.name, kind: firstHit.kind, rel: firstHit.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(500);
+    check("搜索结果点开进表单", await ev(`MM_STATE.current().key === "skeleton_king"`));
+  }
+
   /* 清掉导入的项目，别留在下次运行里 */
   await ev(`(() => {
     MM_STATE.all().filter(p => p.filePath).forEach(p => MM_STATE.remove(p.id));

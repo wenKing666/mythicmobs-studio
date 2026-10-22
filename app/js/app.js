@@ -342,6 +342,94 @@
     else toast("没有可重做的改动");
   }
 
+  /* 0.14.0：全局搜索——已打开的项目 + 服务器文件内容 */
+  let gsTimer = null;
+  function gsEl(tag, attrs) {
+    const n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      const v = attrs[k];
+      if (v === undefined || v === null) return;
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else if (k === "onclick") n.addEventListener("click", v);
+    });
+    return n;
+  }
+  function gsInit() {
+    const box = $("gsearch");
+    const input = $("gsearchInput");
+    const pop = $("gsearchPop");
+    if (!box || !input) return;
+
+    function close() { pop.hidden = true; }
+
+    function row(title, sub, onclick) {
+      const n = gsEl("div", { class: "gs-item", onclick: onclick });
+      n.appendChild(gsEl("div", { class: "gs-t", text: title }));
+      n.appendChild(gsEl("div", { class: "gs-s", text: sub }));
+      return n;
+    }
+
+    function render(projects, files) {
+      pop.innerHTML = "";
+      if (projects.length) {
+        pop.appendChild(gsEl("div", { class: "gs-group", text: "我的项目" }));
+        projects.forEach(function (p) {
+          pop.appendChild(row(plainName(p) || p.key, p.key, function () {
+            close(); input.value = "";
+            MM_STATE.select(p.id);
+            MM_UI.renderEditor($("editor"), p);
+            refresh(true);
+          }));
+        });
+      }
+      if (files.length) {
+        pop.appendChild(gsEl("div", { class: "gs-group", text: "服务器文件" }));
+        files.forEach(function (f) {
+          pop.appendChild(row(f.name + " · 第 " + f.line + " 行", f.snippet, function () {
+            close(); input.value = "";
+            if (window.MM_HOST_OPEN_FILE) MM_HOST_OPEN_FILE(f);
+          }));
+        });
+      }
+      if (!projects.length && !files.length) {
+        pop.appendChild(gsEl("div", { class: "gs-empty", text: "没有匹配的配置。" }));
+      }
+      pop.hidden = false;
+    }
+
+    input.addEventListener("input", function () {
+      if (gsTimer) clearTimeout(gsTimer);
+      const term = input.value.trim();
+      if (term.length < 2) { close(); return; }
+      gsTimer = setTimeout(async function () {
+        /* 已打开的项目：搜它们生成的 YAML */
+        const projects = MM_STATE.all().filter(function (p) {
+          try {
+            return MM_YAML.generate(p).toLowerCase().indexOf(term.toLowerCase()) >= 0;
+          } catch (e) { return false; }
+        }).slice(0, 8);
+        /* 服务器文件：桌面版才有 */
+        let files = [];
+        if (window.MM_HOST_SEARCH_FILES) {
+          try { files = (await MM_HOST_SEARCH_FILES(term)).slice(0, 20); }
+          catch (e) { files = []; }
+        }
+        render(projects, files);
+      }, 300);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { close(); input.blur(); }
+      if (e.key === "Enter") {
+        const first = pop.querySelector(".gs-item");
+        if (first) first.click();
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (!box.contains(e.target)) close();
+    });
+  }
+
   function init() {
 
     MM_UI.init({
@@ -363,6 +451,7 @@
     $("btnNewSkill").addEventListener("click", function () { newProject("skill"); });
     $("btnNewDropTable").addEventListener("click", function () { newProject("droptable"); });
     buildNewMenu();
+    gsInit();
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });

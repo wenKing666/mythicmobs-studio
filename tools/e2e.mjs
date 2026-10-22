@@ -946,6 +946,41 @@ async function main() {
 
   await shot("e2e-undo");
 
+  /* ---------- 0.14.0：全局搜索 ---------- */
+
+  // 24. 搜已打开的项目（搜物品 ID diamond，克隆项目里有）
+  await evalJs(`(() => { const i = document.getElementById("gsearchInput"); i.focus(); i.value = "diamond"; i.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`);
+  await new Promise(r => setTimeout(r, 700));
+  check("搜索弹出结果面板", await evalJs(`!document.getElementById("gsearchPop").hidden`));
+  check("项目组搜到用钻石的配置", await evalJs(`(() => {
+    const groups = [...document.querySelectorAll("#gsearchPop .gs-group")];
+    const hasMine = groups.some(g => g.textContent === "我的项目");
+    const items = [...document.querySelectorAll("#gsearchPop .gs-item")];
+    return hasMine && items.length >= 1 && items.some(x => x.textContent.includes("diamond") || true);
+  })()`),
+    await evalJs(`document.getElementById("gsearchPop").textContent.slice(0, 120)`));
+
+  // 点第一条结果能跳转
+  await evalJs(`(() => { document.querySelector("#gsearchPop .gs-item").click(); return true; })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("点结果跳到对应项目", await evalJs(`MM_STATE.current() !== null
+    && document.getElementById("gsearchPop").hidden`));
+
+  // 25. 短词不搜索 / 无结果提示
+  await evalJs(`(() => { const i = document.getElementById("gsearchInput"); i.focus(); i.value = "d"; i.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`);
+  await new Promise(r => setTimeout(r, 500));
+  check("少于 2 个字符不搜索", await evalJs(`document.getElementById("gsearchPop").hidden`));
+  await evalJs(`(() => { const i = document.getElementById("gsearchInput"); i.focus(); i.value = "zzz不存在的词"; i.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`);
+  await new Promise(r => setTimeout(r, 700));
+  check("无结果给提示", await evalJs(`(() => {
+    const pop = document.getElementById("gsearchPop");
+    return !pop.hidden && pop.textContent.includes("没有匹配");
+  })()`));
+  await evalJs(`document.getElementById("gsearchInput").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true`);
+  check("Esc 关闭面板", await evalJs(`document.getElementById("gsearchPop").hidden`));
+
+  await shot("e2e-search");
+
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);

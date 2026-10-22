@@ -235,6 +235,7 @@
     const r = await MM_HOST.scan(dir);
     rootDir = r.dir;
     files = r.files;
+    Object.keys(textCache).forEach(function (k) { delete textCache[k]; });
     $("serverDir").textContent = rootDir;
     $("serverDir").title = rootDir;
     $("serverBlock").hidden = false;
@@ -242,6 +243,38 @@
     return files.length;
   };
   window.MM_HOST_OPEN_FILE = openFile;
+
+  /* 全局搜索（0.14.0）：在扫过的服务器文件里找关键字。
+     带内容缓存（重扫目录时清空；单文件外部改动由「已改动」标记提示）。 */
+  const textCache = {};
+  window.MM_HOST_SEARCH_FILES = async function (term) {
+    const t = String(term || "").trim().toLowerCase();
+    if (!t || !files.length) return [];
+    const out = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      let text = textCache[f.path];
+      if (text === undefined) {
+        try { text = (await MM_HOST.read(f.path)).text || ""; }
+        catch (e) { text = ""; }
+        textCache[f.path] = text;
+      }
+      const lower = text.toLowerCase();
+      let idx = lower.indexOf(t), hits = 0;
+      while (idx >= 0 && hits < 3) {
+        const lineNo = text.slice(0, idx).split("\n").length;
+        const line = text.split("\n")[lineNo - 1] || "";
+        out.push({
+          path: f.path, rel: f.rel, name: f.name, kind: f.kind,
+          line: lineNo, snippet: line.trim().slice(0, 80)
+        });
+        hits++;
+        idx = lower.indexOf(t, idx + t.length);
+      }
+      if (out.length > 60) break;
+    }
+    return out;
+  };
 
   /* 反向引用扫描（0.11.0）：在扫过的文件里找「谁引用了这个技能组 / 掉落表」。
      kind = "skill" | "droptable"，name 是配置 ID（不含 table: 前缀）。
