@@ -20,6 +20,7 @@ vm.createContext(ctx);
 function load(f) { vm.runInContext(fs.readFileSync(path.join(ROOT, f), "utf8"), ctx, { filename: f }); }
 load("app/js/data.js");
 load("app/js/catalog.js");
+load("app/js/extras-data.js");
 load("app/js/yaml.js");
 load("app/js/import.js");
 

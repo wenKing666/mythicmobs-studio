@@ -10,7 +10,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 /* 浏览器里的模块都挂在 window 上，这里造一个最小 shim */
 const win = {};
 globalThis.window = win;
-for (const f of ["app/js/data.js", "app/js/options-data.js", "app/js/yaml.js", "app/js/state.js", "app/js/import.js"]) {
+for (const f of ["app/js/data.js", "app/js/options-data.js", "app/js/extras-data.js", "app/js/yaml.js", "app/js/state.js", "app/js/import.js"]) {
   const src = fs.readFileSync(path.join(ROOT, f), "utf8");
   (0, eval)(src);
   Object.assign(globalThis, win);
@@ -88,6 +88,9 @@ console.log("\n[3] 未识别块 / 未知 Option / 多条目 / 行内条件");
     "  AIGoalSelectors:",
     "  - clear",
     "  - meleeattack",
+    "  AITargetSelectors:",
+    "  - clear",
+    "  - players",
     "  DamageModifiers:",
     "  - ENTITY_ATTACK 0.5",
     "  Skills:",
@@ -102,8 +105,12 @@ console.log("\n[3] 未识别块 / 未知 Option / 多条目 / 行内条件");
   ok("导入成功", r.ok, r.reason);
   ok("多条目给出提示", r.warnings.some(w => w.includes("2 个条目")), JSON.stringify(r.warnings));
   eq("未知 Option 进保留区", p.raw.options, { SomeUnknownOption: 5 });
-  ok("AIGoalSelectors 整块保留", p.raw.entry.join("\n").includes("AIGoalSelectors"), JSON.stringify(p.raw.entry));
-  ok("DamageModifiers 整块保留", p.raw.entry.join("\n").includes("DamageModifiers"));
+  /* 0.6.0 起 AI 与伤害修正都进了表单，不再整块原样保留 */
+  eq("AIGoalSelectors 进表单", p.data.aiGoals.map(g => g.goal), ["clear", "meleeattack"]);
+  eq("AITargetSelectors 进表单", p.data.aiTargets.map(t => t.target), ["clear", "players"]);
+  eq("DamageModifiers 进表单", p.data.damageModifiers, [{ type: "ENTITY_ATTACK", value: "0.5" }]);
+  eq("AI 不再进保留区", p.raw.entry.join("\n").includes("AIGoalSelectors"), false);
+  eq("伤害修正不再进保留区", p.raw.entry.join("\n").includes("DamageModifiers"), false);
   ok("第二个条目整块保留", p.raw.others.join("\n").includes("other_mob:"), JSON.stringify(p.raw.others));
   ok("头部注释保留", p.raw.head.join("\n").includes("车队配置文件"));
   ok("含行内条件的技能保留为原始行", !!p.data.skills[1].raw, JSON.stringify(p.data.skills[1]));
@@ -113,6 +120,7 @@ console.log("\n[3] 未识别块 / 未知 Option / 多条目 / 行内条件");
   const doc = parse(out);
   eq("血量已改", doc.skeleton_king.Health, 800);
   eq("AIGoalSelectors 写回正确", doc.skeleton_king.AIGoalSelectors, ["clear", "meleeattack"]);
+  eq("AITargetSelectors 写回正确", doc.skeleton_king.AITargetSelectors, ["clear", "players"]);
   eq("DamageModifiers 写回正确", doc.skeleton_king.DamageModifiers, ["ENTITY_ATTACK 0.5"]);
   eq("未知 Option 写回正确", doc.skeleton_king.Options.SomeUnknownOption, 5);
   eq("已知 Option 写回正确", doc.skeleton_king.Options.PreventSunburn, true);

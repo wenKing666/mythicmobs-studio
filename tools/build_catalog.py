@@ -35,7 +35,13 @@ ZH_FILES = {
     "particles": "particles.json",
     "params": "params.json",
     "context": "context.json",
+    "ai": "ai.json",
 }
+
+# AIGoalSelectors 的条目在官方 51 个例子里一律写成 "- 0 clear" / "- 1 meleeattack"，
+# 前面的数字是优先级；AITargetSelectors 的例子则不带数字（"- clear" / "- attacker"）。
+# 生成侧照抄这个形态，别自作聪明统一。
+AI_GROUP_PREFIX = "ai-"
 
 
 def load_zh():
@@ -498,8 +504,37 @@ def main():
         })
     particles.sort(key=lambda x: x["id"])
 
+    # ---- AI 行为 / 目标选择器 ----
+    zh_ai = zh.get("ai") or {}
+    ai_group_of = (zh_ai.get("groupOf") or {})
+    ai_goals = build_components(schema.get("ai-goals") or {}, "aigoal",
+                                zh_ai.get("goals") or {}, zh_params,
+                                ctx_map=zh_ctx.get("aigoal"))
+    for g in ai_goals:
+        g["group"] = AI_GROUP_PREFIX + ((ai_group_of.get("goals") or {}).get(g["id"]) or "misc")
+    # clear 不是 wiki 里的独立页面，但它是写自定义 AI 的第一条，缺了它界面等于半个残废
+    ai_goals.insert(0, {
+        "id": "clear", "en": "Clear", "zh": "清空原版 AI",
+        "desc": "清空生物自带的原版 AI，让后面的行为选择器完全接管。不写这一条，原版 AI 会和你的配置打架。",
+        "params": [], "ex": ["- 0 clear"], "group": AI_GROUP_PREFIX + "base",
+    })
+    ai_targets = build_components(schema.get("ai-targets") or {}, "aitarget",
+                                  zh_ai.get("targets") or {}, zh_params,
+                                  ctx_map=zh_ctx.get("aitarget"))
+    for t in ai_targets:
+        t["group"] = AI_GROUP_PREFIX + ((ai_group_of.get("targets") or {}).get(t["id"]) or "misc")
+    ai_targets.insert(0, {
+        "id": "clear", "en": "Clear", "zh": "清空目标选择器",
+        "desc": "清空生物默认的目标选择逻辑。自定义 AI 通常也要先清空，否则原版仍会自己找目标。",
+        "params": [], "ex": ["- clear"], "group": AI_GROUP_PREFIX + "base",
+    })
+    ai_groups = [{"id": AI_GROUP_PREFIX + g["id"], "title": g["title"]} for g in (zh_ai.get("_groups") or [])]
+    if not any(g["id"] == AI_GROUP_PREFIX + "base" for g in ai_groups):
+        ai_groups.insert(0, {"id": AI_GROUP_PREFIX + "base", "title": "基础"})
+    ai_groups.append({"id": AI_GROUP_PREFIX + "misc", "title": "其他"})
+
     # 统计
-    all_params = [p for c in mechanics + conditions + targeters for p in c["params"]]
+    all_params = [p for c in mechanics + conditions + targeters + ai_goals + ai_targets for p in c["params"]]
     conf_bucket = collections.Counter(
         "high" if p["conf"] >= 0.7 else ("mid" if p["conf"] >= 0.45 else "low")
         for p in all_params
@@ -514,13 +549,15 @@ def main():
             "particles": len(particles),
             "universal": len(universal),
             "params": len(all_params),
+            "aiGoals": len(ai_goals),
+            "aiTargets": len(ai_targets),
         },
         "types": dict(type_count),
         "confidence": dict(conf_bucket),
         "group_count": dict(collections.Counter(c["group"] for c in mechanics)),
         "misc_mechanics": [c["id"] for c in mechanics if c["group"] == "misc"],
         "no_param": [c["id"] for c in mechanics if not c["params"]],
-        "missing_param_zh": sorted({p["name"] for c in mechanics + conditions + targeters
+        "missing_param_zh": sorted({p["name"] for c in mechanics + conditions + targeters + ai_goals + ai_targets
                                     for p in c["params"] if not p["zh"]}),
         "low_confidence": [
             {"component": c["id"], "param": p["name"], "type": p["type"],
@@ -532,6 +569,8 @@ def main():
             "conditions": [c["id"] for c in conditions if not c["zh"]],
             "targeters": [c["id"] for c in targeters if not c["zh"]],
             "triggers": [c["id"] for c in triggers if not c["zh"]],
+            "aiGoals": [c["id"] for c in ai_goals if not c["zh"]],
+            "aiTargets": [c["id"] for c in ai_targets if not c["zh"]],
         },
     }
 
@@ -541,13 +580,17 @@ def main():
             "built": "tools/build_catalog.py",
             "counts": report["counts"],
         },
-        "groups": [{"id": g, "title": t} for g, t, _ in GROUPS] + [{"id": GROUP_FALLBACK[0], "title": GROUP_FALLBACK[1]}],
+        "groups": [{"id": g, "title": t} for g, t, _ in GROUPS]
+                  + [{"id": GROUP_FALLBACK[0], "title": GROUP_FALLBACK[1]}]
+                  + ai_groups,
         "universal": universal,
         "mechanics": mechanics,
         "conditions": conditions,
         "targeters": targeters,
         "triggers": triggers,
         "particles": particles,
+        "aiGoals": ai_goals,
+        "aiTargets": ai_targets,
     }
 
     body = (

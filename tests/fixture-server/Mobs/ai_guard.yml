@@ -1,0 +1,30 @@
+# AI 与伤害修正夹具。
+# 故意留了一个不存在的技能 GuardTaunt，用来验证「引用检查」能标出打错的技能名。
+ai_guard:
+  Type: ZOMBIE
+  Display: '&2守卫'
+  Health: 120
+  Armor: 4
+  AIGoalSelectors:
+  - 0 clear
+  - 1 meleeattack{speedmodifier=1.2}
+  - 2 lookatplayers{range=8}
+  - 3 randomstroll
+  AITargetSelectors:
+  - clear
+  - players
+  - hurtbytarget
+  DamageModifiers:
+  - FIRE 0
+  - PROJECTILE 0.5
+  - ENTITY_ATTACK 1.5
+  - MAGIC -1
+  Equipment:
+  - iron_sword HAND
+  Skills:
+  - skill{s=GuardTaunt} @target ~onTimer:100
+  Options:
+    MovementSpeed: 0.24
+  Drops:
+  - table:boss_loot
+  - exp 15 1

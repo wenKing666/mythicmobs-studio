@@ -17,41 +17,58 @@
     return MM_YAML.generate(MM_STATE.current());
   }
 
-  function renderWarnings(issues) {
+  /* 两块提示共用这个框：
+     必填项缺失 = 拦截保存（红），引用检查 = 只提示（蓝），后者不挡保存 */
+  function renderWarnings(issues, refs) {
     const box = $("yamlWarn");
     const dl = $("btnDownload");
-    if (!issues.length) {
+    issues = issues || [];
+    refs = refs || [];
+    if (!issues.length && !refs.length) {
       box.hidden = true;
       box.innerHTML = "";
+      box.classList.remove("soft");
       dl.disabled = false;
       dl.title = "";
       return;
     }
     box.hidden = false;
+    box.classList.toggle("soft", !issues.length);
     box.innerHTML = "";
-    const head = document.createElement("b");
-    head.textContent = "还差 " + issues.length + " 项才能用：";
-    box.appendChild(head);
-    const ul = document.createElement("ul");
-    issues.slice(0, 6).forEach(function (t) {
-      const li = document.createElement("li");
-      li.textContent = t;
-      ul.appendChild(li);
-    });
-    if (issues.length > 6) {
-      const li = document.createElement("li");
-      li.textContent = "……还有 " + (issues.length - 6) + " 项";
-      ul.appendChild(li);
+
+    function listHead(title, arr) {
+      const head = document.createElement("b");
+      head.textContent = title;
+      box.appendChild(head);
+      const ul = document.createElement("ul");
+      arr.slice(0, 6).forEach(function (t) {
+        const li = document.createElement("li");
+        li.textContent = t;
+        ul.appendChild(li);
+      });
+      if (arr.length > 6) {
+        const li = document.createElement("li");
+        li.textContent = "……还有 " + (arr.length - 6) + " 项";
+        ul.appendChild(li);
+      }
+      box.appendChild(ul);
     }
-    box.appendChild(ul);
-    dl.disabled = true;
-    dl.title = "先补全上面列出的必填项";
+
+    if (issues.length) {
+      listHead("还差 " + issues.length + " 项才能用：", issues);
+      dl.disabled = true;
+      dl.title = "先补全上面列出的必填项";
+    } else {
+      dl.disabled = false;
+      dl.title = "";
+    }
+    if (refs.length) listHead("引用检查（不影响保存）：", refs);
   }
 
   function refresh(rebuild) {
     const p = MM_STATE.current();
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
-    renderWarnings(MM_YAML.validate(p));
+    renderWarnings(MM_YAML.validate(p), MM_YAML.refIssues(p));
 
     // 侧栏标题随名字变化
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
@@ -70,7 +87,7 @@
     MM_UI.renderEditor($("editor"), MM_STATE.current());
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
-    renderWarnings(MM_YAML.validate(MM_STATE.current()));
+    renderWarnings(MM_YAML.validate(MM_STATE.current()), MM_YAML.refIssues(MM_STATE.current()));
     $("editor").scrollTop = 0;
   }
 
@@ -159,6 +176,7 @@
     $("btnNewMob").addEventListener("click", function () { newProject("mob"); });
     $("btnNewItem").addEventListener("click", function () { newProject("item"); });
     $("btnNewSkill").addEventListener("click", function () { newProject("skill"); });
+    $("btnNewDropTable").addEventListener("click", function () { newProject("droptable"); });
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });
@@ -171,7 +189,7 @@
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
     MM_UI.renderEditor($("editor"), MM_STATE.current());
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
-    renderWarnings(MM_YAML.validate(MM_STATE.current()));
+    renderWarnings(MM_YAML.validate(MM_STATE.current()), MM_YAML.refIssues(MM_STATE.current()));
 
     document.addEventListener("keydown", function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {

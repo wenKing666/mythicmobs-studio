@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const win = {};
 globalThis.window = win;
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-for (const f of ["app/js/data.js", "app/js/options-data.js", "app/js/catalog.js", "app/js/yaml.js", "app/js/state.js", "app/js/import.js"]) {
+for (const f of ["app/js/data.js", "app/js/options-data.js", "app/js/catalog.js", "app/js/extras-data.js", "app/js/yaml.js", "app/js/state.js", "app/js/import.js"]) {
   const src = fs.readFileSync(path.join(ROOT, f), "utf8");
   (0, eval)(src);
   Object.assign(globalThis, win);

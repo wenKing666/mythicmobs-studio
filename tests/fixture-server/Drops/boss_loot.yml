@@ -1,0 +1,15 @@
+boss_loot:
+  TotalItems: 2
+  MinItems: 1
+  MaxItems: 3
+  BonusLevelItems: 0.5
+  BonusLuckItems: 0.1
+  Conditions:
+  - day true
+  TriggerConditions:
+  - permission{p=mythic.loot}
+  Drops:
+  - diamond 2-4 0.5
+  - item flame_sword
+  - exp 50 1
+  - cmd{cmd="crate give <trigger.name> RewardCrate 1"} 1 0.2

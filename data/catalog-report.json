@@ -6,21 +6,23 @@
   "triggers": 38,
   "particles": 120,
   "universal": 14,
-  "params": 1516
+  "params": 1621,
+  "aiGoals": 52,
+  "aiTargets": 15
  },
  "types": {
-  "text": 427,
-  "number": 660,
-  "boolean": 338,
+  "text": 441,
+  "number": 729,
+  "boolean": 349,
   "skill": 34,
   "enum": 38,
-  "condition": 16,
+  "condition": 27,
   "color": 3
  },
  "confidence": {
-  "high": 1283,
-  "mid": 154,
-  "low": 79
+  "high": 1377,
+  "mid": 164,
+  "low": 80
  },
  "group_count": {
   "entity": 36,
@@ -424,6 +426,8 @@
   "mechanics": [],
   "conditions": [],
   "targeters": [],
-  "triggers": []
+  "triggers": [],
+  "aiGoals": [],
+  "aiTargets": []
  }
 }

@@ -57,7 +57,9 @@ window.MM_YAML = (function () {
     /* 导入来的 ID 原样保留（MM 允许 . 和 -），只在真的非法时才清洗 */
     if (/^[A-Za-z0-9_.\-]+$/.test(raw)) return raw;
     const k = raw.replace(/[^A-Za-z0-9_\-]/g, "_").replace(/^_+|_+$/g, "");
-    return k || (p.kind === "mob" ? "my_mob" : "my_item");
+    return k || (p.kind === "mob" ? "my_mob"
+      : p.kind === "skill" ? "my_skill"
+      : p.kind === "droptable" ? "my_droptable" : "my_item");
   }
 
   /* 全部怪物 Options（126 项），带类型与默认值 */
@@ -70,6 +72,93 @@ window.MM_YAML = (function () {
     (MM_OPTS.groups || []).forEach(function (g) { (g.items || []).forEach(function (x) { out.push(x); }); });
     (MM_OPTS.mobs || []).forEach(function (g) { (g.items || []).forEach(function (x) { out.push(x); }); });
     return out;
+  }
+
+  /* ---------- AI 行为 / 目标 / 伤害修正 / 掉落 ---------- */
+
+  /* AI 选择器的参数：只写与 wiki 默认值不同的，名字用正式名（AI 的别名很容易撞车） */
+  function aiParams(id, values, kind) {
+    const def = catOf(kind || "aiGoals", id);
+    const parts = [];
+    if (!def || !values) return parts;
+    (def.params || []).forEach(function (pp) {
+      const v = values[pp.name];
+      if (v === undefined || v === null) return;
+      const sv = String(v).trim();
+      if (sv === "") return;
+      if (pp.def !== "" && sv === String(pp.def)) return;
+      parts.push(pp.name + "=" + pval(sv));
+    });
+    return parts;
+  }
+
+  /* AIGoalSelectors 的行带优先级数字（官方 51 个例子都是 "- 0 clear" 这种写法）；
+     AITargetSelectors 的行不带数字。别把两者统一成一个形态。
+     优先级只在文件里本来就写了数字时才补，避免把纯 `- clear` 的写法改花。 */
+  function aiGoalLines(list) {
+    const out = [];
+    const rows = (list || []).filter(function (r) { return r && r.goal; });
+    const numbered = rows.some(function (r) { return r.priority !== undefined && r.priority !== null && r.priority !== ""; });
+    rows.forEach(function (row) {
+      const parts = aiParams(row.goal, row.params, "aiGoals");
+      const body = parts.length ? row.goal + "{" + parts.join(";") + "}" : row.goal;
+      out.push(numbered ? String(row.priority !== undefined && row.priority !== "" ? row.priority : out.length) + " " + body : body);
+    });
+    return out;
+  }
+
+  function aiTargetLines(list) {
+    const out = [];
+    (list || []).forEach(function (row) {
+      const id = row.target;
+      if (!id) return;
+      const parts = aiParams(id, row.params, "aiTargets");
+      out.push(parts.length ? id + "{" + parts.join(";") + "}" : id);
+    });
+    return out;
+  }
+
+  /* 伤害修正：正数=倍率，0=免疫但仍有受伤动画，负数=取消伤害并按绝对值回血 */
+  function damageModifierLines(list) {
+    const out = [];
+    (list || []).forEach(function (m) {
+      const t = String(m.type || "").trim().toUpperCase();
+      const v = String(m.value === undefined || m.value === null ? "" : m.value).trim();
+      if (!t || v === "") return;
+      out.push(t + " " + v);
+    });
+    return out;
+  }
+
+  /* 一条掉落可以是：原版/自定义物品（可带行内 {参数}）、某个掉落类型、或引用掉落表 */
+  function dropLine(x) {
+    if (x.table) return String(x.table).trim();
+    if (x.type) {
+      const v = String(x.value || "").trim();
+      const c = String(x.chance || "").trim();
+      /* cmd / mythicitem 这类要把参数写在花括号里：`cmd{cmd="give ..."} 1 0.5` */
+      const inline = String(x.params || "").trim();
+      const head = x.type + (inline ? "{" + inline.replace(/^\{|\}$/g, "") + "}" : "");
+      return head + (v ? " " + v : "") + (c ? " " + c : "");
+    }
+    const item = String(x.item || "").trim();
+    if (!item) return "";
+    const inline = String(x.params || "").trim();
+    const head = inline ? item + "{" + inline.replace(/^\{|\}$/g, "") + "}" : item;
+    const amt = String(x.amount === undefined || x.amount === null || x.amount === "" ? "1" : x.amount).trim();
+    const c = String(x.chance || "").trim();
+    return head + " " + amt + (c ? " " + c : "");
+  }
+
+  function hasDrop(x) {
+    return !!(x && (String(x.item || "").trim() || String(x.type || "").trim() || String(x.table || "").trim()));
+  }
+
+  function dropBlock(L, drops, indent) {
+    const rows = (drops || []).filter(hasDrop).map(dropLine).filter(Boolean);
+    if (!rows.length) return false;
+    rows.forEach(function (r) { L.push(indent + "- " + r); });
+    return true;
   }
 
   function mob(p) {
@@ -125,6 +214,23 @@ window.MM_YAML = (function () {
       eq.forEach(function (e) { L.push("  - " + e.item + " " + e.slot); });
     }
 
+    // AI：行为选择器带优先级数字，目标选择器不带
+    const ag = aiGoalLines(d.aiGoals);
+    if (ag.length) {
+      L.push("  AIGoalSelectors:");
+      ag.forEach(function (x) { L.push("  - " + x); });
+    }
+    const at = aiTargetLines(d.aiTargets);
+    if (at.length) {
+      L.push("  AITargetSelectors:");
+      at.forEach(function (x) { L.push("  - " + x); });
+    }
+    const dm = damageModifierLines(d.damageModifiers);
+    if (dm.length) {
+      L.push("  DamageModifiers:");
+      dm.forEach(function (x) { L.push("  - " + x); });
+    }
+
     // 技能（含导入时无法结构化、只能原样保留的行）
     const sk = (d.skills || []).filter(function (s) { return s.raw || s.mechanic; });
     if (sk.length) {
@@ -133,14 +239,9 @@ window.MM_YAML = (function () {
     }
 
     // 掉落
-    const dr = (d.drops || []).filter(function (x) { return x.item; });
-    if (dr.length) {
+    if ((d.drops || []).filter(hasDrop).length) {
       L.push("  Drops:");
-      dr.forEach(function (x) {
-        const amt = x.amount === "" ? "1" : x.amount;
-        const chance = x.chance === "" ? "" : " " + x.chance;
-        L.push("  - " + x.item + " " + amt + chance);
-      });
+      dropBlock(L, d.drops, "  ");
     }
     pushTail(L, raw);
     return L.join("\n") + "\n";
@@ -311,6 +412,92 @@ window.MM_YAML = (function () {
   }
 
   /* ---------- 物品 ---------- */
+  /* ---------- 物品组件（1.20.5+ 的 data component 映射） ---------- */
+
+  function itemCompSpec() {
+    return (window.MM_EXTRAS && MM_EXTRAS.itemComponents) || [];
+  }
+
+  function itemComponentLines(L, comps) {
+    if (!comps) return;
+    const spec = itemCompSpec();
+    const order = {};
+    spec.forEach(function (c, i) { order[c.id] = i; });
+    const defOf = {};
+    spec.forEach(function (c) { defOf[c.id] = c; });
+
+    const ids = Object.keys(comps).sort(function (a, b) {
+      const ia = order[a] === undefined ? 999 : order[a];
+      const ib = order[b] === undefined ? 999 : order[b];
+      return ia - ib || (a < b ? -1 : a > b ? 1 : 0);
+    });
+
+    ids.forEach(function (id) {
+      const entry = comps[id];
+      if (!entry) return;
+      const c = defOf[id];
+
+      if (entry.list && entry.list.length) {
+        const vals = entry.list.filter(function (x) { return String(x).trim() !== ""; });
+        if (!vals.length) return;
+        L.push("  " + id + ":");
+        vals.forEach(function (v) { L.push("  - " + String(v).trim()); });
+        return;
+      }
+
+      const fields = entry.params || {};
+      const keys = Object.keys(fields);
+      if ((!c || !(c.params || []).length) && !keys.length) {
+        // 标量组件：Rarity / Enchantability / DamageResistant…
+        const v = entry.value;
+        if (v === undefined || v === null || String(v).trim() === "") return;
+        L.push("  " + id + ": " + scalarAny(v));
+        return;
+      }
+
+      const lines = [];
+      const pdefs = {};
+      ((c && c.params) || []).forEach(function (pp) { pdefs[pp.name] = pp; });
+      /* 先按 wiki 顺序输出已知子键，再补表单不认识的 */
+      const known = ((c && c.params) || []).map(function (pp) { return pp.name; });
+      const rest = keys.filter(function (k) { return known.indexOf(k) < 0; });
+      known.concat(rest).forEach(function (k) {
+        const v = fields[k];
+        if (v === undefined || v === null) return;
+        if (typeof v === "boolean") { lines.push("    " + k + ": " + (v ? "true" : "false")); return; }
+        const sv = String(v).trim();
+        if (sv === "") return;
+        const pp = pdefs[k];
+        if (pp && pp.def !== "" && pp.type !== "boolean" && sv === String(pp.def)) return;
+        /* 数字与布尔值都要保持原类型，写成 '1.5' 组件会读不到 */
+        if (pp && pp.type === "number" && /^-?\d+(\.\d+)?$/.test(sv)) { lines.push("    " + k + ": " + sv); return; }
+        if (/^(true|false)$/i.test(sv)) { lines.push("    " + k + ": " + sv.toLowerCase()); return; }
+        lines.push("    " + k + ": " + scalarAny(v));
+      });
+      if (!lines.length) return;
+      L.push("  " + id + ":");
+      L.push.apply(L, lines);
+    });
+  }
+
+  /* 物品 Options 清单：优先用从 wiki 抽出来的 17 项（data/zh/items.json + build_extras.py），
+     早期 data.js 里那 4 项只在没有 extras 数据时兜底。 */
+  function itemOptionList() {
+    const ex = (window.MM_EXTRAS && MM_EXTRAS.itemOptions) || [];
+    if (ex.length) {
+      return ex.map(function (o) {
+        return {
+          key: o.id,
+          label: o.zh || o.id,
+          type: o.type === "boolean" ? "bool" : o.type,
+          def: o.def,
+          desc: o.desc || ""
+        };
+      });
+    }
+    return MM_DATA.itemOptions;
+  }
+
   function item(p) {
     const d = p.data, L = [];
     const raw = rawOf(p);
@@ -327,11 +514,22 @@ window.MM_YAML = (function () {
     }
 
     const opts = [];
-    MM_DATA.itemOptions.forEach(function (o) {
+    itemOptionList().forEach(function (o) {
       const v = d.options[o.key];
       if (v === undefined || v === null) return;
-      if (o.type === "bool") { if (v !== o.def) opts.push("    " + o.key + ": " + (v ? "true" : "false")); }
-      else if (v !== "" && Number(v) !== Number(o.def)) opts.push("    " + o.key + ": " + fmtNum(v));
+      if (o.type === "bool") {
+        /* extras 里的默认值是字符串 "true"/"false"，不能直接 !!，否则 "false" 会被当成真 */
+        const dflt = o.def === true || o.def === "true";
+        if (!!v !== dflt) opts.push("    " + o.key + ": " + (v ? "true" : "false"));
+      }
+      else if (o.type === "number") {
+        if (String(v).trim() !== "" && Number(v) !== Number(o.def)) opts.push("    " + o.key + ": " + fmtNum(v));
+      } else {
+        const sv = String(v).trim();
+        if (sv !== "" && sv !== String(o.def === undefined || o.def === null ? "" : o.def)) {
+          opts.push("    " + o.key + ": " + scalar(sv));
+        }
+      }
     });
     if (opts.length || Object.keys(raw.options || {}).length) {
       L.push("  Options:");
@@ -361,6 +559,42 @@ window.MM_YAML = (function () {
           L.push("      " + a.name + ": " + a.value + " " + (a.op || "ADD"));
         });
       });
+    }
+    itemComponentLines(L, d.components);
+    pushTail(L, raw);
+    return L.join("\n") + "\n";
+  }
+
+  /* ---------- 掉落表（DropTables，独立文件） ---------- */
+
+  function droptable(p) {
+    const d = p.data, L = [];
+    const raw = rawOf(p);
+    pushHead(L, raw);
+    L.push(keyOf(p) + ":");
+    /* 数字就该是数字：写成 '0.1' 会让 MM 读成字符串 */
+    function numOrText(v) {
+      const s = String(v).trim();
+      return /^-?\d+(\.\d+)?$/.test(s) ? s : scalarAny(s);
+    }
+    [["TotalItems", d.totalItems], ["MinItems", d.minItems], ["MaxItems", d.maxItems],
+     ["BonusLevelItems", d.bonusLevelItems], ["BonusLuckItems", d.bonusLuckItems],
+     ["BiasStat", d.biasStat]].forEach(function (b) {
+      const v = b[1];
+      if (v === undefined || v === null || String(v).trim() === "") return;
+      L.push("  " + b[0] + ": " + (b[0] === "BiasStat" ? scalarAny(String(v).trim()) : numOrText(v)));
+    });
+
+    [["Conditions", d.conditions], ["TriggerConditions", d.triggerConditions]].forEach(function (b) {
+      const lines = (b[1] || []).map(metaskillCondLine).filter(Boolean);
+      if (!lines.length) return;
+      L.push("  " + b[0] + ":");
+      lines.forEach(function (t) { L.push("  - " + t); });
+    });
+
+    if ((d.drops || []).filter(hasDrop).length) {
+      L.push("  Drops:");
+      dropBlock(L, d.drops, "  ");
     }
     pushTail(L, raw);
     return L.join("\n") + "\n";
@@ -424,6 +658,60 @@ window.MM_YAML = (function () {
     });
   }
 
+  /* ---------- 引用检查 ----------
+     skill{s=xxx} / FailedConditionsSkill / Drops 里的掉落表名都是自由文本，写错不会报错，
+     服务器只会静默不执行。只在真的扫过服务器目录（MM_REFS 已建）时才查，
+     否则纯手工编辑时满屏假警告。 */
+  function refIssues(p) {
+    const refs = window.MM_REFS;
+    if (!refs || !p) return [];
+    const out = [];
+    function miss(kind, name, where) {
+      const set = refs[kind];
+      if (!set || !name) return;
+      let n = String(name).trim();
+      /* `- table:boss_loot` 前缀只是语法，比的是表名 */
+      if (kind === "droptables") n = n.replace(/^table\s*:\s*/i, "").trim();
+      /* 带占位符或变量的名字没法静态判断，放过 */
+      if (!n || /[<${}]/.test(n)) return;
+      if (!set[n.toLowerCase()]) out.push(where + "引用的「" + n + "」在 " + (kind === "skills" ? "Skills/" : "Drops/") + " 目录里找不到");
+    }
+    /* `skill{s=xxx;cooldown=2}` 里取技能组名；s / skill / name 都认 */
+    function pickSkillArg(args) {
+      const m = /(?:^|;)\s*(?:s|skill|name)\s*=\s*([^;]+)/i.exec(String(args || ""));
+      return m ? m[1].replace(/^["']|["']$/g, "").trim() : "";
+    }
+    /* skill{...} 这类整行在导入时是不解析的（保留原样），但恰恰是最常见的引用点，
+       所以要把原文里所有 skill{ } / metaskill{ } 抠出来查一遍 */
+    function scanRaw(text, where) {
+      const re = /(?:^|[\s@>])(?:skill|metaskill)\s*\{([^}]*)\}/gi;
+      const s = String(text || "");
+      let m;
+      while ((m = re.exec(s))) miss("skills", pickSkillArg(m[1]), where);
+    }
+    const d = p.data || {};
+    if (p.kind === "mob" || p.kind === "skill") {
+      (d.skills || []).forEach(function (s, i) {
+        const where = "第 " + (i + 1) + " 个技能：";
+        if (s.raw) { scanRaw(s.raw, where); return; }
+        if (!s.mechanic) return;
+        const m = String(s.mechanic).toLowerCase();
+        if (m !== "skill" && m !== "metaskill") return;
+        const v = s.params && (s.params.skill || s.params.s || s.params.name);
+        miss("skills", v, where);
+      });
+      ["failedConditionsSkill", "onCooldownSkill", "skill"].forEach(function (k) {
+        miss("skills", d[k], k === "failedConditionsSkill" ? "条件不满足时" : k === "onCooldownSkill" ? "冷却中时" : "并发执行的技能组");
+      });
+    }
+    if (p.kind === "mob" || p.kind === "droptable") {
+      (d.drops || []).forEach(function (x, i) {
+        if (x && x.table) miss("droptables", x.table, "第 " + (i + 1) + " 条掉落：");
+      });
+    }
+    return out;
+  }
+
   function validate(p) {
     const out = [];
     if (!p) return out;
@@ -436,8 +724,27 @@ window.MM_YAML = (function () {
         if (!e.item || !String(e.item).trim()) out.push("第 " + (i + 1) + " 件装备没选物品");
       });
       (p.data.drops || []).forEach(function (x, i) {
-        if (!x.item || !String(x.item).trim()) out.push("第 " + (i + 1) + " 条掉落没选物品");
+        if (!hasDrop(x)) out.push("第 " + (i + 1) + " 条掉落没选物品");
       });
+      (p.data.damageModifiers || []).forEach(function (m, i) {
+        if (!String(m.type || "").trim()) out.push("第 " + (i + 1) + " 条伤害修正没选伤害类型");
+        else if (String(m.value === undefined || m.value === null ? "" : m.value).trim() === "" ||
+                 isNaN(Number(m.value))) out.push("第 " + (i + 1) + " 条伤害修正的倍率无效");
+      });
+    } else if (p.kind === "droptable") {
+      if (!(p.data.drops || []).filter(hasDrop).length) out.push("掉落表至少要有 1 条掉落");
+      [["TotalItems", p.data.totalItems], ["MinItems", p.data.minItems],
+       ["MaxItems", p.data.maxItems]].forEach(function (b) {
+        const v = b[1];
+        if (v === undefined || v === null || String(v).trim() === "") return;
+        if (isNaN(Number(v)) || Number(v) < 0) out.push(b[0] + " 必须是非负数字");
+      });
+      [["条件", p.data.conditions], ["触发条件", p.data.triggerConditions]]
+        .forEach(function (b) {
+          (b[1] || []).forEach(function (c, i) {
+            if (!c.id) out.push("第 " + (i + 1) + " 个" + b[0] + "：条件未选择");
+          });
+        });
     } else if (p.kind === "skill") {
       checkSkillRows(p.data.skills, out);
       [["条件", p.data.conditions], ["目标条件", p.data.targetConditions], ["触发条件", p.data.triggerConditions]]
@@ -461,6 +768,8 @@ window.MM_YAML = (function () {
         }
       });
     }
+    /* 引用检查只做提示，不算「填不完不能保存」——技能组名写错是服务器那边静默失败，
+       这儿拦下来只会让人没法存盘。所以放在 refIssues 里，由界面单独显示。 */
     return out;
   }
 
@@ -468,6 +777,7 @@ window.MM_YAML = (function () {
     if (!p) return "# 左边选一个模板，或点「新建怪物」开始\n";
     if (p.kind === "mob") return mob(p);
     if (p.kind === "skill") return metaskill(p);
+    if (p.kind === "droptable") return droptable(p);
     return item(p);
   }
 
@@ -506,6 +816,6 @@ window.MM_YAML = (function () {
     }).join("\n");
   }
 
-  return { generate: generate, validate: validate, mob: mob, item: item, highlight: highlight, scalar: scalar };
+  return { generate: generate, validate: validate, refIssues: refIssues, mob: mob, item: item, highlight: highlight, scalar: scalar };
 })();
 

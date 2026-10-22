@@ -1,0 +1,423 @@
+{
+ "_说明": "物品相关的中文表。components 是 1.20.5+ 组件与根级字段的中文名与子键标签；options 是 Options: 下的选项；dropTypes 与 damage 给掉落/伤害修正用。key 用 wiki 上的原样写法（YAML 里就是这么写的）。",
+ "components": {
+  "Consumable": {
+   "zh": "消耗品行为",
+   "desc": "让物品可以被吃/喝，并指定动画与音效。想让非食物类物品能吃，必须同时设 Food。",
+   "params": {
+    "ConsumeSeconds": "消耗用时（秒）",
+    "HasParticles": "显示粒子",
+    "Animation": "消耗动画",
+    "Sound": "消耗音效",
+    "ConsumeEffects": "消耗时触发的技能（列表）"
+   }
+  },
+  "Food": {
+   "zh": "食物数值",
+   "desc": "食物组件的数值：回复多少饥饿值与饱和度。需要 Consumable 一起设置才会真的被吃。",
+   "params": {
+    "Nutrition": "饥饿值回复",
+    "Saturation": "饱和度回复",
+    "CanAlwaysEat": "满饥饿也能吃"
+   }
+  },
+  "Equippable": {
+   "zh": "可穿戴",
+   "desc": "把物品变成可穿戴装备，控制槽位、模型与脱下/穿上时的音效。",
+   "params": {
+    "Model": "装备模型",
+    "Slot": "穿戴槽位",
+    "CameraOverlay": "镜头覆盖层",
+    "Dispensable": "发射器可发射",
+    "Swappable": "右键可穿戴",
+    "DamageOnHurt": "受伤时掉耐久",
+    "EquipSound": "穿戴音效",
+    "EntityTypes": "可穿戴的实体类型",
+    "EquipOnInteract": "对生物使用即穿戴",
+    "CanBeSheared": "可被剪刀剪下",
+    "ShearSound": "剪下音效"
+   }
+  },
+  "Tool": {
+   "zh": "工具属性",
+   "desc": "工具组件的挖掘速度与耐久规则。Rules 是规则列表，每条形如 materials/speed/isCorrectForBlock。",
+   "params": {
+    "DamagePerBlock": "每挖一块掉的耐久",
+    "DefaultMiningSpeed": "默认挖掘速度",
+    "Rules": "挖掘规则（列表）"
+   }
+  },
+  "UseCooldown": {
+   "zh": "使用冷却",
+   "desc": "物品使用后的冷却时间，可归入冷却组与其他物品共享冷却。",
+   "params": {
+    "CooldownGroup": "冷却组 id",
+    "CooldownSeconds": "冷却（秒，整数）"
+   }
+  },
+  "ItemName": {
+   "zh": "物品名组件",
+   "desc": "item_name 组件，不改显示名，只影响原版那个「不带斜体的名字」。",
+   "params": {}
+  },
+  "CustomModelData": {
+   "zh": "自定义模型数据",
+   "desc": "资源包用的 CustomModelData，可填单个整数，也可写 models/colors/flags 子键。",
+   "params": {}
+  },
+  "MaxDurability": {
+   "zh": "最大耐久",
+   "desc": "改物品的最大耐久值，必须是物品原本就有耐久的材质。",
+   "params": {}
+  },
+  "Rarity": {
+   "zh": "稀有度",
+   "desc": "影响物品名的颜色：COMMON 白 / UNCOMMON 黄 / RARE 青 / EPIC 紫。",
+   "params": {}
+  },
+  "Enchantability": {
+   "zh": "附魔能力",
+   "desc": "附魔台里出好附魔的概率，越高越容易出高级附魔。",
+   "params": {}
+  },
+  "DamageResistant": {
+   "zh": "抗伤害类型",
+   "desc": "让掉在地上的物品不被某类伤害销毁，填伤害类型标签，如 #minecraft:is_explosion。",
+   "params": {}
+  },
+  "UnsetComponents": {
+   "zh": "移除原版组件",
+   "desc": "删掉底材自带的数据组件（例如让熟牛排不能吃），一行一个组件 id。",
+   "params": {}
+  },
+  "Glider": {
+   "zh": "可滑翔",
+   "desc": "当鞘翅用，滑翔时消耗耐久。",
+   "params": {}
+  },
+  "TooltipStyle": {
+   "zh": "提示框样式",
+   "desc": "资源包里的 tooltip 样式 id。",
+   "params": {}
+  },
+  "AttackRange": {
+   "zh": "攻击距离",
+   "desc": "改近战能打到的距离（attack_range 组件）。",
+   "params": {}
+  },
+  "Repairable": {
+   "zh": "可被修复",
+   "desc": "铁砧里能用哪些材料修这件物品（和 Options 里的 Repairable 不是一回事）。",
+   "params": {}
+  },
+  "DeathProtection": {
+   "zh": "死亡保护",
+   "desc": "像不死图腾那样免死一次，可配 ConsumeEffects 触发技能。",
+   "params": {}
+  },
+  "Compostable": {
+   "zh": "可堆肥",
+   "desc": "能丢进堆肥桶，Layers 是每次增加的层数。",
+   "params": {}
+  },
+  "CookingFuel": {
+   "zh": "可作燃料",
+   "desc": "能在熔炉里当燃料烧，Time 是燃烧秒数。",
+   "params": {
+    "Time": "燃烧时间（秒）"
+   }
+  },
+  "BrewingFuel": {
+   "zh": "可作酿造燃料",
+   "desc": "能给酿造台供能，Uses 是可用次数。",
+   "params": {
+    "Uses": "可用次数"
+   }
+  },
+  "CanPlaceOn": {
+   "zh": "可放置于",
+   "desc": "冒险模式下能放在哪些方块上。",
+   "params": {}
+  },
+  "CanBreak": {
+   "zh": "可破坏",
+   "desc": "冒险模式下能破坏哪些方块。",
+   "params": {}
+  },
+  "BlockStates": {
+   "zh": "方块状态",
+   "desc": "指定物品的方块状态，例如楼梯的朝向。",
+   "params": {}
+  },
+  "Trim": {
+   "zh": "盔甲纹饰",
+   "desc": "盔甲纹饰的材质与图案。",
+   "params": {}
+  },
+  "NBT": {
+   "zh": "NBT 标签",
+   "desc": "直接往物品塞 NBT，用于和其他插件对接。",
+   "params": {}
+  },
+  "Book": {
+   "zh": "成书内容",
+   "desc": "书的标题、作者与页面。",
+   "params": {}
+  },
+  "Firework": {
+   "zh": "烟花效果",
+   "desc": "烟花的飞行时间、爆炸形状与颜色。",
+   "params": {}
+  },
+  "PotionEffects": {
+   "zh": "药水效果",
+   "desc": "物品自带的药水效果（药水类物品用）。",
+   "params": {}
+  },
+  "BannerLayers": {
+   "zh": "旗帜图案",
+   "desc": "旗帜/盾牌的图案层。",
+   "params": {}
+  },
+  "Spawner": {
+   "zh": "刷怪笼配置",
+   "desc": "刷怪笼物品要生成的怪物与参数。",
+   "params": {}
+  },
+  "DropOptions": {
+   "zh": "掉落选项",
+   "desc": "物品被 FancyDrops 掉落时的默认参数。",
+   "params": {}
+  },
+  "Group": {
+   "zh": "浏览分组",
+   "desc": "/mm items browse 里的分组名。",
+   "params": {}
+  },
+  "Hidden": {
+   "zh": "从列表隐藏",
+   "desc": "不在命令补全与 /mm items list 里出现。",
+   "params": {}
+  },
+  "Template": {
+   "zh": "继承模板",
+   "desc": "像怪物模板一样继承另一个物品的配置。",
+   "params": {}
+  },
+  "Weapon": {
+   "zh": "武器属性",
+   "desc": "武器组件的耐久消耗参数。",
+   "params": {}
+  },
+  "BlocksAttacks": {
+   "zh": "格挡攻击",
+   "desc": "让物品能像盾一样格挡，可配减伤条目。",
+   "params": {}
+  },
+  "UseEffects": {
+   "zh": "使用过程效果",
+   "desc": "按住右键使用期间发生什么。",
+   "params": {}
+  },
+  "SwingAnimation": {
+   "zh": "挥动动画",
+   "desc": "攻击时的挥动动画（1.21.11+）。",
+   "params": {}
+  },
+  "MinimumAttackCharge": {
+   "zh": "最低攻击蓄力",
+   "desc": "0.0-1.0，攻击冷却没到这个比例就挥不出去（1.21.11+）。",
+   "params": {}
+  },
+  "KineticWeapon": {
+   "zh": "动能武器",
+   "desc": "冲刺攻击相关参数（1.21.11+）。",
+   "params": {}
+  },
+  "PiercingWeapon": {
+   "zh": "穿刺武器",
+   "desc": "近战可穿刺多个目标（1.21.11+）。",
+   "params": {}
+  },
+  "PaintingVariant": {
+   "zh": "画作变体",
+   "desc": "这个画物品放下时是哪幅画。",
+   "params": {}
+  },
+  "UseRemainder": {
+   "zh": "使用后剩余物",
+   "desc": "用完变成什么（例如喝完留瓶子）。",
+   "params": {}
+  },
+  "OminousBottleAmplifier": {
+   "zh": "不祥之瓶等级",
+   "desc": "不祥之瓶给的不祥之兆等级。",
+   "params": {}
+  },
+  "PotDecorations": {
+   "zh": "饰纹陶罐图案",
+   "desc": "陶罐四个面各显示什么物品。",
+   "params": {}
+  },
+  "JukeboxPlayable": {
+   "zh": "唱片曲目",
+   "desc": "放进唱片机时播放的曲目。",
+   "params": {}
+  },
+  "NoteBlockSound": {
+   "zh": "音符盒音色",
+   "desc": "拿在手里时音符盒发出的音色。",
+   "params": {}
+  },
+  "BreakSound": {
+   "zh": "损坏音效",
+   "desc": "耐久耗尽碎掉时的音效。",
+   "params": {}
+  },
+  "Internal_Name": {
+   "zh": "内部名",
+   "desc": "MythicMobs 内部引用这个物品用的名字。",
+   "params": {}
+  },
+  "Id": {
+   "zh": "基础材质",
+   "desc": "物品的底材，任何合法的原版材质。",
+   "params": {}
+  },
+  "Display": {
+   "zh": "显示名",
+   "desc": "物品显示出来的名字，支持颜色代码。",
+   "params": {}
+  },
+  "Lore": {
+   "zh": "物品描述",
+   "desc": "多行 lore，一行一条。",
+   "params": {}
+  },
+  "Amount": {
+   "zh": "默认数量",
+   "desc": "给物品时的默认堆叠数量。",
+   "params": {}
+  },
+  "Attributes": {
+   "zh": "物品属性",
+   "desc": "给穿戴者加属性，如攻击力、移速。",
+   "params": {}
+  },
+  "Enchantments": {
+   "zh": "附魔",
+   "desc": "物品自带的附魔，可写等级。",
+   "params": {}
+  },
+  "Options": {
+   "zh": "物品选项",
+   "desc": "Options: 下的杂项开关，见「物品选项」一节。",
+   "params": {}
+  },
+  "Durability": {
+   "zh": "已损耗耐久",
+   "desc": "生成时已经掉了多少耐久。",
+   "params": {}
+  },
+  "Hide": {
+   "zh": "隐藏提示框内容",
+   "desc": "隐藏附魔、属性等提示框条目。",
+   "params": {}
+  }
+ },
+ "options": {
+  "Repairable": "可修理",
+  "RepairCost": "修理花费",
+  "Unbreakable": "无法破坏",
+  "Glint": "附魔光效",
+  "HideFlags": "隐藏提示框标记",
+  "PreventStacking": "禁止堆叠",
+  "StackSize": "最大堆叠数",
+  "GenerateUUID": "生成唯一 ID",
+  "GenerateTimestamp": "记录生成时间",
+  "ItemModel": "物品模型",
+  "FireResistant": "抗火",
+  "DamageType": "武器伤害类型",
+  "Player": "头颅主人",
+  "SkinTexture": "头颅贴图（base64）",
+  "SkinURL": "头颅贴图链接",
+  "SkinID": "头颅贴图 ID",
+  "Color": "染色颜色"
+ },
+ "dropTypes": {
+  "exp": "原版经验",
+  "money": "金钱（Vault）",
+  "mythicdrop": "MythicDrops 物品",
+  "phatloot": "PhatLoot 掉落表",
+  "cmd": "执行命令",
+  "mmoitems": "MMOItems 物品",
+  "nothing": "什么都不掉",
+  "itemvariable": "物品变量里的物品",
+  "minecraftitem": "原版物品",
+  "mythicitem": "MythicMobs 物品",
+  "mythicmob": "MythicMobs 怪物",
+  "vanillaloottable": "原版战利品表",
+  "champions-exp": "Champions 经验",
+  "skillapi-exp": "SkillAPI 经验",
+  "heroesexp": "Heroes 经验",
+  "mcmmo-exp": "MCMMO 经验"
+ },
+ "damage": {
+  "BLOCK_EXPLOSION": "方块爆炸",
+  "CAMPFIRE": "营火",
+  "CONTACT": "接触伤害",
+  "CRAMMING": "挤压窒息",
+  "CUSTOM": "自定义伤害",
+  "DRAGON_BREATH": "龙息",
+  "DROWNING": "溺水",
+  "DRYOUT": "离水干涸",
+  "ENTITY_ATTACK": "近战攻击",
+  "ENTITY_EXPLOSION": "实体爆炸",
+  "ENTITY_SWEEP_ATTACK": "横扫攻击",
+  "FALL": "摔落",
+  "FALLING_BLOCK": "下落方块",
+  "FIRE": "火焰",
+  "FIRE_TICK": "燃烧",
+  "FLY_INTO_WALL": "撞墙",
+  "FREEZE": "冰冻",
+  "HOT_FLOOR": "岩浆块烫伤",
+  "KILL": "/kill 命令",
+  "LAVA": "岩浆",
+  "LIGHTNING": "闪电",
+  "MAGIC": "魔法",
+  "MELTING": "雪人融化",
+  "POISON": "中毒",
+  "PROJECTILE": "弹射物",
+  "SONIC_BOOM": "监守者音波",
+  "STARVATION": "饥饿",
+  "SUFFOCATION": "窒息",
+  "SUICIDE": "自杀",
+  "THORNS": "荆棘反伤",
+  "VOID": "虚空",
+  "WITHER": "凋零",
+  "WORLD_BORDER": "世界边界"
+ },
+ "componentParams": {
+  "BlockDelaySeconds": "格挡延迟（秒）",
+  "BurnTime": "燃烧时间",
+  "BypassedBy": "可被穿透的方式",
+  "ContactCooldownTicks": "接触冷却（刻）",
+  "DamageConditions": "生效的伤害条件",
+  "DamageMultiplier": "伤害倍率",
+  "DamageReductions": "减伤条目",
+  "DelayTicks": "延迟（刻）",
+  "DisableCooldownScale": "不受冷却缩放影响",
+  "DisabledSound": "失效音效",
+  "DismountConditions": "下马条件",
+  "ForwardMovement": "前冲速度",
+  "HitBlockSound": "击中方块音效",
+  "HitSound": "命中音效",
+  "ItemDamage": "每次攻击耗耐久",
+  "KnockbackConditions": "击退条件",
+  "Sound": "音效",
+  "SpeedMultiplier": "速度倍率",
+  "Time": "燃烧时间（秒）",
+  "Uses": "可用次数",
+  "Components": "要移除的组件"
+ }
+}

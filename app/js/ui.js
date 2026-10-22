@@ -350,7 +350,7 @@ window.MM_UI = (function () {
         class: "project-item" + (p.id === MM_STATE.currentId() ? " active" : ""),
         onclick: function () { onSelect(p.id); }
       }, [
-        ico(p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap" : "sword", 14),
+        ico(p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap" : p.kind === "droptable" ? "box" : "sword", 14),
         el("div", { class: "meta" }, [
           el("div", { class: "name", text: plain(p.data.display) || p.key }),
           el("div", { class: "sub", text: p.key })
@@ -398,14 +398,19 @@ window.MM_UI = (function () {
     root.appendChild(editorHeader(project));
     if (project.kind === "mob") renderMob(root, project);
     else if (project.kind === "skill") renderSkill(root, project);
+    else if (project.kind === "droptable") renderDropTable(root, project);
     else renderItem(root, project);
   }
 
   function editorHeader(p) {
-    const kindName = p.kind === "mob" ? "怪物" : p.kind === "skill" ? "技能组" : "物品";
-    const iconName = p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap" : "sword";
-    const isSkill = p.kind === "skill";
-    const idPlaceholder = isSkill ? "my_boss_phase2" : p.kind === "mob" ? "my_boss" : "my_sword";
+    const kindName = p.kind === "mob" ? "怪物" : p.kind === "skill" ? "技能组"
+      : p.kind === "droptable" ? "掉落表" : "物品";
+    const iconName = p.kind === "mob" ? "skull" : p.kind === "skill" ? "zap"
+      : p.kind === "droptable" ? "box" : "sword";
+    const isSkill = p.kind === "skill" || p.kind === "droptable";
+    const idPlaceholder = p.kind === "skill" ? "my_boss_phase2"
+      : p.kind === "droptable" ? "boss_loot"
+      : p.kind === "mob" ? "my_boss" : "my_sword";
 
     const idErr = el("div", { class: "field-err", text: "ID 不能为空" });
     idErr.style.display = "none";
@@ -439,7 +444,9 @@ window.MM_UI = (function () {
             idErr,
             el("div", {
               class: "hint",
-              text: isSkill ? "技能组名，别的技能用 skill{s=这个名字} 调用它" : "服务器里用它刷怪 / 给物品，只能英文、数字、下划线"
+              text: p.kind === "droptable" ? "掉落表名，怪物的 Drops 里直接写这个名字引用它"
+                : isSkill ? "技能组名，别的技能用 skill{s=这个名字} 调用它"
+                : "服务器里用它刷怪 / 给物品，只能英文、数字、下划线"
             })
           ]),
           isSkill ? null : field("显示名称", "头顶显示的名字，支持 & 颜色代码", textInput(p.data.display, function (v) {
@@ -573,6 +580,312 @@ window.MM_UI = (function () {
   }
 
   /* ---------- 怪物表单 ---------- */
+  /* ---------- AI 行为 / 目标选择器 ---------- */
+
+  /* 拖拽排序的共享状态：只允许同一张列表内部移动 */
+  let dragCtx = null;
+
+  function moveRow(list, from, to) {
+    if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return false;
+    const x = list.splice(from, 1)[0];
+    list.splice(to, 0, x);
+    return true;
+  }
+
+  /* 把手单独 draggable，行里的输入框就不会抢走拖拽手势 */
+  function dragHandle(list, index, onMoved) {
+    const h = el("button", { class: "drag-handle", type: "button", title: "拖动排序；也可以 Alt+↑ / Alt+↓" }, [
+      svgSpan("grip", 14)
+    ]);
+    h.setAttribute("draggable", "true");
+    h.addEventListener("dragstart", function (e) {
+      dragCtx = { list: list, index: index };
+      try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(index)); } catch (err) { }
+      h.classList.add("dragging");
+    });
+    h.addEventListener("dragend", function () {
+      dragCtx = null;
+      h.classList.remove("dragging");
+      document.querySelectorAll(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
+    });
+    h.addEventListener("keydown", function (e) {
+      if (!e.altKey) return;
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const to = index + (e.key === "ArrowUp" ? -1 : 1);
+      if (moveRow(list, index, to)) onMoved(to);
+    });
+    return h;
+  }
+
+  function sortableRow(rowEl, list, index, onMoved) {
+    rowEl.addEventListener("dragover", function (e) {
+      if (!dragCtx || dragCtx.list !== list) return;
+      e.preventDefault();
+      rowEl.classList.add("drag-over");
+    });
+    rowEl.addEventListener("dragleave", function () { rowEl.classList.remove("drag-over"); });
+    rowEl.addEventListener("drop", function (e) {
+      e.preventDefault();
+      rowEl.classList.remove("drag-over");
+      if (!dragCtx || dragCtx.list !== list) return;
+      const from = dragCtx.index;
+      dragCtx = null;
+      if (moveRow(list, from, index)) onMoved(index);
+    });
+    return rowEl;
+  }
+
+  /* AI 选择器的参数区：只有带参数的才有这一块，全部收在 details 里避免一屏几十个输入框 */
+  function aiParamBox(def, row) {
+    if (!def || !(def.params || []).length) return null;
+    const used = (def.params || []).filter(function (pp) {
+      return row.params && row.params[pp.name] !== undefined && row.params[pp.name] !== "";
+    }).length;
+    return el("details", { class: "skill-section" }, [
+      el("summary", { text: "参数（" + def.params.length + " 项" + (used ? " · 已设 " + used : "") + "）" }),
+      paramGrid(def.params, function (pp) {
+        return row.params && row.params[pp.name] !== undefined ? row.params[pp.name] : pp.def;
+      }, function (pp, v) {
+        if (!row.params) row.params = {};
+        if (v === "" || v === null || v === undefined) delete row.params[pp.name];
+        else row.params[pp.name] = v;
+        MM_STATE.touch(); changed();
+      })
+    ]);
+  }
+
+  function aiRows(cfg) {
+    const list = cfg.list;
+    const body = el("div", { class: "list ai-list" });
+    if (!list.length) {
+      body.appendChild(el("div", { class: "empty-hint", text: cfg.empty }));
+    }
+    list.forEach(function (row, i) {
+      const id = row[cfg.key] || "";
+      const def = catFind(cfg.kind, id);
+      const head = el("div", { class: "ai-head" }, [
+        dragHandle(list, i, function () { MM_STATE.touch(); changed(true); }),
+        el("span", { class: "ai-idx", text: String(i) }),
+        el("div", { class: "combo-field", style: "flex:1 1 auto" }, [
+          listInput(catList(cfg.kind), id, function (v) {
+            row[cfg.key] = v.trim().toLowerCase();
+            row.params = {};
+            MM_STATE.touch(); changed(true);
+          }, cfg.placeholder)
+        ]),
+        el("div", { class: "ai-ops" }, [
+          el("button", {
+            class: "mini", type: "button", title: "上移",
+            onclick: function () { if (moveRow(list, i, i - 1)) { MM_STATE.touch(); changed(true); } }
+          }, [svgSpan("arrow-up", 13)]),
+          el("button", {
+            class: "mini", type: "button", title: "下移",
+            onclick: function () { if (moveRow(list, i, i + 1)) { MM_STATE.touch(); changed(true); } }
+          }, [svgSpan("arrow-down", 13)])
+        ]),
+        rmButton("删除", function () {
+          list.splice(i, 1); MM_STATE.touch(); changed(true);
+        })
+      ]);
+
+      const kids = [head];
+      if (def && def.zh) {
+        kids.push(el("div", { class: "ai-desc", text: def.zh + (def.desc ? "　" + def.desc.slice(0, 90) : "") }));
+      }
+      const pb = aiParamBox(def, row);
+      if (pb) kids.push(pb);
+
+      body.appendChild(sortableRow(el("div", { class: "list-row ai-row" }, [
+        el("div", { class: "row-body" }, kids)
+      ]), list, i, function () { MM_STATE.touch(); changed(true); }));
+    });
+    body.appendChild(addButton(cfg.addText, function () {
+      const row = {};
+      row[cfg.key] = cfg.kind === "aiGoals" ? "meleeattack" : "players";
+      list.push(row);
+      MM_STATE.touch(); changed(true);
+    }));
+    return body;
+  }
+
+  /* ---------- 伤害修正 ---------- */
+
+  const DMG_PRESETS = [
+    { label: "免疫", value: "0" },
+    { label: "减半", value: "0.5" },
+    { label: "常通", value: "1" },
+    { label: "弱点 1.5×", value: "1.5" },
+    { label: "反吸 -1", value: "-1" }
+  ];
+
+  function damageRows(d) {
+    const body = el("div", { class: "list" });
+    if (!d.damageModifiers.length) {
+      body.appendChild(el("div", { class: "empty-hint", text: "没设就是不修正：任何伤害都按原样吃。写 0 才是免疫。" }));
+    }
+    d.damageModifiers.forEach(function (m, i) {
+      const quick = el("div", { class: "dm-quick" });
+      DMG_PRESETS.forEach(function (p) {
+        const b = el("button", {
+          class: "chip" + (String(m.value) === p.value ? " on" : ""), type: "button",
+          onclick: function () { m.value = p.value; MM_STATE.touch(); changed(true); }
+        }, [document.createTextNode(p.label)]);
+        b.title = "设为 " + p.value;
+        quick.appendChild(b);
+      });
+      body.appendChild(el("div", { class: "list-row" }, [
+        el("div", { class: "row-body" }, [
+          el("div", { class: "grid three" }, [
+            field("伤害类型", null, listInput(
+              ((window.MM_EXTRAS && MM_EXTRAS.damageTypes) || []).map(function (x) {
+                return { id: x.id, zh: x.zh };
+              }),
+              m.type, function (v) {
+                m.type = v.toUpperCase(); MM_STATE.touch(); changed();
+              }, "FIRE", true)),
+            field("倍率", "0 免疫 · 1 正常 · 负数反吸治疗", textInput(m.value, function (v) {
+              m.value = v; MM_STATE.touch(); changed();
+            }, { placeholder: "0.5" }))
+          ]),
+          quick
+        ]),
+        rmButton("删除", function () {
+          d.damageModifiers.splice(i, 1); MM_STATE.touch(); changed(true);
+        })
+      ]));
+    });
+    body.appendChild(addButton("添加伤害修正", function () {
+      d.damageModifiers.push({ type: "FIRE", value: "0" });
+      MM_STATE.touch(); changed(true);
+    }));
+    return body;
+  }
+
+  /* ---------- 掉落（物品 / 掉落类型 / 引用掉落表） ---------- */
+
+  function dropKind(bodies, i) {
+    const x = bodies[i];
+    if (x.table) return "table";
+    if (x.type) return "type";
+    return "item";
+  }
+
+  function dropRows(list) {
+    const body = el("div", { class: "list" });
+    if (!list.length) body.appendChild(el("div", { class: "empty-hint", text: "没有掉落就只掉原版默认掉落。" }));
+    list.forEach(function (x, i) {
+      const kind = dropKind(list, i);
+      const switcher = el("div", { class: "dm-quick" });
+      [["item", "物品"], ["type", "掉落类型"], ["table", "掉落表"]].forEach(function (k) {
+        switcher.appendChild(el("button", {
+          class: "chip" + (kind === k[0] ? " on" : ""), type: "button",
+          onclick: function () {
+            if (kind === k[0]) return;
+            /* 换类型时把旧字段清掉，免得同时写出两种语义 */
+            delete x.item; delete x.type; delete x.table; delete x.params; delete x.value;
+            if (k[0] === "item") { x.item = ""; x.amount = "1"; x.chance = "1"; }
+            else if (k[0] === "type") { x.type = "exp"; x.value = ""; x.chance = "1"; }
+            else { x.table = ""; delete x.amount; delete x.chance; }
+            MM_STATE.touch(); changed(true);
+          }
+        }, [document.createTextNode(k[1])]));
+      });
+
+      const cols = [];
+      if (kind === "item") {
+        cols.push(field("掉什么", "原版材质或自定义物品 ID", listInput(D.materials, x.item, function (v) {
+          x.item = v; MM_STATE.touch(); changed();
+        }, "diamond")));
+        cols.push(field("数量", "可写 1-3 / 1to3", textInput(x.amount, function (v) {
+          x.amount = v; MM_STATE.touch(); changed();
+        }, { placeholder: "1" })));
+        cols.push(field("概率", "0.5 = 50%", textInput(x.chance, function (v) {
+          x.chance = v; MM_STATE.touch(); changed();
+        }, { placeholder: "0.5" })));
+      } else if (kind === "type") {
+        cols.push(field("掉落类型", null, listInput(
+          ((window.MM_EXTRAS && MM_EXTRAS.dropTypes) || []).map(function (t) { return { id: t.id, zh: t.zh }; }),
+          x.type, function (v) {
+            x.type = v.toLowerCase(); MM_STATE.touch(); changed();
+          }, "exp", true)));
+        cols.push(field("数量 / 参数", "exp 填经验值，money 填金额", textInput(x.value, function (v) {
+          x.value = v; MM_STATE.touch(); changed();
+        }, { placeholder: "1500" })));
+        cols.push(field("概率", "0.5 = 50%", textInput(x.chance, function (v) {
+          x.chance = v; MM_STATE.touch(); changed();
+        }, { placeholder: "0.5" })));
+      } else {
+        cols.push(field("掉落表名", "Drops 目录下的掉落表 ID", textInput(x.table, function (v) {
+          x.table = v; MM_STATE.touch(); changed();
+        }, { placeholder: "boss_loot" }), { full: true }));
+      }
+
+      const extra = [];
+      if (kind === "item" || kind === "type") {
+        const isType = kind === "type";
+        const inline = el("details", { class: "skill-section" }, [
+          el("summary", { text: (isType ? "参数（花括号里的内容）" : "行内物品参数") + (x.params ? " · 已设" : "") }),
+          el("div", { class: "grid", style: "margin-top:8px" }, [
+            field("花括号里的内容",
+              isType ? '例：cmd="crate give <trigger.name> RewardCrate 1"'
+                     : "例：name=\"&c神剑\";enchants=SHARPNESS:3",
+              textInput(x.params, function (v) {
+                x.params = v; MM_STATE.touch(); changed();
+              }, { placeholder: isType ? 'cmd="say hi"' : 'name="&c神剑"' }), { full: true })
+          ])
+        ]);
+        extra.push(inline);
+      }
+
+      body.appendChild(el("div", { class: "list-row" }, [
+        el("div", { class: "row-body" }, [switcher, el("div", { class: "grid three" }, cols)].concat(extra)),
+        rmButton("删除", function () {
+          list.splice(i, 1); MM_STATE.touch(); changed(true);
+        })
+      ]));
+    });
+    body.appendChild(addButton("添加掉落", function () {
+      list.push({ item: "", amount: "1", chance: "1" });
+      MM_STATE.touch(); changed(true);
+    }));
+    return body;
+  }
+
+  function renderDropTable(root, p) {
+    const d = p.data;
+    root.appendChild(card("box", "掉落表设置", "不填就按每条掉落的概率各判一次", true, [
+      el("div", { class: "grid three" }, [
+        field("固定件数（TotalItems）", "设了就按权重抽，且只出这么多件", textInput(d.totalItems, function (v) {
+          d.totalItems = v; MM_STATE.touch(); changed();
+        }, { placeholder: "留空" })),
+        field("最少件数（MinItems）", null, textInput(d.minItems, function (v) {
+          d.minItems = v; MM_STATE.touch(); changed();
+        }, { placeholder: "留空" })),
+        field("最多件数（MaxItems）", "和最少件数同时设 → 概率变权重", textInput(d.maxItems, function (v) {
+          d.maxItems = v; MM_STATE.touch(); changed();
+        }, { placeholder: "留空" }))
+      ]),
+      el("div", { class: "grid three", style: "margin-top:12px" }, [
+        field("等级加成（BonusLevelItems）", "件数 + 怪物等级 × 这个值", textInput(d.bonusLevelItems, function (v) {
+          d.bonusLevelItems = v; MM_STATE.touch(); changed();
+        }, { placeholder: "0.1" })),
+        field("幸运加成（BonusLuckItems）", "件数 + 幸运值 × 这个值", textInput(d.bonusLuckItems, function (v) {
+          d.bonusLuckItems = v; MM_STATE.touch(); changed();
+        }, { placeholder: "0.2" })),
+        field("偏差属性（BiasStat）", "影响稀有掉落概率，留空用 LOOT_BIAS", textInput(d.biasStat, function (v) {
+          d.biasStat = v; MM_STATE.touch(); changed();
+        }, { placeholder: "LOOT_BIAS" }))
+      ])
+    ]));
+
+    root.appendChild(condCardFor(d, "conditions", "掉落者条件 Conditions", "判断怪物自身，不满足就不掉", true, false));
+    root.appendChild(condCardFor(d, "triggerConditions", "击杀者条件 TriggerConditions", "判断触发掉落的人（通常就是击杀者）", false, false));
+
+    root.appendChild(card("box", "掉落内容", "", true, [dropRows(d.drops)]));
+  }
+
+  /* ---------- 怪物表单 ---------- */
   function renderMob(root, p) {
     const d = p.data;
 
@@ -649,6 +962,33 @@ window.MM_UI = (function () {
     }));
     root.appendChild(card("shield", "装备", "", d.equipment.length > 0, [eqBody]));
 
+    /* AI：行为选择器带优先级（顺序就是优先级），目标选择器不带 */
+    if (!d.aiGoals) d.aiGoals = [];
+    if (!d.aiTargets) d.aiTargets = [];
+    if (!d.damageModifiers) d.damageModifiers = [];
+    root.appendChild(card("sword", "AI 行为选择器", "51 项 · 顺序即优先级" +
+      (d.aiGoals.length ? " · " + d.aiGoals.length + " 条" : ""), d.aiGoals.length > 0, [
+      aiRows({
+        kind: "aiGoals", key: "goal", list: d.aiGoals,
+        addText: "添加行为",
+        placeholder: "meleeattack",
+        empty: "没配 AI 就完全按原版行为走。自定义 AI 通常第一条写 clear 清空原版行为。"
+      })
+    ]));
+    root.appendChild(card("sparkle", "AI 目标选择器", "14 项 · 决定它去追谁" +
+      (d.aiTargets.length ? " · " + d.aiTargets.length + " 条" : ""), d.aiTargets.length > 0, [
+      aiRows({
+        kind: "aiTargets", key: "target", list: d.aiTargets,
+        addText: "添加目标规则",
+        placeholder: "players",
+        empty: "没配就用原版的目标选择逻辑。"
+      })
+    ]));
+    root.appendChild(card("sliders", "伤害修正", "33 种伤害类型 · 免疫 / 减伤 / 弱点 / 反吸" +
+      (d.damageModifiers.length ? " · " + d.damageModifiers.length + " 条" : ""), d.damageModifiers.length > 0, [
+      damageRows(d)
+    ]));
+
     /* 技能 */
     const skBody = el("div", { class: "list" });
     d.skills.forEach(function (s, i) { skBody.appendChild(skillRow(d, s, i)); });
@@ -662,32 +1002,9 @@ window.MM_UI = (function () {
     root.appendChild(card("zap", "技能", "", d.skills.length > 0, [skBody]));
 
     /* 掉落 */
-    const drBody = el("div", { class: "list" });
-    d.drops.forEach(function (x, i) {
-      drBody.appendChild(el("div", { class: "list-row" }, [
-        el("div", { class: "row-body" }, [
-          el("div", { class: "grid three" }, [
-            field("掉什么", "物品 ID 或 exp", listInput(D.materials, x.item, function (v) {
-              x.item = v; MM_STATE.touch(); changed();
-            }, "diamond")),
-            field("数量", "可写 1-3", textInput(x.amount, function (v) {
-              x.amount = v; MM_STATE.touch(); changed();
-            }, { placeholder: "1" })),
-            field("概率", "0.5 = 50%", textInput(x.chance, function (v) {
-              x.chance = v; MM_STATE.touch(); changed();
-            }, { placeholder: "0.5" }))
-          ])
-        ]),
-        rmButton("删除", function () {
-          d.drops.splice(i, 1); MM_STATE.touch(); changed(true);
-        })
-      ]));
-    });
-    drBody.appendChild(addButton("添加掉落", function () {
-      d.drops.push({ item: "", amount: "1", chance: "1" });
-      MM_STATE.touch(); changed(true);
-    }));
-    root.appendChild(card("box", "掉落物", "", d.drops.length > 0, [drBody]));
+    if (!d.drops) d.drops = [];
+    root.appendChild(card("box", "掉落物", "物品 / 掉落类型 / 引用掉落表" +
+      (d.drops.length ? " · " + d.drops.length + " 条" : ""), d.drops.length > 0, [dropRows(d.drops)]));
   }
 
   /* ---------- 技能行 ---------- */
@@ -746,6 +1063,9 @@ window.MM_UI = (function () {
         opts.expect ? expectSelect(c.expect, function (v) {
           c.expect = v; MM_STATE.touch(); changed();
         }) : null,
+        /* 掉落表的条件不支持 true/false 后缀，但老文件里可能写了，导入时保留在数据里，
+           这儿只提示一下，不让它悄悄消失 */
+        (!opts.expect && c.expect === "false") ? el("span", { class: "cond-neg", text: "非" }) : null,
         rmButton("删除条件", function () {
           list.splice(ci, 1); MM_STATE.touch(); changed(true);
         })
@@ -1077,33 +1397,12 @@ window.MM_UI = (function () {
     ]));
 
     /* 三块条件语义不同：施法者 / 继承到的目标 / 触发者 */
-    function condCard(key, title, sub, withPresets) {
-      const list = d[key];
-      const body = el("div", { class: "list" }, [
-        withPresets ? el("div", { class: "cond-presets" }, COND_PRESETS.map(function (pre) {
-          return el("button", {
-            class: "chip", type: "button", text: pre.label,
-            onclick: function () {
-              list.push({ id: pre.id, params: Object.assign({}, pre.params) });
-              MM_STATE.touch(); changed(true);
-            }
-          });
-        })) : null,
-        el("div", { class: "cond-list" }, conditionRows(list, { expect: true })),
-        addButton("添加条件", function () {
-          list.push({ id: "", params: {} });
-          MM_STATE.touch(); changed(true);
-        })
-      ].filter(Boolean));
-      return card("sliders", title, sub, list.length > 0, [body]);
-    }
-
-    root.appendChild(condCard("conditions", "条件 Conditions",
-      "对施法者判定" + (d.conditions.length ? " · " + d.conditions.length + " 个" : " · 不满足就不执行"), true));
-    root.appendChild(condCard("targetConditions", "目标条件 TargetConditions",
-      "对继承到的目标判定" + (d.targetConditions.length ? " · " + d.targetConditions.length + " 个" : "")));
-    root.appendChild(condCard("triggerConditions", "触发条件 TriggerConditions",
-      "对触发者判定，可用 @Trigger" + (d.triggerConditions.length ? " · " + d.triggerConditions.length + " 个" : "")));
+    root.appendChild(condCardFor(d, "conditions", "条件 Conditions",
+      "对施法者判定" + (d.conditions.length ? " · " + d.conditions.length + " 个" : " · 不满足就不执行"), true, true));
+    root.appendChild(condCardFor(d, "targetConditions", "目标条件 TargetConditions",
+      "对继承到的目标判定" + (d.targetConditions.length ? " · " + d.targetConditions.length + " 个" : ""), false, true));
+    root.appendChild(condCardFor(d, "triggerConditions", "触发条件 TriggerConditions",
+      "对触发者判定，可用 @Trigger" + (d.triggerConditions.length ? " · " + d.triggerConditions.length + " 个" : ""), false, true));
 
     const skBody = el("div", { class: "list" });
     d.skills.forEach(function (s, i) { skBody.appendChild(skillRow(d, s, i, { noTrigger: true })); });
@@ -1126,6 +1425,30 @@ window.MM_UI = (function () {
         }, { placeholder: "另一个技能组名" }))
       ])
     ]));
+  }
+
+  /* ---------- 条件卡片（技能组与掉落表共用） ---------- */
+
+  /* 三块条件语义不同：施法者 / 继承到的目标 / 触发者；期望值只在技能组里有意义 */
+  function condCardFor(d, key, title, sub, withPresets, withExpect) {
+    const list = d[key] || (d[key] = []);
+    const body = el("div", { class: "list" }, [
+      withPresets ? el("div", { class: "cond-presets" }, COND_PRESETS.map(function (pre) {
+        return el("button", {
+          class: "chip", type: "button", text: pre.label,
+          onclick: function () {
+            list.push({ id: pre.id, params: Object.assign({}, pre.params) });
+            MM_STATE.touch(); changed(true);
+          }
+        });
+      })) : null,
+      el("div", { class: "cond-list" }, conditionRows(list, { expect: !!withExpect })),
+      addButton("添加条件", function () {
+        list.push({ id: "", params: {} });
+        MM_STATE.touch(); changed(true);
+      })
+    ].filter(Boolean));
+    return card("sliders", title, sub, list.length > 0, [body]);
   }
 
   /* ---------- 物品表单 ---------- */
@@ -1209,17 +1532,128 @@ window.MM_UI = (function () {
     }));
     root.appendChild(card("sliders", "属性加成", "加攻击力、生命值等", d.attributes.length > 0, [atBody]));
 
-    const optsGrid = el("div", { class: "grid" }, D.itemOptions.map(function (o) {
-      if (o.type === "bool") {
-        return switchRow(o.label, o.hint, !!d.options[o.key], function (v) {
-          d.options[o.key] = v; MM_STATE.touch(); changed();
-        });
+    /* 物品选项：全量 17 项（wiki 的 Items/Options 页），分「通用 / 头颅 / 染色」三组 */
+    if (!d.options) d.options = MM_STATE.newItem().data.options;
+    if (!d.components) d.components = {};
+    const optList = (window.MM_EXTRAS && MM_EXTRAS.itemOptions) || [];
+    const optBody = el("div", { class: "list" });
+    const groups = {};
+    optList.forEach(function (o) {
+      const g = o.section || "通用";
+      (groups[g] = groups[g] || []).push(o);
+    });
+    Object.keys(groups).forEach(function (g) {
+      const grid = el("div", { class: "grid" }, groups[g].map(function (o) {
+        if (o.type === "boolean") {
+          return switchRow(o.zh || o.id, o.id, d.options[o.id] === true, function (v) {
+            d.options[o.id] = v; MM_STATE.touch(); changed();
+          });
+        }
+        if (o.type === "number") {
+          return field(o.zh || o.id, o.id, numberInput(d.options[o.id], function (v) {
+            d.options[o.id] = v; MM_STATE.touch(); changed();
+          }, { step: "any" }));
+        }
+        return field(o.zh || o.id, o.id, textInput(d.options[o.id], function (v) {
+          d.options[o.id] = v; MM_STATE.touch(); changed();
+        }, { placeholder: o.def || "" }));
+      }));
+      optBody.appendChild(el("div", { class: "opt-sec" }, [
+        el("div", { class: "opt-title", text: g }),
+        grid
+      ]));
+    });
+    root.appendChild(card("sliders", "其他选项", "官方全部 " + (optList.length || 0) + " 项", false, [optBody]));
+
+    /* 1.20.5+ 组件：只把有明确子键的做成表单，其余列出来供参考 */
+    root.appendChild(itemComponentsCard(d));
+  }
+
+  /* 物品组件卡片：wiki 的 Items 页把 1.20.5+ 的 data component 都映射成了根级键，
+     这里挑「值形态明确」的那些做成输入框，剩下的一律不硬凑。 */
+  function itemComponentsCard(d) {
+    const spec = ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []).filter(function (c) { return c.form; });
+    const body = el("div", { class: "list" });
+    if (!spec.length) return card("layers", "物品组件", "数据没加载", false, [body]);
+
+    spec.forEach(function (c) {
+      const entry = d.components[c.id];
+      const on = !!entry;
+      const toggle = switchRow(c.zh, c.id + (on ? "" : " · 未启用"), on, function (v) {
+        if (v) d.components[c.id] = { params: {}, value: "" };
+        else delete d.components[c.id];
+        MM_STATE.touch(); changed(true);
+      });
+      const box = el("div", { class: "comp-box" }, [toggle]);
+      if (on) {
+        if (entry.list) {
+          const ta = el("textarea", { class: "input", rows: 3, placeholder: "一行一个，例如：food" });
+          ta.value = (entry.list || []).join("\n");
+          ta.addEventListener("input", function () {
+            entry.list = ta.value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean);
+            MM_STATE.touch(); changed();
+          });
+          box.appendChild(field(c.params && c.params[0] ? c.params[0].zh : "条目", null, ta, { full: true }));
+        } else if (!(c.params || []).length) {
+          box.appendChild(el("div", { class: "grid", style: "margin-top:8px" }, [
+            field(c.zh, c.desc ? c.desc.slice(0, 60) : null,
+              textInput(entry.value, function (v) {
+                entry.value = v; MM_STATE.touch(); changed();
+              }, { placeholder: "" }), { full: true })
+          ]));
+        } else {
+          const grid = el("div", { class: "grid three", style: "margin-top:10px" });
+          (c.params || []).forEach(function (pp) {
+            if (!entry.params) entry.params = {};
+            const cur = entry.params[pp.name];
+            if (pp.type === "boolean") {
+              grid.appendChild(switchRow(pp.zh || pp.name, pp.name, cur === "true", function (v) {
+                entry.params[pp.name] = v; MM_STATE.touch(); changed();
+              }));
+            } else if (pp.type === "list") {
+              const ta = el("textarea", { class: "input", rows: 3 });
+              ta.value = (entry.list || []).join("\n");
+              ta.addEventListener("input", function () {
+                entry.list = ta.value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean);
+                MM_STATE.touch(); changed();
+              });
+              grid.appendChild(field(pp.zh || pp.name, null, ta, { full: true }));
+            } else {
+              grid.appendChild(field(pp.zh || pp.name, pp.def ? "默认 " + pp.def : pp.name,
+                textInput(cur, function (v) {
+                  if (v === "") delete entry.params[pp.name];
+                  else entry.params[pp.name] = v;
+                  MM_STATE.touch(); changed();
+                }, { placeholder: pp.def || "" })));
+            }
+          });
+          box.appendChild(grid);
+        }
       }
-      return field(o.label, o.hint, numberInput(d.options[o.key] === 0 ? "" : d.options[o.key], function (v) {
-        d.options[o.key] = v; MM_STATE.touch(); changed();
-      }, { min: 0, step: 1 }));
-    }));
-    root.appendChild(card("sliders", "其他选项", "", false, [optsGrid]));
+      const wrap = el("details", { class: "skill-section" }, [
+        el("summary", { text: c.zh + (on ? " · 已启用" : "") }),
+        el("div", { class: "comp-desc", text: c.desc || "" }),
+        box
+      ]);
+      body.appendChild(wrap);
+    });
+
+    /* wiki 没给子键表的组件做不了安全的表单，但得让人知道有这些，
+       并且说明导进来会原样保留，别以为编辑器把它们吃掉了 */
+    const rest = ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []).filter(function (c) { return !c.form; });
+    if (rest.length) {
+      const list = el("div", { class: "grid", style: "margin-top:8px" });
+      rest.forEach(function (c) {
+        list.appendChild(field(c.zh || c.id, (c.desc || "").slice(0, 70) || c.id,
+          el("div", { class: "comp-desc", text: c.id }), { full: true }));
+      });
+      body.appendChild(el("details", { class: "skill-section" }, [
+        el("summary", { text: "另外 " + rest.length + " 项组件（不做表单，导进来会原样保留）" }),
+        list
+      ]));
+    }
+    return card("layers", "物品组件", "1.20.5+ 的 data component 映射 · " + spec.length + " 项可编辑 / 共 " +
+      ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []).length + " 项", false, [body]);
   }
 
   return {

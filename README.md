@@ -2,7 +2,7 @@
 
 一个给「不会写 YAML 的人」用的 MythicMobs 可视化编辑器。
 
-当前状态：**MVP + 导入 + wiki 全量目录 + 技能组** —— 怪物 / 物品 / 技能组（Metaskill）的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；wiki 的 **302 机制 / 196 条件 / 91 目标器 / 38 触发器 / 120 粒子** 已全部接进界面并中文化。
+当前状态：**0.6.0** —— 怪物 / 物品 / 技能组 / **掉落表**四类配置的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；wiki 的 **302 机制 / 196 条件 / 91 目标器 / 38 触发器 / 120 粒子 / 51 AI 行为 / 14 AI 目标** 已全部接进界面并中文化。0.6.0 补上了 **AI 选择器、33 种伤害修正、掉落三形态与 DropTables、物品 1.20.5+ 组件**，以及「引用的技能组 / 掉落表到底存不存在」的检查。
 
 ![怪物编辑器](docs/img/editor-mob.png)
 
@@ -10,12 +10,13 @@
 
 1. 双击 **`启动编辑器(无窗口).vbs`**（推荐，不会有黑框）或 **`启动编辑器.bat`**，打开独立窗口。
    没装 Electron 运行时会自动回落到浏览器（功能少掉文件读写）；`.bat` 会显示提示，`.vbs` 不会。
-2. 左边挑一个模板，或点右上角「新建怪物 / 新建物品 / 新建技能组」。
+2. 左边挑一个模板，或点右上角「新建怪物 / 新建物品 / 新建技能组 / 新建掉落表」。
 3. 中间填表格，右侧实时显示生成的配置。
 4. 点「下载 .yml」，把文件放进服务器：
    - 怪物 → `plugins/MythicMobs/Mobs/`
    - 物品 → `plugins/MythicMobs/Items/`
    - 技能组 → `plugins/MythicMobs/Skills/`
+   - 掉落表 → `plugins/MythicMobs/Drops/`
 5. 游戏里 `/mm reload`。
 
 数据存在浏览器本地（localStorage），关掉再打开还在；换电脑请用「下载 .yml」或重新填。
@@ -25,6 +26,8 @@
 **怪物**
 - 生物类型（可搜索下拉，78 种常见实体）、显示名、生命、伤害、护甲
 - **126 个官方 Options 全部实现**（通用 37 / 生物大类 15 / 生物专属 74），每个都有中文名 + 一句话说明；顶部可搜索，当前生物的专属选项会自动展开，其余折叠
+- **AI 行为选择器（51 项）与 AI 目标选择器（14 项）**：都带中文名 + 英文 ID + 一句话说明，参数只写与默认值不同的；**拖拽排序**（也可以 Alt+↑/↓，或用行尾的上下移按钮），原来的优先级数字（`- 0 clear`）原样保留
+- **伤害修正（33 种伤害类型）**：一键「免疫 / 减半 / 常通 / 弱点 1.5× / 反吸 -1」，倍率语义直接写在输入框旁边（`0` 免疫但有受伤动画、`<0` 取消伤害并按绝对值回血）
 - BOSS 血条（标题 / 颜色 / 分段样式 / 显示范围）
 - 装备（6 个槽位，物品中文下拉）
 - 技能：**38 种触发器 × 302 种机制 × 91 种目标器 × 196 种条件**（wiki 全量），机制按用途分 11 组，下拉可搜索；参数按类型自动出控件，默认值不写进配置
@@ -32,9 +35,14 @@
 - **比较符下拉**：条件参数用「`=` `<` `≤` `>` `≥` `≠` + 数值 + `%`」三段式输入，不用背 `<50%` 的写法
 - **目标筛选**：目标器自己的参数之外，还有 27 项通用筛选（`targetplayers` / `sort` / `limit` / `ignore`…）与 26 项偏移坐标，都写进 `@Targeter{}` 里
 - **通用修饰**：14 项（冷却 / 延迟 / 重复次数 / 重复间隔 / 换目标间隔 / 概率 / 起点目标器 / 强度倍率 / 从起点施放 / 强制同步…），写在机制花括号里
-- 掉落物（物品 / 数量范围 / 概率）
+- 掉落物：三种形态一键切换 —— **物品**（数量范围 / 概率 / 行内 `{name=..;color=..}` 参数）、**掉落类型**（`exp` / `money` / `cmd` / `mythicitem` 等 16 种，`cmd` 的命令原样写在花括号里）、**引用掉落表**（`table:boss_loot`）
 
 ![技能编辑与全量目录](docs/img/catalog-ui.png)
+
+**掉落表（DropTable，独立文件）**
+- `TotalItems` / `MinItems` / `MaxItems` / `BonusLevelItems` / `BonusLuckItems` / `BiasStat` 全量字段；数字保持数字类型（写成 `'2'` 服务端会当字符串读）
+- `Conditions`（判掉落者）/ `TriggerConditions`（判击杀者）两块条件
+- 掉落列表与怪物那边共用同一套三形态编辑器，所以掉落表里也能再引用别的掉落表
 
 **技能组（Metaskill）**
 - 技能组名 + 冷却 + `CancelIfNoTargets` / `Hidden`
@@ -48,19 +56,22 @@
 - 材质（可搜索下拉，210 种，中文名 + 英文 ID 对照）、显示名、数量、多行描述
 - 附魔（40 种，可搜索）
 - 属性加成（32 种属性 × 7 个槽位 × 3 种计算方式，可搜索）
-- 选项：无法破坏、附魔光效、隐藏提示、自定义模型数据
+- **选项 17 项**（按「显示 / 附魔 / 属性 / 其他」分组）：无法破坏、附魔光效、隐藏提示、自定义模型数据、染色、物品标记…
+- **1.20.5+ 组件 58 项**：其中 23 项做了表单（`Food` 的营养值与饱和度、`Tool`、`Rarity` 标量、`UnsetComponents` 列表…），其余列出名字与说明、导入时原样保留；数字布尔保持原类型（`ConsumeSeconds: 1.5` 不会变成 `'1.5'`）
+- 老文件的 `Options.CustomModelData` 会自动迁移到根级 `CustomModelData` 组件
 
 **桌面版（Electron）**
-- 「打开文件夹」直接选 `plugins/MythicMobs`，左侧按**怪物 / 技能组 / 物品**分组列出服务器里所有配置
-- **点文件直接进表单编辑**：Type / 血量 / 伤害 / Options / 装备 / 技能 / 掉落都会被读进表格；技能组文件的 `Conditions` 也一样
-- **表单管不了的字段不会丢**：`AIGoalSelectors`、`DamageModifiers`、陌生 Option、带行内条件的技能行，都整块原样保留，保存时写回
+- 「打开文件夹」直接选 `plugins/MythicMobs`，左侧按**怪物 / 技能组 / 物品 / 掉落表**分组列出服务器里所有配置
+- **点文件直接进表单编辑**：Type / 血量 / 伤害 / Options / 装备 / 技能 / 掉落 / AI / 伤害修正都会被读进表格；技能组文件的 `Conditions`、掉落表文件的全字段也一样
+- **表单管不了的字段不会丢**：陌生 Option、带行内条件的技能行、没做表单的物品组件，都整块原样保留，保存时写回
+- **引用检查**：扫过服务器目录后，`skill{s=xxx}` / `FailedConditionsSkill` / `OnCooldownSkill` / 掉落里的表名都会拿去和磁盘上的 `Skills/`、`Drops/` 对一遍，写错的在右上角标出来（蓝色提示，**不影响保存** —— 名字可能是拼给别的插件的，拦下来只会让人没法存盘）
 - 保存回原文件，**覆盖前自动备份**为 `xxx.yml.bak-日期时间`
 - 一个文件里有多个条目时，只导入第一个，其余原样保留
 
 ![导入已有配置](docs/img/import-edit.png)
 
 **其他**
-- 6 个模板：普通小怪 / BOSS / BOSS 二阶段 / 范围爆发 / 近战武器 / 防具
+- 11 个模板：普通小怪 / BOSS / BOSS 二阶段 / 范围爆发 / 弓箭手 / 冲锋兵 / 会走位的 BOSS / 近战武器 / 防具 / 可食用物品 / BOSS 掉落表
 - 4 个功能开关示例、实时 YAML 预览与语法高亮
 - 选择器：点输入框列出全部选项（中文名 + 英文 ID），可搜索、可滚动、也可直接输入自定义 ID
 - 必填校验：缺内容时输入框标红，右侧顶部列出缺哪几项，下载按钮变灰（不会悄悄给你填个默认值）
@@ -68,12 +79,11 @@
 
 ## 还没做的（下一步）
 
-1. 掉落表（DropTable）的结构化编辑 —— 导入时能原样保留，但没做成表单。
-2. `AIGoalSelectors` / `AITargetSelectors` / `DamageModifiers` 的图形化编辑（wiki 数据已经在 `schema.json` 里，没接界面）。
-3. 物品 1.20.5+ 的组件（Food / Tool / Equippable 等）只有数据没做 UI。
-4. 打包成 exe（Tauri 需要 Rust 环境，当前机器没有；Electron 是备选，`electron-builder` 还没装）。
-5. 导入的局限：一个文件多条目只编辑第一个；已有项目的「重新从磁盘读取」还没做。
-6. 技能组之间的引用关系图（现在 `skill{s=xxx}` 只是一行文本，不会提示「这个技能组不存在」）。
+1. 打包成 exe（Tauri 需要 Rust 环境，当前机器没有；Electron 是备选，`electron-builder` 还没装）。
+2. 导入的局限：一个文件多条目只编辑第一个；已有项目的「重新从磁盘读取」还没做。
+3. 技能组之间的引用关系图（现在是右上角文字提示「找不到」，没有可视化）。
+4. 物品组件的剩余 35 项只有数据没有表单（wiki 没给子键表，硬凑输入框会生成错的东西）。
+5. 刷怪点（Spawners）、随机刷怪（RandomSpawns）、自定义 Stat 等其余配置类型还没做成第四、第五种项目。
 
 ## 工程结构
 
@@ -89,41 +99,47 @@ app/
   js/icons.js         内联 SVG 图标（无 emoji、无外部字体）
   js/data.js          中文数据表（实体/物品/附魔/属性/触发器等）
   js/options-data.js  怪物 Options 全量 126 项（自动生成）
-  js/catalog.js       ★ wiki 全量目录 302+196+91+38+120+14（自动生成，别手改）
-  js/yaml.js          YAML 生成 + 预览高亮
+  js/catalog.js       ★ wiki 全量目录 302+196+91+38+120+51+14+33+16（自动生成，别手改）
+  js/extras-data.js   ★ 伤害类型 33 / 掉落类型 16 / 物品选项 17 / 物品组件 58（自动生成，别手改）
+  js/yaml.js          YAML 生成 + 预览高亮 + 引用检查
   js/state.js         项目模型、localStorage、模板
   js/import.js        yml → 表单模型（认不出的字段原样保留）
   js/ui.js            表单渲染
   js/app.js           交互与下载
-  js/host.js          Electron 里的文件浏览与保存
+  js/host.js          Electron 里的文件浏览与保存、引用索引
 tools/
   crawl_wiki.py       wiki 抓取         ┐
   build_schema.py     去重归类          ├ 数据管线
   make_docs.py        生成中文索引      ┘
   build_catalog.py    schema + 中文 → app/js/catalog.js（分组 / 类型推断 / 别名）
+  build_extras.py     data/raw 的表格 → app/js/extras-data.js（伤害 / 掉落 / 物品选项与组件）
   demo_query.py       查 schema 示例
   test_yaml.mjs       YAML 生成器 + 校验单测（11 项）
-  test_import.mjs     导入映射 / 往返保真单测（52 项）
+  test_import.mjs     导入映射 / 往返保真单测（56 项）
   test_catalog.mjs    全量目录测试（41 项：数量、必填推断、条件、通用修饰、302/196/91 逐个生成、版本号）
   test_metaskill.mjs  技能组 + 目标器通用筛选 + 参数上下文中文（34 项）
-  e2e.mjs             无头浏览器交互测试（62 项）
-  e2e-electron.mjs    Electron 文件系统与导入测试（22 项，含技能组磁盘写回与版本号显示）
+  test_ai.mjs         AI 选择器 / 伤害修正 / 掉落三形态 / 掉落表 / 物品组件 / 引用检查（69 项）
+  e2e.mjs             无头浏览器交互测试（79 项）
+  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查（41 项）
   shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
   shot_skill.mjs      截一张「技能组 + 独立条件块」的界面图
 tests/
-  fixture-server/     测试用的假服务器目录（Mobs / Items / Skills 各一个文件）
+  fixture-server/     测试用的假服务器目录（Mobs 2 个 / Items 1 个 / Skills 1 个 / Drops 1 个）
 ```
 
 ## 测试
 
 ```powershell
-node tools/test_yaml.mjs                       # 生成器单测
-node tools/test_import.mjs                     # 导入映射 / 往返保真单测（不需要浏览器）
-node tools/test_catalog.mjs                    # 全量目录单测（不需要浏览器）
-node tools/test_metaskill.mjs                  # 技能组 / 通用筛选 / 参数中文（不需要浏览器）
-node tools/e2e.mjs 9333 .                      # 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
-node tools/e2e-electron.mjs 9350 tests/fixture-server   # 文件系统与导入测试（先 electron . --remote-debugging-port=9350）
+node tools/test_yaml.mjs                       # 11  生成器单测
+node tools/test_import.mjs                     # 56  导入映射 / 往返保真单测（不需要浏览器）
+node tools/test_catalog.mjs                    # 41  全量目录单测（不需要浏览器）
+node tools/test_metaskill.mjs                  # 34  技能组 / 通用筛选 / 参数中文（不需要浏览器）
+node tools/test_ai.mjs                         # 69  AI / 伤害修正 / 掉落 / 物品组件 / 引用检查（不需要浏览器）
+node tools/e2e.mjs 9333 .                      # 79  界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
+node tools/e2e-electron.mjs 9350 tests/fixture-server   # 41  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 ```
+
+合计 **331 项**，全绿。
 
 ---
 
@@ -167,8 +183,10 @@ data/
   zh/targeters.json         91 目标器的中文名
   zh/triggers.json          38 触发器的中文名
   zh/particles.json         120 粒子的中文名
-  zh/params.json            约 630 个参数的中文标签（键一律小写）
+  zh/params.json            约 700 个参数的中文标签（键一律小写）
   zh/context.json           ★ 按机制覆盖的参数中文（amount 在 damage 里叫「伤害量」）
+  zh/ai.json                ★ 51 AI 行为 + 14 AI 目标的中文名、说明、参数中文、8 个分组
+  zh/items.json             ★ 58 物品组件 / 17 物品选项 / 16 掉落类型 / 33 伤害类型的中文名与子键中文
   mob-options.json          怪物 Options 126 项（含分组/默认值/说明）
   raw/*.html                原始页面缓存（960 个，80 MB，可断点重跑，可删）
 docs/

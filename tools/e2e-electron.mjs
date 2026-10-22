@@ -73,12 +73,14 @@ async function main() {
 
   const dir = FIXTURE.replace(/\\/g, "\\\\");
   const scan = await ev(`MM_HOST.scan("${dir}")`);
-  check("扫描目录拿到 3 个文件", scan.files.length === 3, "count=" + scan.files.length);
-  check("识别出 mob / item / skill",
-    scan.files.some(f => f.kind === "mob") && scan.files.some(f => f.kind === "item") && scan.files.some(f => f.kind === "skill"),
+  /* 夹具：Mobs/skeleton_king.yml、Mobs/ai_guard.yml、Items/flame_sword.yml、
+     Skills/boss_phase2.yml、Drops/boss_loot.yml */
+  check("扫描目录拿到 5 个文件", scan.files.length === 5, "count=" + scan.files.length);
+  check("识别出 mob / item / skill / droptable",
+    ["mob", "item", "skill", "droptable"].every(k => scan.files.some(f => f.kind === k)),
     JSON.stringify(scan.files.map(f => f.kind)));
 
-  const mob = scan.files.find(f => f.kind === "mob");
+  const mob = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Mobs/skeleton_king.yml");
   const read = await ev(`MM_HOST.read(${JSON.stringify(mob.path)})`);
   check("读取文件内容", read.text.includes("Type: SKELETON"), read.text.slice(0, 60));
 
@@ -179,6 +181,111 @@ async function main() {
       /Conditions:/.test(sWritten) && /healthpercent/.test(sWritten) && /day false/.test(sWritten), sWritten);
     check("技能组技能没丢", /lightning\{damage=8\} @target/.test(sWritten), sWritten);
     fs.rmSync(tmpSkill, { recursive: true, force: true });
+  }
+
+  /* ---------- 0.6.0：AI 选择器 / 伤害修正 / 掉落表 / 引用检查 ---------- */
+
+  const aiFile = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Mobs/ai_guard.yml");
+  const lootFile = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Drops/boss_loot.yml");
+
+  await ev(`MM_HOST_OPEN_DIR(${JSON.stringify(FIXTURE)})`);
+  await sleep(200);
+  check("打开目录后建好引用索引",
+    await ev(`!!(window.MM_REFS && window.MM_REFS.skills.boss_phase2 && window.MM_REFS.droptables.boss_loot)`),
+    await ev(`JSON.stringify(window.MM_REFS)`));
+
+  if (!aiFile || !lootFile) {
+    check("夹具里有 AI 怪物和掉落表", false, JSON.stringify(scan.files.map(f => f.rel)));
+  } else {
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: aiFile.path, name: aiFile.name, kind: "mob", rel: aiFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+
+    const hasCard = async (t) => ev(`[...document.querySelectorAll("#editor .card")]
+      .some(c => c.textContent.indexOf(${JSON.stringify(t)}) >= 0)`);
+    check("AI 怪物有「AI 行为选择器」卡片", await hasCard("AI 行为选择器"));
+    check("AI 怪物有「AI 目标选择器」卡片", await hasCard("AI 目标选择器"));
+    check("AI 怪物有「伤害修正」卡片", await hasCard("伤害修正"));
+    check("每条 AI 行为都有拖拽把手",
+      await ev(`document.querySelectorAll("#editor .ai-row .drag-handle").length >= 4`),
+      await ev(`document.querySelectorAll("#editor .ai-row .drag-handle").length`));
+    check("优先级数字写回 YAML",
+      await ev(`document.getElementById("yamlOut").innerText.includes("0 clear")`),
+      await ev(`document.getElementById("yamlOut").innerText.match(/AIGoalSelectors[\\s\\S]{0,120}/)`));
+
+    /* 引用检查：夹具里故意写了不存在的 GuardTaunt */
+    check("引用检查标出打错的技能组名",
+      await ev(`document.getElementById("yamlWarn").hidden === false
+        && document.getElementById("yamlWarn").innerText.includes("GuardTaunt")`),
+      await ev(`document.getElementById("yamlWarn").innerText`));
+    check("引用检查不拦保存",
+      await ev(`document.getElementById("btnDownload").disabled === false`));
+    check("引用检查用蓝色提示（不与必填项混在一起）",
+      await ev(`document.getElementById("yamlWarn").classList.contains("soft")`));
+
+    /* 拖拽排序：把第 1 条拖到第 3 条的位置 */
+    const orderBefore = await ev(`MM_STATE.current().data.aiGoals.map(g => g.goal).join(",")`);
+    await ev(`(() => {
+      const rows = document.querySelectorAll("#editor .ai-row");
+      rows[0].querySelector(".drag-handle").dispatchEvent(new DragEvent("dragstart", { bubbles: true }));
+      rows[2].dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true }));
+      rows[2].dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true }));
+      return true;
+    })()`);
+    await sleep(300);
+    const orderAfter = await ev(`MM_STATE.current().data.aiGoals.map(g => g.goal).join(",")`);
+    check("拖拽改变了顺序", orderBefore !== orderAfter, orderBefore + " → " + orderAfter);
+    check("拖拽后 YAML 顺序同步",
+      await ev(`(() => {
+        const y = MM_YAML.generate(MM_STATE.current());
+        /* YAML 里出现的先后必须和数据里的顺序一致 */
+        const names = MM_STATE.current().data.aiGoals.map(g => g.goal);
+        const pos = names.map(n => y.indexOf(n));
+        return pos.every((v, i) => v >= 0 && (i === 0 || pos[i - 1] < v));
+      })()`),
+      await ev(`MM_YAML.generate(MM_STATE.current()).match(/AIGoalSelectors[\\s\\S]{0,160}/)`));
+
+    /* 掉落形态切换：第 1 条是「引用掉落表」，切成「掉落类型」 */
+    const clickDropChip = (rowIdx, label) => ev(`(() => {
+      /* 掉落行的特征：一行里同时有 物品/掉落类型/掉落表 三个 chip */
+      const rows = [...document.querySelectorAll("#editor .list-row")].filter(r =>
+        [...r.querySelectorAll(".dm-quick button")].map(b => b.textContent).join("/") === "物品/掉落类型/掉落表");
+      if (!rows[${rowIdx}]) return "no-row";
+      const btn = [...rows[${rowIdx}].querySelectorAll(".dm-quick button")]
+        .find(b => b.textContent === ${JSON.stringify(label)});
+      if (!btn) return "no-chip";
+      btn.click();
+      return "ok";
+    })()`);
+    check("掉落行能切成「掉落类型」", (await clickDropChip(0, "掉落类型")) === "ok");
+    await sleep(300);
+    check("切换后旧字段被清掉、类型生效",
+      await ev(`(() => { const d = MM_STATE.current().data.drops[0];
+        return d.type === "exp" && !d.table && d.item === undefined; })()`),
+      await ev(`JSON.stringify(MM_STATE.current().data.drops)`));
+    check("切成掉落类型后 YAML 跟着变",
+      await ev(`/^\\s*- exp 1\\s*$/m.test(MM_YAML.generate(MM_STATE.current()))`),
+      await ev(`MM_YAML.generate(MM_STATE.current()).match(/Drops:[\\s\\S]{0,60}/)`));
+    check("能切回「掉落表」", (await clickDropChip(0, "掉落表")) === "ok");
+    await sleep(300);
+    check("切回后重新变成引用", await ev(`MM_STATE.current().data.drops[0].table === ""`));
+
+    /* 掉落表文件 */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: lootFile.path, name: lootFile.name, kind: "droptable", rel: lootFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("掉落表进表单而不是只读预览",
+      await ev(`document.getElementById("editor").innerText.includes("掉落表设置")`));
+    /* 数字写成 '2' 会被服务端当字符串读，必须是裸数字 */
+    check("件数保持数字类型（没被加引号）",
+      await ev(`document.getElementById("yamlOut").innerText.includes("TotalItems: 2")
+        && !document.getElementById("yamlOut").innerText.includes("TotalItems: '2'")`),
+      await ev(`document.getElementById("yamlOut").innerText.match(/TotalItems[^\\n]*/)`));
+    check("命令行掉落的花括号参数没丢",
+      await ev(`document.getElementById("yamlOut").innerText.indexOf('cmd{cmd="crate give <trigger.name> RewardCrate 1"} 1 0.2') >= 0`),
+      await ev(`document.getElementById("yamlOut").innerText.match(/cmd[^\\n]*/)`));
   }
 
   /* 清掉导入的项目，别留在下次运行里 */

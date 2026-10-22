@@ -48,6 +48,8 @@ function classify(rel) {
   if (p.includes("/items/") || p.startsWith("items/")) return "item";
   /* 技能组（Metaskill）在 Skills 目录下 */
   if (p.includes("/skills/") || p.startsWith("skills/")) return "skill";
+  /* 掉落表（DropTables）在 Drops 目录下 */
+  if (p.includes("/drops/") || p.startsWith("drops/")) return "droptable";
   return "other";
 }
 
@@ -82,9 +84,9 @@ async function walk(dir, base, depth, out) {
 async function scan(dir) {
   const out = [];
   await walk(dir, dir, 4, out);
-  const ORDER = { mob: 0, skill: 1, item: 2, other: 3 };
+  const ORDER = { mob: 0, skill: 1, item: 2, droptable: 3, other: 4 };
   out.sort((a, b) => {
-    const d = (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3);
+    const d = (ORDER[a.kind] ?? 4) - (ORDER[b.kind] ?? 4);
     return d || a.rel.localeCompare(b.rel);
   });
   return out;

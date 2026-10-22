@@ -793,3 +793,73 @@ code {
   cursor: pointer;
 }
 .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- AI 选择器 / 伤害修正 / 掉落表（0.6.0） ---------- */
+
+/* 拖动把手：单独 draggable，行里的输入框就不会抢走拖拽手势 */
+.drag-handle {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: grab;
+}
+.drag-handle:hover { border-color: var(--line-2); color: var(--ink-2); background: #fff; }
+.drag-handle.dragging { opacity: .45; cursor: grabbing; }
+.list-row.drag-over { border-color: var(--accent); box-shadow: 0 -2px 0 var(--accent) inset; }
+
+.ai-list .list-row { align-items: flex-start; }
+.ai-head { display: flex; align-items: center; gap: 7px; }
+.ai-idx {
+  flex: 0 0 auto;
+  min-width: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.ai-ops { display: flex; gap: 3px; flex: 0 0 auto; }
+button.mini {
+  width: 24px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-2);
+  background: #fff;
+  border-radius: 4px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+button.mini:hover { border-color: var(--accent); color: var(--accent); }
+.ai-desc { margin: 5px 0 0 29px; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
+
+/* 伤害修正 / 掉落类型的小圆角选项卡 */
+.dm-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.dm-quick .chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+.empty-hint {
+  padding: 8px 2px 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.6;
+}
+
+/* 物品选项 / 组件 */
+.opt-sec { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.opt-sec:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.opt-title { font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; letter-spacing: .02em; }
+.comp-box { margin-top: 8px; }
+.comp-desc { margin: 2px 0 6px; font-size: 11.5px; color: var(--ink-3); line-height: 1.6; }
+.cond-neg { flex: 0 0 auto; font-size: 11px; padding: 2px 6px; border-radius: 4px;
+  background: var(--line); color: var(--ink-3); }
+/* 引用检查是提示不是拦截，换成冷色，别和「填不完不能存」混在一起 */
+.yaml-warn.soft { background: #16202b; border-bottom-color: #24303d; color: #9fb8d0; }
+.yaml-warn.soft b { color: #bfd4e6; }
+.yaml-warn b + ul + b { display: inline-block; margin-top: 6px; }

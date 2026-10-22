@@ -24,9 +24,24 @@
     return (n / 1024 / 1024).toFixed(1) + " MB";
   }
 
+  /* 扫到的文件建一份索引，yaml.js 的引用检查拿它判断 skill{s=xxx} / Drops 里的表名是否存在。
+     只在扫过服务器目录时才有值，纯浏览器里 window.MM_REFS 一直是 undefined，引用检查自动跳过。 */
+  function buildRefs() {
+    const mk = function (kind) {
+      const s = {};
+      files.forEach(function (f) {
+        if (f.kind !== kind) return;
+        s[String(f.name).replace(/\.ya?ml$/i, "").toLowerCase()] = true;
+      });
+      return s;
+    };
+    window.MM_REFS = { skills: mk("skill"), droptables: mk("droptable") };
+  }
+
   function renderFiles() {
     const box = $("serverFiles");
     box.innerHTML = "";
+    buildRefs();
     if (!files.length) {
       box.appendChild(el("div", { class: "file-empty", text: "这个目录里没有 .yml 文件" }));
       return;
@@ -34,7 +49,10 @@
     const mobs = files.filter(function (f) { return f.kind === "mob"; });
     const skills = files.filter(function (f) { return f.kind === "skill"; });
     const items = files.filter(function (f) { return f.kind === "item"; });
-    const others = files.filter(function (f) { return f.kind !== "mob" && f.kind !== "skill" && f.kind !== "item"; });
+    const tables = files.filter(function (f) { return f.kind === "droptable"; });
+    const others = files.filter(function (f) {
+      return f.kind !== "mob" && f.kind !== "skill" && f.kind !== "item" && f.kind !== "droptable";
+    });
 
     function group(title, list) {
       if (!list.length) return;
@@ -45,7 +63,7 @@
           title: f.rel,
           onclick: function () { openFile(f); }
         }, [
-          el("span", { class: "file-icon", html: MM_ICONS.get(f.kind === "mob" ? "skull" : f.kind === "skill" ? "zap" : f.kind === "item" ? "sword" : "file", 13) }),
+          el("span", { class: "file-icon", html: MM_ICONS.get(f.kind === "mob" ? "skull" : f.kind === "skill" ? "zap" : f.kind === "droptable" ? "box" : f.kind === "item" ? "sword" : "file", 13) }),
           el("span", { class: "file-name", text: f.name }),
           el("span", { class: "file-size", text: fmtSize(f.size) })
         ]));
@@ -55,6 +73,7 @@
     group("怪物", mobs);
     group("技能组", skills);
     group("物品", items);
+    group("掉落表", tables);
     group("其他", others);
   }
 
@@ -105,7 +124,8 @@
         showFileView(f, r, r.errors);
         return;
       }
-      const kind = (f.kind === "mob" || f.kind === "item" || f.kind === "skill") ? f.kind : MM_IMPORT.guessKind(r.js);
+      const kind = (f.kind === "mob" || f.kind === "item" || f.kind === "skill" || f.kind === "droptable")
+        ? f.kind : MM_IMPORT.guessKind(r.js);
 
       const opened = MM_STATE.all().find(function (p) { return p.filePath === f.path; });
       if (opened) {
@@ -115,7 +135,10 @@
         return;
       }
 
-      const base = kind === "mob" ? MM_STATE.newMob() : kind === "skill" ? MM_STATE.newSkill() : MM_STATE.newItem();
+      const base = kind === "mob" ? MM_STATE.newMob()
+        : kind === "skill" ? MM_STATE.newSkill()
+        : kind === "droptable" ? MM_STATE.newDropTable()
+        : MM_STATE.newItem();
       const res = MM_IMPORT.fill(base, { js: r.js, text: r.text, filePath: f.path });
       if (!res.ok) {
         showFileView(f, r, [res.reason]);

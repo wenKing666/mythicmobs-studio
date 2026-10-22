@@ -412,6 +412,142 @@ async function main() {
 
   await shot("e2e-metaskill");
 
+  // 8.5 0.6.0：AI 选择器 / 伤害修正 / 掉落三形态 / 物品组件 / 掉落表
+  await evalJs(`document.getElementById("btnNewMob").click(); true`);
+  await new Promise(r => setTimeout(r, 400));
+  const mobText = await evalJs(`document.getElementById("editor").innerText`);
+  check("怪物表单有「AI 行为选择器」", mobText.includes("AI 行为选择器"));
+  check("怪物表单有「AI 目标选择器」", mobText.includes("AI 目标选择器"));
+  check("怪物表单有「伤害修正」", mobText.includes("伤害修正"));
+
+  /* 往 AI 行为选择器里加一条：默认就是 meleeattack */
+  const addInCard = (title, label) => evalJs(`(() => {
+    /* 卡片是 <details><summary>，标题在 summary 里 */
+    const card = [...document.querySelectorAll(".card")]
+      .find(c => c.querySelector("summary") && c.querySelector("summary").innerText.includes(${JSON.stringify(title)}));
+    if (!card) return "no-card";
+    const btns = [...card.querySelectorAll(".add-row")];
+    const b = btns.find(x => x.textContent.trim() === ${JSON.stringify(label)}) || btns[0];
+    if (!b) return "no-btn";
+    b.click();
+    return "ok";
+  })()`);
+  check("能添加一条 AI 行为", (await addInCard("AI 行为选择器", "添加行为")) === "ok");
+  await new Promise(r => setTimeout(r, 350));
+  check("AI 行为写进 AIGoalSelectors",
+    await evalJs(`/AIGoalSelectors:/.test(document.getElementById("yamlOut").innerText)
+      && document.getElementById("yamlOut").innerText.includes("meleeattack")`),
+    await evalJs(`document.getElementById("yamlOut").innerText.match(/AIGoalSelectors[\\s\\S]{0,80}/)`));
+
+  /* 再加一条并改成随机漫步，然后把第 1 条拖到第 2 条后面 */
+  await addInCard("AI 行为选择器", "添加行为");
+  await new Promise(r => setTimeout(r, 350));
+  await evalJs(`(() => {
+    const p = MM_STATE.current();
+    p.data.aiGoals[1].goal = "randomstroll";
+    MM_STATE.touch();
+    MM_APP.refresh(true);
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  const goalsBefore = await evalJs(`MM_STATE.current().data.aiGoals.map(g => g.goal).join(",")`);
+  await evalJs(`(() => {
+    const rows = document.querySelectorAll("#editor .ai-row");
+    if (rows.length < 2) return false;
+    rows[0].querySelector(".drag-handle").dispatchEvent(new DragEvent("dragstart", { bubbles: true }));
+    rows[1].dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true }));
+    rows[1].dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true }));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  const goalsAfter = await evalJs(`MM_STATE.current().data.aiGoals.map(g => g.goal).join(",")`);
+  check("拖拽把手能换顺序", goalsBefore === "meleeattack,randomstroll" && goalsAfter === "randomstroll,meleeattack",
+    goalsBefore + " → " + goalsAfter);
+
+  /* 伤害修正：加一条 → 点「免疫」 → FIRE 0 */
+  check("能添加伤害修正", (await addInCard("伤害修正", "添加伤害修正")) === "ok");
+  await new Promise(r => setTimeout(r, 350));
+  await evalJs(`(() => {
+    const card = [...document.querySelectorAll(".card")]
+      .find(c => c.querySelector("summary") && c.querySelector("summary").innerText.includes("伤害修正"));
+    const chip = [...card.querySelectorAll(".dm-quick button")].find(b => b.textContent === "免疫");
+    if (chip) chip.click();
+    return !!chip;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("伤害修正预设写进 YAML",
+    await evalJs(`/DamageModifiers:/.test(document.getElementById("yamlOut").innerText)
+      && /- FIRE 0/.test(document.getElementById("yamlOut").innerText)`),
+    await evalJs(`document.getElementById("yamlOut").innerText.match(/DamageModifiers[\\s\\S]{0,60}/)`));
+
+  /* 掉落：加一条 → 切成「掉落类型」 */
+  check("能添加掉落", (await addInCard("掉落", "添加掉落")) === "ok");
+  await new Promise(r => setTimeout(r, 350));
+  await evalJs(`(() => {
+    const rows = [...document.querySelectorAll("#editor .list-row")].filter(r =>
+      [...r.querySelectorAll(".dm-quick button")].map(b => b.textContent).join("/") === "物品/掉落类型/掉落表");
+    if (!rows.length) return false;
+    const chip = [...rows[0].querySelectorAll(".dm-quick button")].find(b => b.textContent === "掉落类型");
+    chip.click();
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("掉落三形态切换（物品 → 掉落类型）",
+    await evalJs(`(() => { const d = MM_STATE.current().data.drops[0]; return d.type === "exp" && d.item === undefined; })()`),
+    await evalJs(`JSON.stringify(MM_STATE.current().data.drops)`));
+
+  await shot("e2e-ai-drops");
+
+  /* 物品组件：开一个标量组件（稀有度），值写进 YAML 根级 */
+  await evalJs(`document.getElementById("btnNewItem").click(); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("物品表单有 17 项选项分组", await evalJs(`document.querySelectorAll("#editor .opt-sec").length >= 3`),
+    await evalJs(`document.querySelectorAll("#editor .opt-sec").length`));
+  const compOn = await evalJs(`(() => {
+    const card = [...document.querySelectorAll(".card")]
+      .find(c => c.querySelector("summary") && c.querySelector("summary").innerText.includes("物品组件"));
+    if (!card) return "no-card";
+    const label = [...card.querySelectorAll(".sw-label")].find(x => x.textContent.includes("稀有度"));
+    if (!label) return "no-label";
+    const cb = label.closest("label").querySelector("input[type=checkbox]");
+    if (cb.checked) return "already";
+    cb.checked = true;
+    cb.dispatchEvent(new Event("change", {bubbles:true}));
+    return "ok";
+  })()`);
+  check("能启用物品组件（稀有度）", compOn === "ok" || compOn === "already", String(compOn));
+  await new Promise(r => setTimeout(r, 350));
+  check("组件进了 components 而不是 Options",
+    await evalJs(`MM_STATE.current().data.components.Rarity !== undefined
+      && MM_STATE.current().data.options.CustomModelData === undefined`),
+    await evalJs(`JSON.stringify(Object.keys(MM_STATE.current().data.components))`));
+  check("没做表单的组件也列出来了（知道它们存在）",
+    await evalJs(`/另外 \\d+ 项组件/.test(document.body.textContent)`),
+    await evalJs(`(document.body.textContent.match(/另外 \\d+ 项组件/) || [""])[0]`));
+
+  /* 新建掉落表 */
+  await evalJs(`document.getElementById("btnNewDropTable").click(); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("新建掉落表出现表单", await evalJs(`document.getElementById("editor").innerText.includes("掉落表设置")`));
+  /* 直接在「固定件数」输入框里打字，走真实交互路径 */
+  const totalTyped = await evalJs(`(() => {
+    const card = [...document.querySelectorAll(".card")]
+      .find(c => c.querySelector("summary") && c.querySelector("summary").innerText.includes("掉落表设置"));
+    const inp = card && card.querySelector(".card-body input.input");
+    if (!inp) return "no-input";
+    inp.value = "2";
+    inp.dispatchEvent(new Event("input", {bubbles:true}));
+    return inp.value;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("固定件数能输入", totalTyped === "2", String(totalTyped));
+  check("掉落表件数保持数字类型",
+    await evalJs(`document.getElementById("yamlOut").innerText.includes("TotalItems: 2")
+      && !document.getElementById("yamlOut").innerText.includes("TotalItems: '2'")`),
+    await evalJs(`String(document.getElementById("yamlOut").innerText.match(/TotalItems[^\\n]*/))`));
+
+  await shot("e2e-droptable");
+
   // 9. 使用说明弹窗
   await evalJs(`document.getElementById("btnHelp").click(); true`);
   await new Promise(r => setTimeout(r, 250));

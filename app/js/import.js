@@ -1,15 +1,19 @@
 /* 导入：服务器 yml → 项目模型
-   原则：能结构化的进表单；认不出的（AIGoalSelectors、行内条件、陌生机制…）整块原样保留，
+   原则：能结构化的进表单；认不出的（行内条件、陌生机制…）整块原样保留，
    保存时再原样写回，做到"改一个字段，别的字段不丢"。 */
 window.MM_IMPORT = (function () {
   "use strict";
 
   /* 表单能管的顶层字段；不在这里的，整块留原文 */
-  const MOB_KEYS = ["Type", "Display", "Health", "Damage", "Armor", "BossBar", "Options", "Equipment", "Skills", "Drops"];
+  const MOB_KEYS = ["Type", "Display", "Health", "Damage", "Armor", "BossBar", "Options", "Equipment",
+    "AIGoalSelectors", "AITargetSelectors", "DamageModifiers", "Skills", "Drops"];
   const ITEM_KEYS = ["Id", "Display", "Amount", "Lore", "Options", "Enchantments", "Attributes"];
   /* 技能组（Metaskill）：/Skills 目录下的文件，字段见 wiki Skills/Metaskills */
   const SKILL_KEYS = ["CancelIfNoTargets", "Hidden", "Conditions", "TargetConditions", "TriggerConditions",
     "FailedConditionsSkill", "OnFailSkill", "Cooldown", "OnCooldownSkill", "Skill", "Skills"];
+  /* 掉落表（DropTables）：/Drops 目录下的文件 */
+  const DROPTABLE_KEYS = ["TotalItems", "MinItems", "MaxItems", "BonusLuckItems", "BonusLevelItems",
+    "BiasStat", "Conditions", "TriggerConditions", "Drops"];
 
   function knownMobOptions() {
     const set = {};
@@ -27,7 +31,16 @@ window.MM_IMPORT = (function () {
 
   function knownItemOptions() {
     const set = {};
+    const ex = (window.MM_EXTRAS && MM_EXTRAS.itemOptions) || [];
+    ex.forEach(function (x) { set[x.id] = true; });
     MM_DATA.itemOptions.forEach(function (x) { set[x.key] = true; });
+    return set;
+  }
+
+  /* 物品根级的组件键（1.20.5+）：Food / Equippable / Tool… 表单能管 */
+  function knownItemComponents() {
+    const set = {};
+    ((window.MM_EXTRAS && MM_EXTRAS.itemComponents) || []).forEach(function (c) { set[c.id] = true; });
     return set;
   }
 
@@ -122,24 +135,182 @@ window.MM_IMPORT = (function () {
     return out;
   }
 
+  /* 掉落行里可能有 `cmd{cmd="crate give <trigger.name> ..."}` 这种带空格的花括号，
+     不能直接按空白切。按「引号内、花括号内不切」扫一遍。 */
+  function splitDropLine(s) {
+    const out = [];
+    let buf = "", q = "", depth = 0;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (q) {
+        buf += ch;
+        if (ch === q && s[i - 1] !== "\\") q = "";
+        continue;
+      }
+      if (ch === '"' || ch === "'") { q = ch; buf += ch; continue; }
+      if (ch === "{") { depth++; buf += ch; continue; }
+      if (ch === "}") { depth = Math.max(0, depth - 1); buf += ch; continue; }
+      if (depth === 0 && /\s/.test(ch)) {
+        if (buf) { out.push(buf); buf = ""; }
+        continue;
+      }
+      buf += ch;
+    }
+    if (buf) out.push(buf);
+    return out;
+  }
+
+  /* 掉落类型 → 正式 id。wiki 表里是 command，官方例子里写 cmd，两个都要认 */
+  function dropTypeSet() {
+    const set = {};
+    ((window.MM_EXTRAS && MM_EXTRAS.dropTypes) || []).forEach(function (d) {
+      set[d.id] = d.id;
+      (d.aliases || []).forEach(function (a) { set[String(a).toLowerCase()] = d.id; });
+    });
+    return set;
+  }
+
+  function materialSet() {
+    const set = {};
+    (MM_DATA.materials || []).forEach(function (m) { set[String(m.id || m).toLowerCase()] = true; });
+    return set;
+  }
+
   function parseDrops(list) {
     const out = [];
+    const types = dropTypeSet();
+    const mats = materialSet();
     (Array.isArray(list) ? list : []).forEach(function (x) {
       if (x === null || x === undefined) return;
       if (typeof x === "object") {
+        // { item: xx, amount: 1, chance: 0.5 } 这类结构化的写法
+        const item = x.item || x.Item;
+        const type = x.type || x.Type;
+        const table = x.table || x.Table;
+        if (table) { out.push({ table: String(table) }); return; }
+        if (type) {
+          out.push({
+            type: String(type),
+            value: x.amount !== undefined ? String(x.amount) : (x.value !== undefined ? String(x.value) : ""),
+            chance: x.chance !== undefined && x.chance !== null ? String(x.chance) : ""
+          });
+          return;
+        }
         out.push({
-          item: String(x.item || x.Item || ""),
+          item: String(item || ""),
           amount: x.amount !== undefined && x.amount !== null ? String(x.amount) : "1",
           chance: x.chance !== undefined && x.chance !== null ? String(x.chance) : ""
         });
         return;
       }
-      const parts = String(x).trim().split(/\s+/);
-      out.push({
-        item: parts[0] || "",
-        amount: parts[1] || "1",
-        chance: parts.length > 2 ? parts[2] : ""
-      });
+      const toks = splitDropLine(String(x).trim());
+      if (!toks.length) return;
+      const head = toks[0];
+      const m = /^([^{]+?)\s*(?:\{([\s\S]*)\})?$/.exec(head);
+      const name = (m && m[1] ? m[1] : head).trim();
+      const inline = m && m[2] ? m[2].trim() : "";
+      const low = name.toLowerCase();
+
+      /* 掉落类型：exp / money / cmd / mythicitem… 第二个 token 是数量。
+         cmd 这种要把命令写在花括号里（`cmd{cmd="..."} 1 0.2`），花括号内容原样带回去 */
+      if (types[low]) {
+        const row = {
+          type: types[low],
+          value: toks.length > 1 ? toks[1] : "",
+          chance: toks.length > 2 ? toks[2] : ""
+        };
+        if (inline) row.params = inline;
+        out.push(row);
+        return;
+      }
+      /* 只有一个 token、又不是已知材质 → 当作掉落表引用（`- boss_loot` / `- table:boss_loot`）。
+         注意这是启发式：自定义物品单独一行、不写数量时会被当成表名，界面上改一下类型即可。 */
+      if (toks.length === 1 && !inline && !mats[low]) {
+        out.push({ table: name.replace(/^table\s*:\s*/i, "") });
+        return;
+      }
+      const row = { item: name, amount: toks.length > 1 ? toks[1] : "1", chance: toks.length > 2 ? toks[2] : "" };
+      if (inline) row.params = inline;
+      out.push(row);
+    });
+    return out;
+  }
+
+  /* AIGoalSelectors 的行前面带优先级数字（`0 clear`），AITargetSelectors 不带。
+     别指望大小写：官方例子里 meleeattack 和 MoveTowardsTargetConditional 混着写，
+     所以一律按小写去目录里查。 */
+  function splitAIName(text) {
+    const s = String(text === null || text === undefined ? "" : text).trim();
+    if (!s) return null;
+    const m = /^(\d+)\s+([\s\S]+)$/.exec(s);
+    const body = m ? m[2].trim() : s;
+    const g = /^([A-Za-z_][\w]*)\s*(?:\{([\s\S]*)\})?$/.exec(body);
+    if (!g) return null;
+    /* 记下原有的优先级数字：用户手写的 `- 0 clear` 保存后要原样还在，
+       没写数字的也别凭空加一个 */
+    return { id: g[1], args: g[2] || "", priority: m ? m[1] : null };
+  }
+
+  function parseAIList(list, kind) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach(function (x) {
+      if (x === null || x === undefined) return;
+      const t = splitAIName(x);
+      if (!t) return;
+      const def = catOf(kind, t.id.toLowerCase()) || catOf(kind, t.id);
+      const key = kind === "aiGoals" ? "goal" : "target";
+      const row = {};
+      row[key] = def ? def.id : t.id;
+      if (t.priority !== null) row.priority = t.priority;
+      const params = normKeys(parsePairs(t.args), def ? def.params || [] : []);
+      if (Object.keys(params).length) row.params = params;
+      out.push(row);
+    });
+    return out;
+  }
+
+  /* DamageModifiers：`- FIRE 1.5`，也可能是 `- FIRE: 1.5` 或 [{FIRE: 1.5}] */
+  function parseDamageModifiers(list) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach(function (x) {
+      if (x === null || x === undefined) return;
+      if (typeof x === "object") {
+        Object.keys(x).forEach(function (k) {
+          out.push({ type: String(k).toUpperCase(), value: String(x[k]) });
+        });
+        return;
+      }
+      const s = String(x).trim();
+      if (!s) return;
+      const m = /^([A-Za-z_]+)\s*[: ]\s*(-?[\d.]+)\s*$/.exec(s);
+      if (m) out.push({ type: m[1].toUpperCase(), value: m[2] });
+      else out.push({ type: s.toUpperCase(), value: "" });
+    });
+    return out;
+  }
+
+  /* 物品根级的组件键 → { value } / { list } / { params } */
+  function parseItemComponents(body, handled) {
+    const known = knownItemComponents();
+    const out = {};
+    Object.keys(body).forEach(function (k) {
+      if (handled[k] || !known[k]) return;
+      const v = body[k];
+      if (v === null || v === undefined) return;
+      if (Array.isArray(v)) {
+        out[k] = { list: v.map(function (x) { return String(x); }) };
+        return;
+      }
+      if (typeof v === "object") {
+        const params = {};
+        Object.keys(v).forEach(function (kk) {
+          const vv = v[kk];
+          params[kk] = vv === null || vv === undefined ? "" : String(vv);
+        });
+        out[k] = { params: params };
+        return;
+      }
+      out[k] = { value: String(v) };
     });
     return out;
   }
@@ -424,6 +595,15 @@ window.MM_IMPORT = (function () {
 
   function guessKind(js) {
     const keys = js && typeof js === "object" ? Object.keys(js) : [];
+    /* 掉落表：没有 Type/Id，但带着掉落表的招牌字段 */
+    for (let i = 0; i < keys.length; i++) {
+      const b = js[keys[i]];
+      if (!b || typeof b !== "object" || Array.isArray(b)) continue;
+      if (b.TotalItems !== undefined || b.MinItems !== undefined || b.MaxItems !== undefined ||
+          b.BonusLevelItems !== undefined || b.BonusLuckItems !== undefined || b.BiasStat !== undefined) {
+        return "droptable";
+      }
+    }
     for (let i = 0; i < keys.length; i++) {
       const b = js[keys[i]];
       if (!b || typeof b !== "object" || Array.isArray(b)) continue;
@@ -463,13 +643,21 @@ window.MM_IMPORT = (function () {
     const d = p.data;
     const isMob = p.kind === "mob";
     const isSkill = p.kind === "skill";
+    const isDropTable = p.kind === "droptable";
     const doc = splitTop(parsed.text || "");
     const raw = { head: doc.head, entry: [], others: [], options: {} };
     const warnings = [];
 
-    /* 本条目里认不出的子块（AIGoalSelectors / DamageModifiers / KillMessages…）整块留原文 */
+    /* 本条目里认不出的子块（KillMessages / ThreatTable…）整块留原文 */
     const handled = {};
-    (isMob ? MOB_KEYS : isSkill ? SKILL_KEYS : ITEM_KEYS).forEach(function (k) { handled[k] = true; });
+    (isMob ? MOB_KEYS : isSkill ? SKILL_KEYS : isDropTable ? DROPTABLE_KEYS : ITEM_KEYS)
+      .forEach(function (k) { handled[k] = true; });
+    /* 物品的组件键也算「已处理」，否则会被当成陌生块重复写回一遍。
+       但组件解析本身要看到这些键，所以另存一份不含组件的 handled */
+    const handledBase = Object.assign({}, handled);
+    if (p.kind === "item") {
+      Object.keys(knownItemComponents()).forEach(function (k) { handled[k] = true; });
+    }
     const mine = entryLines(doc, key);
     splitByIndent(mine.slice(1), 2).forEach(function (b) {
       if (!handled[b.key]) raw.entry.push(b.lines.join("\n"));
@@ -492,6 +680,9 @@ window.MM_IMPORT = (function () {
       d.armor = body.Armor !== undefined ? body.Armor : "";
       d.bossbar = parseBossBar(body.BossBar);
       d.equipment = parseEquipment(body.Equipment);
+      d.aiGoals = parseAIList(body.AIGoalSelectors, "aiGoals");
+      d.aiTargets = parseAIList(body.AITargetSelectors, "aiTargets");
+      d.damageModifiers = parseDamageModifiers(body.DamageModifiers);
       d.drops = parseDrops(body.Drops);
       d.skills = parseSkills(body.Skills);
 
@@ -516,6 +707,18 @@ window.MM_IMPORT = (function () {
         warnings.push("条件不满足时执行的是一个内联技能列表，表单表达不了，已原样保留");
         raw.entry.push("  FailedConditionsSkill:\n" + fail.map(function (l) { return "  - " + l; }).join("\n"));
       }
+    } else if (isDropTable) {
+      ["totalItems", "minItems", "maxItems", "bonusLevelItems", "bonusLuckItems", "biasStat"]
+        .forEach(function (k) { d[k] = ""; });
+      if (body.TotalItems !== undefined) d.totalItems = String(body.TotalItems);
+      if (body.MinItems !== undefined) d.minItems = String(body.MinItems);
+      if (body.MaxItems !== undefined) d.maxItems = String(body.MaxItems);
+      if (body.BonusLevelItems !== undefined) d.bonusLevelItems = String(body.BonusLevelItems);
+      if (body.BonusLuckItems !== undefined) d.bonusLuckItems = String(body.BonusLuckItems);
+      if (body.BiasStat !== undefined) d.biasStat = String(body.BiasStat);
+      d.conditions = parseConditionList(body.Conditions);
+      d.triggerConditions = parseConditionList(body.TriggerConditions);
+      d.drops = parseDrops(body.Drops);
     } else {
       if (body.Id !== undefined) d.material = String(body.Id);
       d.display = body.Display !== undefined ? String(body.Display) : "";
@@ -525,6 +728,7 @@ window.MM_IMPORT = (function () {
       else d.lore = [];
       d.enchants = parseEnchants(body.Enchantments);
       d.attributes = parseAttributes(body.Attributes);
+      d.components = parseItemComponents(body, handledBase);
 
       const known = knownItemOptions();
       Object.keys(body.Options || {}).forEach(function (k) {
