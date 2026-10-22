@@ -954,3 +954,13 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 .dlg-btns { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; }
 .dlg-btn { padding: 5px 14px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--panel); font-size: 12.5px; }
+
+/* 0.13.0 克隆/存为模板/我的模板/模板删除 */
+.card-head .head-btns { margin-left: auto; display: flex; gap: 6px; }
+.tpl-group { padding: 6px 8px 2px; font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.tpl-btn { position: relative; }
+.tpl-btn .tpl-del { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  display: none; padding: 3px; border-radius: 4px; color: var(--ink-3); }
+.tpl-btn:hover .tpl-del { display: inline-flex; }
+.tpl-btn .tpl-del:hover { color: #d66; background: rgba(214, 102, 102, .12); }
+.tpl-btn { padding-right: 30px; }

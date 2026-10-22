@@ -844,6 +844,108 @@ async function main() {
 
   await shot("e2e-timeline");
 
+  /* ---------- 0.13.0：克隆 / 自定义模板 / 撤销重做 ---------- */
+
+  // 21. 克隆
+  await evalJs(`MM_APP.new("mob"); true`);
+  await new Promise(r => setTimeout(r, 350));
+  await evalJs(`(() => {
+    const inputs = [...document.querySelectorAll('.card-body input[type=number]')];
+    inputs[0].value = "777";
+    inputs[0].dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 250));
+  const cntBefore = await evalJs(`MM_STATE.all().length`);
+  await evalJs(`MM_APP.clone(); true`);
+  await new Promise(r => setTimeout(r, 350));
+  check("克隆出独立项目", await evalJs(`MM_STATE.all().length === ${cntBefore} + 1
+    && MM_STATE.current().key.indexOf("_copy") > 0`),
+    await evalJs(`MM_STATE.current().key`));
+  check("克隆不带 filePath（另存新文件）", await evalJs(`MM_STATE.current().filePath === null`));
+  check("克隆的血量一致", await evalJs(`Number(MM_STATE.current().data.health) === 777`));
+
+  // 22. 存为模板 + 使用 + 删除
+  await evalJs(`(() => {
+    window.prompt = () => "我的测试模板";
+    window.confirm = () => true;
+    MM_APP.saveAsTemplate(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 250));
+  check("自定义模板已保存", await evalJs(`MM_STATE.customTemplates().length === 1
+    && MM_STATE.customTemplates()[0].name === "我的测试模板"`));
+  check("侧栏出现「我的模板」分组与删除按钮", await evalJs(`(() => {
+    const group = [...document.querySelectorAll("#templateList .tpl-group")]
+      .find(g => g.textContent === "我的模板");
+    return !!group && document.querySelectorAll("#templateList .tpl-del").length >= 1;
+  })()`));
+  await evalJs(`MM_APP.new("mob"); true`);
+  await new Promise(r => setTimeout(r, 300));
+  await evalJs(`(() => {
+    const t = MM_STATE.customTemplates()[0];
+    MM_APP.template(t.id, true); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("用自定义模板创建并去重 key", await evalJs(`Number(MM_STATE.current().data.health) === 777
+    && MM_STATE.current().key.indexOf("_copy") > 0`));
+  await evalJs(`(() => {
+    const t = MM_STATE.customTemplates()[0];
+    MM_APP.template(t.id, true); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("再用一次 key 自动加序号", await evalJs(`Number(MM_STATE.current().data.health) === 777
+    && /_copy(_\\d+)?$/.test(MM_STATE.current().key)`),
+    await evalJs(`MM_STATE.current().key`));
+  await evalJs(`(() => {
+    const t = MM_STATE.customTemplates()[0];
+    MM_APP.removeTemplate ? null : null;
+    const id = t.id;
+    window.confirm = () => true;
+    /* 走 app 层的删除（含确认与列表重绘） */
+    (function () {
+      const btn = document.querySelector("#templateList .tpl-del");
+      btn.click(); return true;
+    })();
+    return id;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("模板能删除", await evalJs(`MM_STATE.customTemplates().length === 0`));
+
+  // 23. 撤销 / 重做
+  await evalJs(`MM_APP.new("mob"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  await evalJs(`(() => {
+    const inputs = [...document.querySelectorAll('.card-body input[type=number]')];
+    inputs[0].value = "888";
+    inputs[0].dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 900));   /* 等防抖入栈 */
+  await evalJs(`(() => {
+    const inputs = [...document.querySelectorAll('.card-body input[type=number]')];
+    inputs[0].value = "999";
+    inputs[0].dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 900));
+  await evalJs(`document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "z", bubbles: true })); true`);
+  await new Promise(r => setTimeout(r, 300));
+  check("Ctrl+Z 回到上一批改动", await evalJs(`Number(MM_STATE.current().data.health) === 888`),
+    await evalJs(`String(MM_STATE.current().data.health)`));
+  await evalJs(`document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "z", bubbles: true })); true`);
+  await new Promise(r => setTimeout(r, 300));
+  check("再撤一次回到基线", await evalJs(`Number(MM_STATE.current().data.health) === 100`),
+    await evalJs(`String(MM_STATE.current().data.health)`));
+  await evalJs(`document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "y", bubbles: true })); true`);
+  await new Promise(r => setTimeout(r, 300));
+  check("Ctrl+Y 重做", await evalJs(`Number(MM_STATE.current().data.health) === 888`));
+  await evalJs(`document.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, key: "y", bubbles: true })); true`);
+  await new Promise(r => setTimeout(r, 300));
+  check("再重做到最新", await evalJs(`Number(MM_STATE.current().data.health) === 999`),
+    await evalJs(`String(MM_STATE.current().data.health)`));
+
+  await shot("e2e-undo");
+
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);

@@ -160,6 +160,7 @@ window.MM_STATE = (function () {
     projects.unshift(project);
     currentId = project.id;
     save();
+    baselineSnap();
     return project;
   }
 
@@ -616,11 +617,11 @@ window.MM_STATE = (function () {
     return projects.find(function (p) { return p.id === currentId; }) || null;
   }
 
-  function select(id) { currentId = id; save(); }
+  function select(id) { currentId = id; save(); baselineSnap(); }
 
   function touch() {
     const p = current();
-    if (p) { p.updated = Date.now(); save(); }
+    if (p) { p.updated = Date.now(); save(); scheduleSnap(); }
   }
 
   function renameKey(p, key) {
@@ -633,6 +634,151 @@ window.MM_STATE = (function () {
     return p.key;
   }
 
+  /* ---------- 0.13.0：克隆 / 自定义模板 / 撤销重做 ---------- */
+
+  /* 克隆：配置内容完整拷贝，另起 ID 与不重复的 key；不继承 filePath（保存会另存新文件） */
+  function clone(id) {
+    const src = projects.find(function (p) { return p.id === id; });
+    if (!src) return null;
+    const p = JSON.parse(JSON.stringify(src));
+    p.id = uid();
+    p.updated = Date.now();
+    p.key = uniqueKey(src.key + "_copy");
+    p.filePath = null;
+    p.mtime = null;
+    projects.unshift(p);
+    currentId = p.id;
+    save();
+    baselineSnap();
+    return p;
+  }
+
+  /* 自定义模板：独立 localStorage 键，与官方模板分开管理 */
+  const TPL_KEY = KEY + "_custom_templates";
+  function customTemplates() {
+    try { return JSON.parse(localStorage.getItem(TPL_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveCustomTemplate(name, project) {
+    const list = customTemplates();
+    list.unshift({
+      id: "ctpl_" + uid(),
+      name: String(name || "").trim() || project.key,
+      desc: (project.kind === "mob" ? "怪物" : project.kind === "skill" ? "技能组" :
+        project.kind === "droptable" ? "掉落表" : project.kind === "item" ? "物品" :
+        (specOf(project.kind) ? specOf(project.kind).title : "配置")) + " · " + project.key,
+      kind: project.kind,
+      payload: JSON.parse(JSON.stringify({ key: project.key, data: project.data }))
+    });
+    if (list.length > 40) list.length = 40;
+    localStorage.setItem(TPL_KEY, JSON.stringify(list));
+    return list;
+  }
+  function removeCustomTemplate(id) {
+    const list = customTemplates().filter(function (t) { return t.id !== id; });
+    localStorage.setItem(TPL_KEY, JSON.stringify(list));
+    return list;
+  }
+  /* 用自定义模板建项目：payload 恢复 + 走一遍与 load() 相同的兼容补齐 */
+  function buildCustom(t) {
+    const p = JSON.parse(JSON.stringify(t.payload));
+    p.kind = t.kind;
+    p.data = p.data || {};
+    const sp = specOf(p.kind);
+    if (sp) {
+      p.data.fields = Object.assign(MM_SPEC.blank(MM_SPEC.flatFields(sp)), p.data.fields || {});
+    } else {
+      const base = p.kind === "mob" ? newMob() : p.kind === "item" ? newItem() :
+        p.kind === "skill" ? newSkill() : p.kind === "droptable" ? newDropTable() : null;
+      if (base) {
+        Object.keys(base.data).forEach(function (k) {
+          if (p.data[k] === undefined) p.data[k] = base.data[k];
+        });
+        if (p.data.options) p.data.options = Object.assign(mobOptionDefaults(), p.data.options);
+      }
+    }
+    p.id = uid();
+    p.updated = Date.now();
+    p.key = uniqueKey(p.key || "my_" + p.kind);
+    p.filePath = null;
+    p.mtime = null;
+    projects.unshift(p);
+    currentId = p.id;
+    save();
+    baselineSnap();
+    return p;
+  }
+
+  /* 撤销 / 重做：按项目快照。改动经 touch() 防抖 600ms 入栈（同一状态去重），
+     切换 / 新建 / 打开时打基线快照，保证每批改动都有「改前」可回退。 */
+  let undoStack = [], redoStack = [];
+  let snapTimer = null, lastSnap = "";
+  const SNAP_MAX = 50;
+  function snapshotOf(p) {
+    return JSON.stringify({ id: p.id, key: p.key, data: p.data });
+  }
+  function baselineSnap() {
+    if (snapTimer) { clearTimeout(snapTimer); snapTimer = null; }
+    const p = current();
+    if (!p) return;
+    lastSnap = snapshotOf(p);
+    /* 基线也进栈：第一次撤销要能回到「刚打开 / 刚新建」的状态 */
+    undoStack.push(lastSnap);
+    if (undoStack.length > SNAP_MAX) undoStack.shift();
+    redoStack.length = 0;
+  }
+  function scheduleSnap() {
+    if (snapTimer) clearTimeout(snapTimer);
+    snapTimer = setTimeout(function () {
+      snapTimer = null;
+      const p = current();
+      if (!p) return;
+      const snap = snapshotOf(p);
+      if (snap === lastSnap) return;
+      undoStack.push(snap);
+      if (undoStack.length > SNAP_MAX) undoStack.shift();
+      redoStack.length = 0;
+      lastSnap = snap;
+    }, 600);
+  }
+  function applySnap(snap) {
+    const o = JSON.parse(snap);
+    const p = projects.find(function (x) { return x.id === o.id; });
+    if (!p) return false;
+    p.key = o.key;
+    p.data = o.data;
+    save();
+    return true;
+  }
+  function undo() {
+    const p = current();
+    if (!p) return false;
+    const cur = snapshotOf(p);
+    while (undoStack.length) {
+      const snap = undoStack.pop();
+      if (snap === cur) continue;
+      redoStack.push(cur);
+      if (!applySnap(snap)) continue;
+      lastSnap = snap;
+      return true;
+    }
+    return false;
+  }
+  function redo() {
+    const p = current();
+    if (!p) return false;
+    const cur = snapshotOf(p);
+    while (redoStack.length) {
+      const snap = redoStack.pop();
+      if (snap === cur) continue;
+      undoStack.push(cur);
+      if (!applySnap(snap)) continue;
+      lastSnap = snap;
+      return true;
+    }
+    return false;
+  }
+
   return {
     templates: templates,
     load: load, save: save, create: create, add: add, remove: remove,
@@ -641,7 +787,11 @@ window.MM_STATE = (function () {
     currentId: function () { return currentId; },
     renameKey: renameKey,
     newMob: newMob, newItem: newItem, newSkill: newSkill, newDropTable: newDropTable,
-    specOf: specOf, specKinds: specKinds, newSpecProject: newSpecProject
+    specOf: specOf, specKinds: specKinds, newSpecProject: newSpecProject,
+    clone: clone,
+    customTemplates: customTemplates, saveCustomTemplate: saveCustomTemplate,
+    removeCustomTemplate: removeCustomTemplate, buildCustom: buildCustom,
+    undo: undo, redo: redo, baselineSnap: baselineSnap
   };
 })();
 

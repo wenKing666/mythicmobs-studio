@@ -240,7 +240,18 @@
     });
   }
 
-  function useTemplate(id) {    const t = MM_STATE.templates.find(function (x) { return x.id === id; });
+  function useTemplate(id, custom) {
+    if (custom) {
+      const ct = MM_STATE.customTemplates().find(function (x) { return x.id === id; });
+      if (!ct) return;
+      const cp = MM_STATE.buildCustom(ct);
+      MM_UI.renderEditor($("editor"), cp);
+      refresh();
+      $("editor").scrollTop = 0;
+      toast("已从模板创建：" + ct.name);
+      return;
+    }
+    const t = MM_STATE.templates.find(function (x) { return x.id === id; });
     if (!t) return;
     const p = MM_STATE.add(t.build());
     MM_UI.renderEditor($("editor"), p);
@@ -290,6 +301,47 @@
     } else fallback();
   }
 
+  /* 0.13.0：克隆 / 自定义模板 / 撤销重做 */
+  function cloneProject() {
+    const p = MM_STATE.current();
+    if (!p) { toast("先新建一个作品"); return; }
+    const np = MM_STATE.clone(p.id);
+    if (!np) return;
+    MM_UI.renderEditor($("editor"), np);
+    refresh();
+    toast("已克隆为「" + np.key + "」（保存时会另存新文件）");
+  }
+
+  function saveAsTemplate() {
+    const p = MM_STATE.current();
+    if (!p) { toast("先新建一个作品"); return; }
+    const name = window.prompt("模板名字（会出现在左侧模板列表里）：", plainName(p) || p.key);
+    if (name === null) return;   /* 取消 */
+    MM_STATE.saveCustomTemplate(name, p);
+    MM_UI.renderTemplates($("templateList"), useTemplate, removeTemplate);
+    toast("已存为模板「" + name + "」");
+  }
+
+  function removeTemplate(id) {
+    if (!window.confirm("删除这个自定义模板？（不影响已经创建的项目）")) return;
+    MM_STATE.removeCustomTemplate(id);
+    MM_UI.renderTemplates($("templateList"), useTemplate, removeTemplate);
+    toast("模板已删除");
+  }
+
+  function plainName(p) {
+    return String(p.data.display || "").replace(/&[0-9a-fk-or]/gi, "").trim();
+  }
+
+  function doUndo() {
+    if (MM_STATE.undo()) { refresh(true); toast("已撤销（Ctrl+Y 恢复）"); }
+    else toast("没有可撤销的改动");
+  }
+  function doRedo() {
+    if (MM_STATE.redo()) { refresh(true); toast("已重做"); }
+    else toast("没有可重做的改动");
+  }
+
   function init() {
 
     MM_UI.init({
@@ -319,11 +371,25 @@
       if (e.target === $("helpModal")) $("helpModal").hidden = true;
     });
 
-    MM_UI.renderTemplates($("templateList"), useTemplate);
+    MM_UI.renderTemplates($("templateList"), useTemplate, removeTemplate);
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
     MM_UI.renderEditor($("editor"), MM_STATE.current());
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
     renderWarnings(MM_YAML.validate(MM_STATE.current()));
+    MM_STATE.baselineSnap();
+
+    /* Ctrl+Z 撤销 / Ctrl+Y 或 Ctrl+Shift+Z 重做。
+       焦点在输入框里时 Ctrl+Z 让浏览器自己撤销文本，不抢。 */
+    document.addEventListener("keydown", function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      const tag = (document.activeElement || {}).tagName || "";
+      const editing = tag === "INPUT" || tag === "TEXTAREA";
+      if (editing && k === "z" && !e.shiftKey) return;
+      e.preventDefault();
+      if (k === "z" && !e.shiftKey) doUndo(); else doRedo();
+    });
 
     document.addEventListener("keydown", function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -335,7 +401,8 @@
 
     // 给空状态里的按钮用
     window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
-      reload: reloadFromDisk, switchEntry: switchEntry };
+      reload: reloadFromDisk, switchEntry: switchEntry, clone: cloneProject, saveAsTemplate: saveAsTemplate,
+      undo: doUndo, redo: doRedo };
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

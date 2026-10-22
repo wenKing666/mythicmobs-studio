@@ -364,7 +364,7 @@ window.MM_UI = (function () {
     });
   }
 
-  function renderTemplates(container, onPick) {
+  function renderTemplates(container, onPick, onDelete) {
     container.innerHTML = "";
     MM_STATE.templates.forEach(function (t) {
       container.appendChild(el("button", {
@@ -376,6 +376,27 @@ window.MM_UI = (function () {
           el("div", { class: "d", text: t.desc })
         ])
       ]));
+    });
+    /* 0.13.0：用户自己的模板（可删除） */
+    const mine = (window.MM_STATE && MM_STATE.customTemplates) ? MM_STATE.customTemplates() : [];
+    if (mine.length) {
+      container.appendChild(el("div", { class: "tpl-group", text: "我的模板" }));
+    }
+    mine.forEach(function (t) {
+      const btn = el("button", {
+        class: "tpl-btn", onclick: function () { onPick(t.id, true); }
+      }, [
+        ico(kindIcon(t.kind), 15),
+        el("span", null, [
+          el("div", { class: "t", text: t.name }),
+          el("div", { class: "d", text: t.desc })
+        ]),
+        el("span", {
+          class: "tpl-del", title: "删除模板",
+          onclick: function (e) { e.stopPropagation(); onDelete && onDelete(t.id); }
+        }, [svgSpan("trash", 12)])
+      ]);
+      container.appendChild(btn);
     });
   }
 
@@ -930,12 +951,26 @@ window.MM_UI = (function () {
           onclick: function () { window.MM_APP && MM_APP.reload(); }
         })
       : null;
+    /* 0.13.0：克隆与存为模板 */
+    const headBtns = el("span", { class: "head-btns" }, [
+      reloadBtn,
+      el("button", {
+        class: "mini-btn", text: "⧉ 克隆", type: "button",
+        title: "复制一份当前配置继续改（保存时会另存新文件）",
+        onclick: function () { window.MM_APP && MM_APP.clone(); }
+      }),
+      el("button", {
+        class: "mini-btn", text: "存为模板", type: "button",
+        title: "把当前配置存成自己的模板，左侧模板列表里可重复使用",
+        onclick: function () { window.MM_APP && MM_APP.saveAsTemplate(); }
+      })
+    ]);
 
     return el("div", { class: "card" }, [
       el("div", { class: "card-head" }, [
         el("span", { class: "card-icon", html: MM_ICONS.get(iconName, 15) }),
         el("span", { text: kindName }),
-        reloadBtn
+        headBtns
       ]),
       el("div", { class: "card-body" }, [
         el("div", { class: "grid" + (isSkill ? " one" : "") }, [
