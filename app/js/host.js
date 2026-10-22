@@ -419,6 +419,53 @@
     return { nodes: shown, edges: edges, skipped: nodeList.length - shown.length };
   };
 
+  /* 变量管理（0.19.0）：扫全部文件里的 var=xxx（含 skill./global. 前缀），返回计数清单 */
+  window.MM_HOST_SCAN_VARS = async function () {
+    if (!files.length) return [];
+    const counts = {}, where = {};
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      let text = textCache[f.path];
+      if (text === undefined) {
+        try { text = (await MM_HOST.read(f.path)).text || ""; }
+        catch (e) { text = ""; }
+        textCache[f.path] = text;
+      }
+      const re = /(?:\bvar|\bvariable)\s*=\s*['"]?([\w.]+)/gi;
+      let m;
+      while ((m = re.exec(text))) {
+        const name = m[1];
+        counts[name] = (counts[name] || 0) + 1;
+        (where[name] || (where[name] = new Set())).add(f.rel);
+      }
+    }
+    return Object.keys(counts).map(function (name) {
+      return { name: name, hits: counts[name], files: where[name].size,
+               rels: Array.from(where[name]) };
+    }).sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+  };
+  /* 变量重命名：替换 var=旧 / variable=旧 为新名，逐文件写回（自动备份） */
+  window.MM_HOST_RENAME_VAR = async function (oldName, newName) {
+    const esc = String(oldName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp("((?:\\bvar|\\bvariable)\\s*=\\s*['\"]?)" + esc + "(?=['\"]|[,;}]|\\s|$)", "gi");
+    let n = 0;
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      let text = textCache[f.path];
+      if (text === undefined) {
+        try { text = (await MM_HOST.read(f.path)).text || ""; }
+        catch (e) { text = ""; }
+        textCache[f.path] = text;
+      }
+      const next = text.replace(re, "$1" + newName);
+      if (next !== text) {
+        try { await MM_HOST.write(f.path, next); textCache[f.path] = next; n++; }
+        catch (e) { /* 跳过 */ }
+      }
+    }
+    return n;
+  };
+
   /* 循环引用检测（0.16.0）：在关系图的边上 DFS 找回到起点的路径。
      返回 [[名字…], …]，每个环一行（首个名字取字典序最小的节点，避免同环多报）。 */
   window.MM_HOST_FIND_CYCLES = function (nodes, edges) {

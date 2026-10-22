@@ -12,7 +12,7 @@
   <div class="brand">
     <svg class="mark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
     <span class="app-name">MythicMobs 编辑器</span>
-    <span class="app-ver" id="appVer">0.18.0</span>
+    <span class="app-ver" id="appVer">0.19.0</span>
   </div>
   <div class="top-actions">
     <button id="btnOpenFolder" class="btn dark" hidden>
@@ -70,13 +70,16 @@
     <div class="side-block" id="serverBlock" hidden>
       <div class="side-title">服务器文件
         <button id="btnBatch" class="side-mini" title="按规则批量修改多份配置（先预览再写回）">批量编辑</button>
+        <button id="btnVars" class="side-mini" title="扫描全服变量（var=xxx），支持全局重命名">变量</button>
         <button id="btnCleanBak" class="side-mini" title="清理保存时产生的 .bak 备份（默认保留最近 5 份）">清理备份</button>
       </div>
       <div id="serverDir" class="side-dir"></div>
       <div id="serverFiles" class="file-list"></div>
     </div>
     <div class="side-block">
-      <div class="side-title">模板</div>
+      <div class="side-title">模板
+        <button id="btnImportBundle" class="side-mini" title="导入配置包（一组相关配置整体重建）">导入配置包</button>
+      </div>
       <div id="templateList" class="template-list"></div>
     </div>
     <div class="side-foot">数据保存在本机浏览器</div>

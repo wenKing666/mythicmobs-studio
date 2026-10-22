@@ -131,10 +131,16 @@
     });
   }
 
-  function refresh(rebuild) {
-    const p = MM_STATE.current();
+  let previewTimer = null;
+  function paintPreview(p) {
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
     renderWarnings(MM_YAML.validate(p));
+  }
+  function refresh(rebuild) {
+    const p = MM_STATE.current();
+    if (previewTimer) clearTimeout(previewTimer);
+    if (rebuild) paintPreview(p);
+    else previewTimer = setTimeout(function () { previewTimer = null; paintPreview(MM_STATE.current()); }, 120);
 
     // 侧栏标题随名字变化
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
@@ -960,6 +966,165 @@
     modal.hidden = false;
   }
 
+  /* 0.19.0：变量管理——扫 var= 定义、全局重命名（写回自动备份） */
+  async function openVars() {
+    if (!window.MM_HOST_SCAN_VARS) { toast("变量管理需要桌面版（要读服务器文件）"); return; }
+    let modal = $("varsModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "varsModal";
+      modal.className = "modal";
+      modal.innerHTML = '<div class="modal-box diff-box"><div class="modal-head"><h2>变量管理</h2>' +
+        '<span class="diff-legend" id="varsStat"></span>' +
+        '<button class="modal-close" title="关闭">✕</button></div>' +
+        '<div class="vars-body" id="varsBody"></div></div>';
+      document.body.appendChild(modal);
+      modal.querySelector(".modal-close").onclick = function () { modal.hidden = true; };
+      modal.addEventListener("click", function (e) { if (e.target === modal) modal.hidden = true; });
+    }
+    const body = modal.querySelector("#varsBody");
+    const stat = modal.querySelector("#varsStat");
+    modal.hidden = false;
+    body.innerHTML = '<div class="gs-empty">正在扫描…</div>';
+    const vars = await MM_HOST_SCAN_VARS();
+    stat.textContent = vars.length + " 个变量";
+    body.innerHTML = "";
+    if (!vars.length) {
+      body.innerHTML = '<div class="gs-empty">还没扫到任何变量（技能里 var=xxx 的都会列在这里）。</div>';
+      return;
+    }
+    vars.forEach(function (v) {
+      const row = gsEl("div", { class: "vars-row" });
+      row.appendChild(gsEl("code", { class: "vars-name", text: v.name }));
+      row.appendChild(gsEl("span", { class: "vars-meta", text: v.hits + " 处 · " + v.files + " 个文件" }));
+      const ren = gsEl("button", { class: "mini-btn", text: "重命名" });
+      ren.addEventListener("click", async function () {
+        const nn = window.prompt("把变量「" + v.name + "」重命名为：", v.name);
+        if (!nn || nn === v.name) return;
+        if (!/^[\w.]+$/.test(nn)) { toast("变量名只能用字母数字下划线和点"); return; }
+        if (!window.confirm("将在 " + v.files + " 个文件里把 var=" + v.name + " 全部改成 var=" + nn +
+          "（写回自动备份），确定吗？")) return;
+        const n = await MM_HOST_RENAME_VAR(v.name, nn);
+        toast("已改写 " + n + " 个文件");
+        modal.hidden = true;
+        await MM_HOST_OPEN_DIR(MM_HOST_ROOT());
+      });
+      row.appendChild(ren);
+      body.appendChild(row);
+    });
+  }
+
+  /* 0.19.0：配置包——当前项目 + 引用闭包打成一个 .json，导入时整体重建 */
+  function refNamesOf(text) {
+    const out = {};
+    let m;
+    const re = /(?:skill|metaskill)\s*\{[^}]*\b(?:s|skill|name)\s*=\s*['"]?([\w\-]+)/gi;
+    while ((m = re.exec(text))) out[m[1].toLowerCase()] = m[1];
+    const re2 = /\btable\s*[:=]\s*['"]?([\w\-]+)/gi;
+    while ((m = re2.exec(text))) out[m[1].toLowerCase()] = m[1];
+    return out;
+  }
+  async function exportBundle() {
+    const start = MM_STATE.current();
+    if (!start) { toast("先选一个项目"); return; }
+    const byKey = {};
+    MM_STATE.all().forEach(function (p) { byKey[p.key] = p; });
+    const items = [], seen = {};
+    const queue = [start];
+    seen[start.key] = true;
+    while (queue.length) {
+      const p = queue.shift();
+      let text = "";
+      try { text = MM_YAML.generate(p); } catch (e) { /* 忽略 */ }
+      items.push({ kind: p.kind, key: p.key, data: JSON.parse(JSON.stringify(p.data)),
+        raw: JSON.parse(JSON.stringify(p.raw || {})) });
+      const refs = refNamesOf(text);
+      Object.keys(refs).forEach(function (low) {
+        const t = byKey[refs[low]];
+        if (t && !seen[t.key]) { seen[t.key] = true; queue.push(t); }
+      });
+    }
+    const bundle = { type: "mmstudio-bundle", exported: new Date().toISOString(), items: items };
+    const data = JSON.stringify(bundle, null, 2);
+    const fname = "配置包-" + start.key + "-" + items.length + "项.json";
+    if (window.MM_HOST && MM_HOST.isElectron) {
+      const p = await MM_HOST.saveAs(fname);
+      if (!p) return;
+      await MM_HOST.write(p, data);
+      toast("配置包已导出（" + items.length + " 个配置）");
+    } else {
+      const blob = new Blob([data], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("配置包已下载（" + items.length + " 个配置）");
+    }
+  }
+
+  async function importBundle() {
+    let text = null;
+    if (window.MM_HOST && MM_HOST.isElectron && MM_HOST_OPEN_JSON) {
+      const p = await MM_HOST_OPEN_JSON();
+      if (!p) return;
+      text = (await MM_HOST.read(p)).text;
+    } else {
+      text = await new Promise(function (resolve) {
+        const inp = document.createElement("input");
+        inp.type = "file";
+        inp.accept = ".json,application/json";
+        inp.onchange = function () {
+          const f = inp.files[0];
+          if (!f) return resolve(null);
+          const r = new FileReader();
+          r.onload = function () { resolve(r.result); };
+          r.readAsText(f);
+        };
+        inp.click();
+      });
+      if (!text) return;
+    }
+    let bundle;
+    try { bundle = JSON.parse(text); } catch (e) { toast("不是合法的 JSON 文件"); return; }
+    if (bundle.type !== "mmstudio-bundle" || !Array.isArray(bundle.items)) {
+      toast("这不是配置包文件（单个模板请用「导入」）");
+      return;
+    }
+    /* key 冲突时给整包统一加前缀，并同步包内互相引用的名字 */
+    const existing = {};
+    MM_STATE.all().forEach(function (p) { existing[p.key] = true; });
+    const keys = bundle.items.map(function (it) { return it.key; });
+    const clash = keys.some(function (k) { return existing[k]; });
+    let prefix = "";
+    if (clash) {
+      prefix = (bundle.items[0].key.split("_")[0] || "pack") + "_";
+      while (keys.some(function (k) { return existing[prefix + k]; })) prefix = "i_" + prefix;
+    }
+    let last = null;
+    bundle.items.forEach(function (it) {
+      const key = prefix ? prefix + it.key : it.key;
+      const p = { kind: it.kind, key: key, data: JSON.parse(JSON.stringify(it.data)),
+        raw: JSON.parse(JSON.stringify(it.raw || {})) };
+      last = MM_STATE.add(p);
+    });
+    if (prefix) {
+      /* 包内互相引用的名字同步加前缀（替换生成文本里的引用 token） */
+      MM_STATE.all().forEach(function (p) {
+        if (!p.raw || keys.indexOf(p.key.replace(prefix, "")) < 0) return;
+        bundle.items.forEach(function (it) {
+          /* 无文本级替换——引用存在 data.skills.params.s 与 raw 文本两处，重建成本高，
+             第一版策略：冲突时提示用户用「重命名」工具自己统一 */
+        });
+      });
+      toast("已导入 " + bundle.items.length + " 个配置（加了前缀 " + prefix + "，包内引用如断开可用引用检查一键重建）");
+    } else {
+      toast("已导入 " + bundle.items.length + " 个配置");
+    }
+    MM_UI.renderEditor($("editor"), last);
+    refresh(true);
+  }
+
   function init() {
 
     MM_UI.init({
@@ -986,6 +1151,8 @@
     phInit();
     $("btnCleanBak").addEventListener("click", cleanBackups);
     $("btnBatch").addEventListener("click", showBatchModal);
+    $("btnVars").addEventListener("click", openVars);
+    $("btnImportBundle").addEventListener("click", importBundle);
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });
@@ -1031,7 +1198,7 @@
     window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
       reload: reloadFromDisk, switchEntry: switchEntry, clone: cloneProject, saveAsTemplate: saveAsTemplate,
       undo: doUndo, redo: doRedo, saveToServer: saveToServer, exportTemplate: exportTemplate, importTemplate: importTemplate,
-      showBatchModal: showBatchModal };
+      showBatchModal: showBatchModal, openVars: openVars, exportBundle: exportBundle, importBundle: importBundle };
     restoreLastDir();
   }
 

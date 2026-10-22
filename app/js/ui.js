@@ -1019,6 +1019,11 @@ window.MM_UI = (function () {
         class: "mini-btn", text: "存为模板", type: "button",
         title: "把当前配置存成自己的模板，左侧模板列表里可重复使用",
         onclick: function () { window.MM_APP && MM_APP.saveAsTemplate(); }
+      }),
+      el("button", {
+        class: "mini-btn", text: "导出配置包", type: "button",
+        title: "把当前配置连同它引用的技能组 / 掉落表打成一个 .json（导入时整体重建）",
+        onclick: function () { window.MM_APP && MM_APP.exportBundle(); }
       })
     ]);
 

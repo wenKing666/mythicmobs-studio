@@ -751,6 +751,12 @@ window.MM_STATE = (function () {
       const snap = snapshotOf(p);
       if (snap === lastSnap) return;
       undoStack.push(snap);
+      /* 字节预算：大项目全量快照很吃内存，合计超 2MB 就丢最旧的 */
+      let bytes = undoStack.reduce(function (t, x) { return t + x.length; }, 0);
+      while (bytes > 2 * 1024 * 1024 && undoStack.length > 2) {
+        bytes -= undoStack[0].length;
+        undoStack.shift();
+      }
       if (undoStack.length > SNAP_MAX) undoStack.shift();
       redoStack.length = 0;
       lastSnap = snap;
