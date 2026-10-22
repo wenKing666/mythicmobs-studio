@@ -624,6 +624,34 @@ window.MM_UI = (function () {
     });
   }
 
+  /* ---------- 引用影响（0.11.0）：反向引用扫描 ---------- */
+  function referrerCard(p) {
+    if (!window.MM_HOST_FIND_REFERRERS) return null;
+    const box = el("div", { class: "hint", text: "正在扫描服务器目录…" });
+    /* 需要引用索引才能判断「这是不是个被引用的名字」——纯浏览器没有文件系统，整卡不出 */
+    const cardEl = card("zap", "引用影响", "改名字 / 删除之前，先看谁在用", true, [box]);
+    MM_HOST_FIND_REFERRERS(p.kind === "skill" ? "skill" : "droptable", p.key, p.filePath).then(function (list) {
+      box.innerHTML = "";
+      if (!list.length) {
+        box.className = "hint";
+        box.textContent = "服务器目录里没有其他配置引用它，改名 / 删除没有连带影响。";
+        return;
+      }
+      box.className = "sim-grid";
+      list.forEach(function (r) {
+        box.appendChild(el("div", { class: "sim-row" }, [
+          el("span", { class: "sim-name", text: r.name }),
+          el("span", { class: "sim-num", text: r.kind === "mob" ? "怪物" : r.kind === "skill" ? "技能组" : "掉落表" }),
+          el("span", {}, [el("button", {
+            class: "mini-btn", text: "打开", type: "button",
+            onclick: function () { window.MM_HOST_OPEN_FILE && MM_HOST_OPEN_FILE(r); }
+          })])
+        ]));
+      });
+    });
+    return cardEl;
+  }
+
   /* ---------- 编辑器外壳 ---------- */
   function renderEditor(root, project) {
     root.innerHTML = "";
@@ -643,6 +671,11 @@ window.MM_UI = (function () {
     const tabs = entryTabs(project);
     if (tabs) root.appendChild(tabs);
     root.appendChild(editorHeader(project));
+    /* 技能组 / 掉落表：显示「服务器里谁在引用我」，改名前先看影响面（0.11.0） */
+    if ((project.kind === "skill" || project.kind === "droptable") && project.filePath) {
+      const rc = referrerCard(project);
+      if (rc) root.appendChild(rc);
+    }
     if (window.MM_STATE.specOf && MM_STATE.specOf(project.kind)) renderSpec(root, project);
     else if (project.kind === "mob") renderMob(root, project);
     else if (project.kind === "skill") renderSkill(root, project);
@@ -691,6 +724,7 @@ window.MM_UI = (function () {
 
     const idErr = el("div", { class: "field-err", text: "ID 不能为空" });
     idErr.style.display = "none";
+    const oldKey = String(p.key || "");   /* 改名联动要拿渲染时的旧 ID */
     const idInput = textInput(p.key, function (v, input) {
       const clean = String(v).replace(/[^A-Za-z0-9_\-]/g, "_");
       if (clean !== v) input.value = clean;
@@ -699,6 +733,30 @@ window.MM_UI = (function () {
       MM_STATE.touch();
       changed();
     }, { placeholder: idPlaceholder });
+    /* 失焦时如果改了名：技能组 / 掉落表可能有别处引用旧 ID，问一句要不要一起改（0.11.0） */
+    idInput.addEventListener("change", function () {
+      const newKey = String(p.key || "");
+      if (!oldKey || newKey === oldKey || !p.filePath) return;
+      if (p.kind !== "skill" && p.kind !== "droptable") return;
+      if (!window.MM_HOST_FIND_REFERRERS || !window.MM_HOST_RENAME_REFERRERS) return;
+      const kind = p.kind === "skill" ? "skill" : "droptable";
+      MM_HOST_FIND_REFERRERS(kind, oldKey, p.filePath).then(function (list) {
+        if (!list.length) return;
+        if (!window.confirm("有 " + list.length + " 个文件引用了「" + oldKey + "」。要把这些引用一起改成「" + newKey + "」吗？（会写回那些文件并自动备份）")) return;
+        MM_HOST_RENAME_REFERRERS(kind, oldKey, newKey, list).then(function (done) {
+          if (window.MM_APP) window.MM_APP.refresh(true);
+          /* 提示走 toast 元素（定义在 app.js），这里只碰 DOM */
+          const t = document.getElementById("toast");
+          if (t) {
+            t.textContent = done.length
+              ? "已把 " + done.length + " 个文件里的引用改成「" + newKey + "」。磁盘上的文件名还是旧的，需要的话在文件管理器里同步改名"
+              : "引用文件没能改写（可能被占用）";
+            t.classList.add("show");
+            setTimeout(function () { t.classList.remove("show"); }, 2600);
+          }
+        });
+      });
+    });
 
     function syncId() {
       const bad = !String(idInput.value || "").trim();

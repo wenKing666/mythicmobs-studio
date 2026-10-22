@@ -12,6 +12,8 @@
 
 0.9.0 补上**打包发布**：`npm run dist` 出 Windows 便携版单文件 exe，双击即用，不用装 Node 或运行时。
 
+0.11.0 给技能组和掉落表加了**引用影响面板**：打开配置就能看到「服务器里谁在引用我」，每个引用者可以一键打开；**改 ID 时自动询问要不要把所有引用一起改掉**（写回引用文件并自动备份），改 ID 不再需要全局手搜。
+
 0.10.0 加了两个实用小件：掉落表编辑器里多了**概率模拟**（按当前配置抽 100 / 1000 / 10000 次，直接看出货次数、实测概率与期望件数，独立判定和权重两种模式都会算）；**9 种新配置类型各配了一个模板**（竞技场刷怪点 / 夜晚荒野随机刷 / 暴击属性 / 简单主菜单 / NPC 对话 / BOSS 登场镜头 / 竞技场定位点 / 示例内容包 / 强化原版僵尸），新建不再从空白开始。
 
 ![怪物编辑器](docs/img/editor-mob.png)
@@ -130,7 +132,7 @@
 
 ## 还没做的（下一步）
 
-1. 引用关系图（现在引用已经可以点着跳转了，但还没有把「谁引用了谁」画成图）。
+1. 引用关系图（0.11.0 已有反向引用面板和改名联动，但还没有把「谁引用了谁」画成图）。
 2. 对话（Dialog）与过场镜头（Cinematic）只做了 wiki 给出的骨架字段，实际内容多半是逐帧剧本，
    真正好用还得等一套「时间轴」式的编辑方式。
 3. 没有做模板 / 仇恨表 / 免疫表这三种东西的**独立文件**编辑入口 —— wiki 只说它们存在，
@@ -176,7 +178,7 @@ tools/
   test_ai.mjs         AI 选择器 / 伤害修正 / 掉落三形态 / 掉落表 / 物品组件 / 引用检查（69 项）
   test_spec.mjs       通用字段引擎 + 9 种类型 / 三种文件形态 / 组件子键 / 掉落特效（127 项）
   e2e.mjs             无头浏览器交互测试（103 项）
-  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写、易用性三件套（63 项）
+  e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写、易用性三件套、引用影响（67 项）
   smoke_packaged.mjs  打包形态冒烟（版本号 / 扫描 / 导入 / 写盘备份，8 项）
   make_icon.py        生成应用图标 build/icon.ico（Pillow 几何绘制，npm run icon）
   shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
@@ -195,11 +197,11 @@ node tools/test_metaskill.mjs                  # 34  技能组 / 通用筛选 / 
 node tools/test_ai.mjs                         # 69  AI / 伤害修正 / 掉落 / 物品组件 / 引用检查（不需要浏览器）
 node tools/test_spec.mjs                       # 127  通用字段引擎 / 9 种类型 / 三种文件形态（不需要浏览器）
 node tools/e2e.mjs 9333 .                      # 103 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
-node tools/e2e-electron.mjs 9350 tests/fixture-server   # 63  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
+node tools/e2e-electron.mjs 9350 tests/fixture-server   # 67  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 node tools/smoke_packaged.mjs 9351 tests/fixture-server # 8   打包形态冒烟（先给 dist 的 exe 传调试端口启动）
 ```
 
-`npm test` 会把前六条单测串起来跑。合计 **525 项**（单测 359 + 界面 166），全绿；打包后另跑 8 项冒烟。
+`npm test` 会把前六条单测串起来跑。合计 **529 项**（单测 359 + 界面 170），全绿；打包后另跑 8 项冒烟。
 
 ---
 

@@ -463,6 +463,67 @@ async function main() {
     fs.writeFileSync(mobPath, origMob);
   }
 
+  /* ---------- 0.11.0：引用影响面板 + 改名联动 ---------- */
+
+  const skillRefFile = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Skills/boss_phase2.yml");
+  const guardOrig = aiFile ? (await ev(`MM_HOST.read(${JSON.stringify(aiFile.path)})`)).text : "";
+
+  if (!skillRefFile || !aiFile) {
+    check("夹具里有技能组与 AI 怪物", false, JSON.stringify(scan.files.map(f => f.rel)));
+  } else {
+    /* 反向引用：boss_phase2 被 ai_guard 的 skill{s=boss_phase2} 引用 */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: skillRefFile.path, name: skillRefFile.name, kind: "skill", rel: skillRefFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(700);
+    check("扫出引用者 ai_guard", await ev(`(() => {
+      const card = [...document.querySelectorAll("#editor .card")]
+        .find(c => c.textContent.indexOf("引用影响") >= 0);
+      return card && card.textContent.includes("ai_guard.yml");
+    })()`),
+      await ev(`(() => {
+        const card = [...document.querySelectorAll("#editor .card")]
+          .find(c => c.textContent.indexOf("引用影响") >= 0);
+        return card ? card.textContent.slice(0, 120) : "无卡片";
+      })()`));
+
+    /* 掉落表的反向引用：boss_loot 被 ai_guard 的 table:boss_loot 引用 */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: lootFile.path, name: lootFile.name, kind: "droptable", rel: lootFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(700);
+    check("掉落表也扫出引用者", await ev(`(() => {
+      const card = [...document.querySelectorAll("#editor .card")]
+        .find(c => c.textContent.indexOf("引用影响") >= 0);
+      return card && card.textContent.includes("ai_guard.yml");
+    })()`));
+
+    /* 改名联动：技能组 ID 改成 boss_phase3 → 确认 → ai_guard.yml 里的引用一起变 */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: skillRefFile.path, name: skillRefFile.name, kind: "skill", rel: skillRefFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(700);
+    await ev(`(() => {
+      window.confirm = () => true;
+      const card = [...document.querySelectorAll("#editor .card")]
+        .find(c => c.querySelector("label") && c.querySelector("label").textContent === "ID");
+      const inp = card.querySelector("input");
+      inp.focus();
+      inp.value = "boss_phase3";
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    })()`);
+    await sleep(900);
+    const guardNow = (await ev(`MM_HOST.read(${JSON.stringify(aiFile.path)})`)).text;
+    check("改名联动更新了引用文件", /skill\{s=boss_phase3\}/.test(guardNow), guardNow.match(/Skills:[\s\S]{0,90}/));
+    /* 当前项目的 YAML 顶层 ID 也是新名 */
+    check("项目 ID 已是新名", await ev(`MM_STATE.current().key === "boss_phase3"`));
+  }
+
+  /* 还原 ai_guard.yml（改名联动测试改写了它） */
+  if (aiFile && guardOrig) fs.writeFileSync(aiFile.path, guardOrig);
+
   /* 清掉导入的项目，别留在下次运行里 */
   await ev(`(() => {
     MM_STATE.all().filter(p => p.filePath).forEach(p => MM_STATE.remove(p.id));

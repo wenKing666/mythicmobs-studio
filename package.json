@@ -1,6 +1,6 @@
 {
   "name": "mythicmobs-studio",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "description": "MythicMobs visual editor",
   "main": "electron/main.js",

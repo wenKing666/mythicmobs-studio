@@ -243,6 +243,70 @@
   };
   window.MM_HOST_OPEN_FILE = openFile;
 
+  /* 反向引用扫描（0.11.0）：在扫过的文件里找「谁引用了这个技能组 / 掉落表」。
+     kind = "skill" | "droptable"，name 是配置 ID（不含 table: 前缀）。
+     返回引用者文件列表；当前文件自己（selfPath）不算。 */
+  window.MM_HOST_FIND_REFERRERS = async function (kind, name, selfPath) {
+    const n = String(name || "").trim();
+    if (!n || !files.length) return [];
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const out = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (f.kind !== "mob" && f.kind !== "skill" && f.kind !== "droptable") continue;
+      if (selfPath && f.path === selfPath) continue;
+      try {
+        const r = await MM_HOST.read(f.path);
+        const text = String(r.text || "");
+        let hit = false;
+        if (kind === "skill") {
+          /* skill{s=名} / metaskill{s=名}（raw 行与结构化行都在原文里） */
+          const reInline = new RegExp("(?:skill|metaskill)\\s*\\{[^}]*\\b(?:s|skill|name)\\s*=\\s*['\"]?" + esc + "(?:['\"]|[,;}]|\\s|$)", "i");
+          /* FailedConditionsSkill / OnCooldownSkill / Skill: 名（单值键） */
+          const reKey = new RegExp("^\\s*(?:FailedConditionsSkill|OnCooldownSkill|Skill)\\s*:\\s*['\"]?" + esc + "(?:['\"]|\\s|$)", "im");
+          hit = reInline.test(text) || reKey.test(text);
+        } else {
+          /* table:名 或掉落表列表里的单 token 行 `- 名 1 0.5` */
+          const reTable = new RegExp("table\\s*:\\s*['\"]?" + esc + "(?:['\"]|\\s|$)", "i");
+          const reToken = new RegExp("^\\s*-\\s+" + esc + "(?:\\s|$)", "m");
+          hit = reTable.test(text) || reToken.test(text);
+        }
+        if (hit) out.push({ path: f.path, rel: f.rel, name: f.name, kind: f.kind });
+      } catch (e) { /* 读不了的文件跳过 */ }
+    }
+    return out;
+  };
+
+  /* 一键重命名：把引用文件里旧 ID 的出现位置换成新 ID，写回（主进程自动备份）。
+     只动「作为引用 token」的位置，逐文件整读整写。返回成功改写的文件列表。 */
+  window.MM_HOST_RENAME_REFERRERS = async function (kind, oldName, newName, referrers) {
+    const esc = String(oldName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const done = [];
+    for (let i = 0; i < referrers.length; i++) {
+      const f = referrers[i];
+      try {
+        const r = await MM_HOST.read(f.path);
+        let text = String(r.text || "");
+        if (kind === "skill") {
+          text = text.replace(
+            new RegExp("((?:skill|metaskill)\\s*\\{[^}]*\\b(?:s|skill|name)\\s*=\\s*['\"]?)" + esc + "(?=['\"]|[,;}]|\\s|$)", "gi"),
+            "$1" + newName);
+          text = text.replace(
+            new RegExp("^(\\s*(?:FailedConditionsSkill|OnCooldownSkill|Skill)\\s*:\\s*['\"]?)" + esc + "(?=['\"]|\\s|$)", "gim"),
+            "$1" + newName);
+        } else {
+          text = text.replace(new RegExp("(table\\s*:\\s*['\"]?)" + esc + "(?=['\"]|\\s|$)", "gi"), "$1" + newName);
+          text = text.replace(new RegExp("^(\\s*-\\s+)" + esc + "(?=\\s|$)", "gm"), "$1" + newName);
+        }
+        if (text !== r.text) {
+          await MM_HOST.write(f.path, text);
+          done.push(f.rel);
+        }
+      } catch (e) { /* 单个文件失败不挡其他 */ }
+    }
+    return done;
+  };
+
   function init() {
     $("btnOpenFolder").hidden = false;
     $("btnOpenFolder").addEventListener("click", openFolder);
