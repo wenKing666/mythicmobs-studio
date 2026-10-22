@@ -369,10 +369,11 @@ window.MM_SPEC_DATA = {
         "ADDITIVE_MULTIPLIER",
         "COMPOUND_MULTIPLIER",
         "DAMAGE_MODIFIER",
-        "DAMAGE_BONUS"
+        "DAMAGE_BONUS",
+        "PROC"
        ],
        "d": "STATIC",
-       "h": "STATIC 用于纯计数属性；后三种是三种叠加算法"
+       "h": "STATIC 用于纯计数属性；PROC 是按概率触发技能"
       },
       {
        "k": "Display",

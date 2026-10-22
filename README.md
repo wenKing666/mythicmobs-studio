@@ -10,13 +10,15 @@
 
 0.8.0 做的是**易用性三件套**：引用检查从「一行蓝字」变成**可点击**（不存在的名字一键新建，已存在的引用一键跳到那个文件）；导入过的项目可以**一键从磁盘重新读取**（外部改过文件后不用重新导入）；一个文件里有多个条目的（比如 `pins.yml`）可以在条目之间**直接切换编辑**，不用再拆文件。
 
-0.9.0 补上**打包发布**：`npm run dist` 出 Windows 便携版单文件 exe（`dist/MythicMobsStudio-0.9.0.exe`），双击即用，不用装 Node 或运行时。
+0.9.0 补上**打包发布**：`npm run dist` 出 Windows 便携版单文件 exe，双击即用，不用装 Node 或运行时。
+
+0.10.0 加了两个实用小件：掉落表编辑器里多了**概率模拟**（按当前配置抽 100 / 1000 / 10000 次，直接看出货次数、实测概率与期望件数，独立判定和权重两种模式都会算）；**9 种新配置类型各配了一个模板**（竞技场刷怪点 / 夜晚荒野随机刷 / 暴击属性 / 简单主菜单 / NPC 对话 / BOSS 登场镜头 / 竞技场定位点 / 示例内容包 / 强化原版僵尸），新建不再从空白开始。
 
 ![怪物编辑器](docs/img/editor-mob.png)
 
 ## 怎么用
 
-1. 双击 **`dist/MythicMobsStudio-0.9.0.exe`**（打包好的便携版，什么都不用装）；
+1. 双击 **`dist/MythicMobsStudio-0.10.0.exe`**（打包好的便携版，什么都不用装）；
    或开发方式：双击 **`启动编辑器(无窗口).vbs`**（推荐，不会有黑框）或 **`启动编辑器.bat`**，打开独立窗口。
    没装 Electron 运行时会自动回落到浏览器（功能少掉文件读写）；`.bat` 会显示提示，`.vbs` 不会。
 2. 左边挑一个模板，或点右上角「新建怪物 / 新建物品 / 新建技能组 / 新建掉落表」；
@@ -120,7 +122,7 @@
 ![导入已有配置](docs/img/import-edit.png)
 
 **其他**
-- 11 个模板：普通小怪 / BOSS / BOSS 二阶段 / 范围爆发 / 弓箭手 / 冲锋兵 / 会走位的 BOSS / 近战武器 / 防具 / 可食用物品 / BOSS 掉落表
+- 20 个模板：怪物 6 / 技能组 2 / 掉落表 1 / 物品 3 / 刷怪点、随机刷怪、自定义属性、菜单、对话、过场镜头、定位点、内容包、原版覆写各 1
 - 4 个功能开关示例、实时 YAML 预览与语法高亮
 - 选择器：点输入框列出全部选项（中文名 + 英文 ID），可搜索、可滚动、也可直接输入自定义 ID
 - 必填校验：缺内容时输入框标红，右侧顶部列出缺哪几项，下载按钮变灰（不会悄悄给你填个默认值）
@@ -173,7 +175,7 @@ tools/
   test_metaskill.mjs  技能组 + 目标器通用筛选 + 参数上下文中文（34 项）
   test_ai.mjs         AI 选择器 / 伤害修正 / 掉落三形态 / 掉落表 / 物品组件 / 引用检查（69 项）
   test_spec.mjs       通用字段引擎 + 9 种类型 / 三种文件形态 / 组件子键 / 掉落特效（127 项）
-  e2e.mjs             无头浏览器交互测试（95 项）
+  e2e.mjs             无头浏览器交互测试（103 项）
   e2e-electron.mjs    Electron 文件系统、导入写回、AI 拖拽、掉落表、引用检查、新类型读写、易用性三件套（63 项）
   smoke_packaged.mjs  打包形态冒烟（版本号 / 扫描 / 导入 / 写盘备份，8 项）
   make_icon.py        生成应用图标 build/icon.ico（Pillow 几何绘制，npm run icon）
@@ -192,12 +194,12 @@ node tools/test_catalog.mjs                    # 41  全量目录单测（不需
 node tools/test_metaskill.mjs                  # 34  技能组 / 通用筛选 / 参数中文（不需要浏览器）
 node tools/test_ai.mjs                         # 69  AI / 伤害修正 / 掉落 / 物品组件 / 引用检查（不需要浏览器）
 node tools/test_spec.mjs                       # 127  通用字段引擎 / 9 种类型 / 三种文件形态（不需要浏览器）
-node tools/e2e.mjs 9333 .                      # 95  界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
+node tools/e2e.mjs 9333 .                      # 103 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
 node tools/e2e-electron.mjs 9350 tests/fixture-server   # 63  文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 node tools/smoke_packaged.mjs 9351 tests/fixture-server # 8   打包形态冒烟（先给 dist 的 exe 传调试端口启动）
 ```
 
-`npm test` 会把前六条单测串起来跑。合计 **517 项**（单测 359 + 界面 158），全绿；打包后另跑 8 项冒烟。
+`npm test` 会把前六条单测串起来跑。合计 **525 项**（单测 359 + 界面 166），全绿；打包后另跑 8 项冒烟。
 
 ---
 

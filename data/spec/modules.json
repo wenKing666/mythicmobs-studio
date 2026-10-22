@@ -137,7 +137,7 @@
           "fields": [
             { "k": "Enabled", "z": "启用", "t": "bool", "d": "true" },
             { "k": "AlwaysActive", "z": "强制作用于所有实体", "t": "bool", "d": "false" },
-            { "k": "Type", "z": "类型", "t": "enum", "o": ["STATIC", "ADDITIVE", "ADDITIVE_MULTIPLIER", "COMPOUND_MULTIPLIER", "DAMAGE_MODIFIER", "DAMAGE_BONUS"], "d": "STATIC", "h": "STATIC 用于纯计数属性；后三种是三种叠加算法" },
+            { "k": "Type", "z": "类型", "t": "enum", "o": ["STATIC", "ADDITIVE", "ADDITIVE_MULTIPLIER", "COMPOUND_MULTIPLIER", "DAMAGE_MODIFIER", "DAMAGE_BONUS", "PROC"], "d": "STATIC", "h": "STATIC 用于纯计数属性；PROC 是按概率触发技能" },
             { "k": "Display", "z": "显示名", "t": "text" },
             { "k": "FormulaKey", "z": "公式键", "t": "text", "h": "占位符里用的短名，如 SPD" },
             { "k": "Priority", "z": "优先级", "t": "num" },

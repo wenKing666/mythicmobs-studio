@@ -1171,6 +1171,111 @@ window.MM_UI = (function () {
     root.appendChild(condCardFor(d, "triggerConditions", "击杀者条件 TriggerConditions", "判断触发掉落的人（通常就是击杀者）", false, false));
 
     root.appendChild(card("box", "掉落内容", "", true, [dropRows(d.drops)]));
+
+    root.appendChild(dropSimCard(d));
+  }
+
+  /* ---------- 掉落概率模拟（0.10.0） ----------
+     纯前端按当前配置试抽，两种模式与生成侧一致：
+     - 默认：每条独立 roll chance（留空 = 100%）
+     - 设了 MinItems+MaxItems（或 TotalItems）：先随机件数，再按 chance 当权重抽
+     Bonus 系列与条件不参与（它们依赖运行时的等级 / 幸运 / 实体）。 */
+  function dropAmountRange(v) {
+    const s = String(v === undefined || v === null ? "" : v).trim();
+    const m = /^(\d+)\s*-\s*(\d+)$/.exec(s);
+    if (m) return [Math.max(0, +m[1]), Math.max(0, +m[2])];
+    if (/^\d+(\.\d+)?$/.test(s)) { const n = Math.max(0, Math.round(+s)); return [n, n]; }
+    return [1, 1];
+  }
+
+  function dropChance(v) {
+    const raw = String(v === undefined || v === null ? "" : v).trim();
+    if (!raw) return 1;
+    const isPercent = /%$/.test(raw);
+    const s = raw.replace(/%$/, "");
+    if (!/^\d*\.?\d+$/.test(s)) return 1;
+    const n = +s;
+    if (isPercent) return Math.min(1, Math.max(0, n / 100));
+    /* MM 的 chance 就是 0~1 的小数；写大了按 100% 算 */
+    return Math.min(1, Math.max(0, n));
+  }
+
+  function dropName(x) {
+    if (x.table) return "表 " + String(x.table).replace(/^table\s*:\s*/i, "").trim();
+    if (x.type) return x.type + (String(x.value || "").trim() ? " (" + x.value + ")" : "");
+    return String(x.item || "").trim() || "(空)";
+  }
+
+  function dropSimCard(d) {
+    const out = el("div", { class: "sim-out hint", text: "点上面的按钮开始模拟。Bonus 系列和条件不参与（依赖运行时的等级 / 幸运 / 实体）。" });
+
+    function run(times) {
+      /* 与 yaml.js hasDrop 同口径：有 item / type / table 之一才算一条 */
+      const rows = (d.drops || []).filter(function (x) {
+        return !!(x && (String(x.item || "").trim() || String(x.type || "").trim() || String(x.table || "").trim()));
+      });
+      if (!rows.length) { out.textContent = "先在「掉落内容」里加几条掉落再模拟。"; return; }
+      const minI = parseInt(d.minItems, 10), maxI = parseInt(d.maxItems, 10), totalI = parseInt(d.totalItems, 10);
+      const hasMin = !isNaN(minI), hasMax = !isNaN(maxI), hasTotal = !isNaN(totalI);
+      const weightMode = (hasMin && hasMax) || hasTotal;
+      const lo = hasMin ? minI : (hasTotal ? totalI : 0);
+      const hi = hasMax ? maxI : (hasTotal ? totalI : 0);
+
+      const items = rows.map(function (x) {
+        const r = x.table || x.type ? [1, 1] : dropAmountRange(x.amount);
+        return { name: dropName(x), lo: r[0], hi: r[1], w: dropChance(x.chance) };
+      });
+      const stats = items.map(function (it) { return { name: it.name, hits: 0, pieces: 0 }; });
+      const wsum = items.reduce(function (s, it) { return s + it.w; }, 0);
+
+      for (let t = 0; t < times; t++) {
+        if (weightMode && wsum > 0) {
+          let n = lo + Math.floor(Math.random() * (hi - lo + 1));
+          while (n-- > 0) {
+            let roll = Math.random() * wsum, pick = items.length - 1;
+            for (let k = 0; k < items.length; k++) { roll -= items[k].w; if (roll <= 0) { pick = k; break; } }
+            const cnt = items[pick].lo + Math.floor(Math.random() * (items[pick].hi - items[pick].lo + 1));
+            stats[pick].hits++; stats[pick].pieces += cnt;
+          }
+        } else {
+          items.forEach(function (it, k) {
+            if (Math.random() < it.w) {
+              const cnt = it.lo + Math.floor(Math.random() * (it.hi - it.lo + 1));
+              stats[k].hits++; stats[k].pieces += cnt;
+            }
+          });
+        }
+      }
+
+      out.innerHTML = "";
+      out.className = "sim-out";
+      const head = el("div", { class: "sim-head", text: "抽了 " + times + " 次" +
+        (weightMode ? "（权重模式，每轮 " + lo + "~" + hi + " 件）" : "（独立判定模式）") + "：" });
+      out.appendChild(head);
+      const grid = el("div", { class: "sim-grid" });
+      stats.forEach(function (s) {
+        grid.appendChild(el("div", { class: "sim-row" }, [
+          el("span", { class: "sim-name", text: s.name }),
+          el("span", { class: "sim-num", text: s.hits + " 次 · " + (s.hits * 100 / times).toFixed(1) + "%" }),
+          el("span", { class: "sim-exp", text: "期望 " + (s.pieces / times).toFixed(2) + " 件/次" })
+        ]));
+      });
+      out.appendChild(grid);
+    }
+
+    const bar = el("div", { class: "sim-bar" });
+    [100, 1000, 10000].forEach(function (n) {
+      bar.appendChild(el("button", {
+        class: "mini-btn", text: "抽 " + n + " 次", type: "button",
+        onclick: function () { run(n); }
+      }));
+    });
+
+    return el("div", { class: "sim-card" }, [
+      el("div", { class: "grid" }, [el("div", { class: "field" }, [
+        el("label", { text: "概率模拟" }), bar, out
+      ])])
+    ]);
   }
 
   /* ---------- 怪物表单 ---------- */

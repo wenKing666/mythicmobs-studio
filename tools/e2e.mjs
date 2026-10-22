@@ -692,6 +692,92 @@ async function main() {
   await new Promise(r => setTimeout(r, 200));
   check("使用说明能关闭", await evalJs(`document.getElementById("helpModal").hidden`));
 
+  /* ---------- 0.10.0：掉落概率模拟器 + 新类型模板 ---------- */
+
+  // 17. 概率模拟
+  await evalJs(`(() => {
+    document.getElementById("btnNewDropTable").click();
+    const d = MM_STATE.current().data;
+    d.drops = [
+      { item: "diamond", amount: "1-3", chance: "0.5" },
+      { item: "nether_star", amount: "1", chance: "0.1" },
+      { type: "exp", value: "10", chance: "1" }
+    ];
+    MM_APP.refresh(true);
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 400));
+  check("掉落表有「概率模拟」卡片", await evalJs(`[...document.querySelectorAll("#editor .field label")]
+    .some(l => l.textContent === "概率模拟")`));
+  await evalJs(`(() => {
+    const btn = [...document.querySelectorAll("#editor .sim-bar .mini-btn")]
+      .find(b => b.textContent === "抽 1000 次");
+    btn.click(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 250));
+  check("独立判定模式出结果表", await evalJs(`(() => {
+    const head = document.querySelector("#editor .sim-head");
+    return head && head.textContent.includes("独立判定模式")
+      && document.querySelectorAll("#editor .sim-row").length === 3;
+  })()`),
+    await evalJs(`(document.querySelector("#editor .sim-head")||{}).textContent`));
+  check("出货概率在合理区间", await evalJs(`(() => {
+    const rows = [...document.querySelectorAll("#editor .sim-row")];
+    const diamond = rows.find(r => r.textContent.includes("diamond"));
+    const m = diamond.textContent.match(/([\\d.]+)%/);
+    return m && +m[1] > 40 && +m[1] < 60;
+  })()`),
+    await evalJs(`[...document.querySelectorAll("#editor .sim-row")].map(r=>r.textContent).join(" | ")`));
+
+  // 权重模式
+  await evalJs(`(() => {
+    const d = MM_STATE.current().data;
+    d.minItems = "2"; d.maxItems = "3";
+    MM_APP.refresh(true); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .sim-bar .mini-btn")]
+      .find(b => b.textContent === "抽 1000 次").click(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 250));
+  check("权重模式标注件数区间", await evalJs(`(() => {
+    const head = document.querySelector("#editor .sim-head");
+    return head && head.textContent.includes("权重模式") && head.textContent.includes("2~3 件");
+  })()`),
+    await evalJs(`(document.querySelector("#editor .sim-head")||{}).textContent`));
+
+  // 18. 新类型模板
+  await evalJs(`MM_APP.template("tpl_spawner_arena"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("刷怪点模板能一键创建", await evalJs(`MM_STATE.current().kind === "spawner"
+    && MM_STATE.current().key.indexOf("arena_boss_spawner") === 0`));
+  check("刷怪点模板字段填好了",
+    await evalJs(`document.getElementById("yamlOut").innerText.includes("MobName: my_boss")
+      && document.getElementById("yamlOut").innerText.includes("Cooldown: 300")
+      && document.getElementById("yamlOut").innerText.includes("HealOnLeash: true")`),
+    await evalJs(`document.getElementById("yamlOut").innerText.slice(0, 240)`));
+
+  await evalJs(`MM_APP.template("tpl_dialog_npc"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("对话模板带正文和按钮",
+    await evalJs(`(() => {
+      const y = document.getElementById("yamlOut").innerText;
+      return y.includes("Title:") && y.includes("Message:") && (y.match(/Label:/g) || []).length === 2;
+    })()`),
+    await evalJs(`document.getElementById("yamlOut").innerText.slice(0, 300)`));
+
+  await evalJs(`MM_APP.template("tpl_cinematic_boss"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("过场镜头模板 points 带引号",
+    await evalJs(`(() => {
+      const y = document.getElementById("yamlOut").innerText;
+      return /points:/.test(y) && /'world,/.test(y) && y.includes("hold=40");
+    })()`),
+    await evalJs(`document.getElementById("yamlOut").innerText.slice(0, 300)`));
+
+  await shot("e2e-sim");
+
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);

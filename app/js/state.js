@@ -424,6 +424,140 @@ window.MM_STATE = (function () {
         p.data.options.Unbreakable = true;
         return p;
       }
+    },
+
+    /* ---------- 0.10.0：9 种新配置类型的模板 ---------- */
+    {
+      id: "tpl_spawner_arena", kind: "spawner", icon: "map-pin", name: "竞技场刷怪点",
+      desc: "计时刷怪、冷却 5 分钟、拴绳保护、需要玩家在附近",
+      build: function () {
+        const p = newSpecProject("spawner");
+        p.key = uniqueKey("arena_boss_spawner");
+        const f = p.data.fields;
+        f.MobName = "my_boss"; f.World = "world";
+        f.X = "0"; f.Y = "64"; f.Z = "0"; f.Radius = "3"; f.RadiusY = "2";
+        f.MobsPerSpawn = "1"; f.MaxMobs = "1";
+        f.UseTimer = "true"; f.Cooldown = "300"; f.Warmup = "10";
+        f.CheckForPlayers = "true"; f.ActivationRange = "40";
+        f.LeashRange = "32"; f.HealOnLeash = "true"; f.ResetThreatOnLeash = "true";
+        f.ShowFlames = "true"; f.Breakable = "false";
+        return p;
+      }
+    },
+    {
+      id: "tpl_randomspawn_night", kind: "randomspawn", icon: "moon", name: "夜晚荒野随机刷",
+      desc: "替换原版生成：5% 概率把夜晚的僵尸换成 3 级强化版",
+      build: function () {
+        const p = newSpecProject("randomspawn");
+        p.key = uniqueKey("night_elite");
+        const f = p.data.fields;
+        f.Action = "REPLACE"; f.Type = "zombie"; f.Level = "3";
+        f.Chance = "0.05"; f.Worlds = ["world"]; f.PositionType = "LAND";
+        f.Conditions = [{ id: "night", params: {}, expect: "" }];
+        return p;
+      }
+    },
+    {
+      id: "tpl_stat_crit", kind: "stats", icon: "activity", name: "暴击属性",
+      desc: "PROC 型：攻击时按基础值概率触发，挂技能自己填",
+      build: function () {
+        const p = newSpecProject("stats");
+        p.key = uniqueKey("MY_CRIT");
+        const f = p.data.fields;
+        f.Enabled = "true"; f.Type = "PROC"; f.Display = "&c暴击";
+        f.FormulaKey = "CRIT"; f.BaseValue = "5"; f.MinValue = "0"; f.MaxValue = "100";
+        f.Priority = "3"; f.Rounding = "0";
+        f.Triggers = ["Attack"]; f.ExecutionPoint = "PRE";
+        f.Formatting = { Additive: "+<value>% 暴击率" };
+        return p;
+      }
+    },
+    {
+      id: "tpl_menu_main", kind: "menu", icon: "grid", name: "简单主菜单",
+      desc: "27 格菜单 + 九宫格布局骨架，图标在 Icons 里配",
+      build: function () {
+        const p = newSpecProject("menu");
+        p.key = uniqueKey("main_menu");
+        const f = p.data.fields;
+        f.Display = "&8服务器菜单"; f.Size = "27";
+        f.Shared = "false";
+        f.Schema = [".........", ".iii.iii.", "........."];
+        return p;
+      }
+    },
+    {
+      id: "tpl_dialog_npc", kind: "dialog", icon: "message", name: "NPC 对话",
+      desc: "带正文与两个按钮的欢迎对话",
+      build: function () {
+        const p = newSpecProject("dialog");
+        p.key = uniqueKey("villager_welcome");
+        const f = p.data.fields;
+        f.Title = "<gold>村长你好！";
+        f.CanClose = "true"; f.AfterAction = "CLOSE";
+        f.Body = [
+          { Type: "text", Message: "<gray>欢迎来到本服务器，<target.name>！" },
+          { Type: "text", Message: "<gray>左侧的任务都做完了吗？" }
+        ];
+        f.Buttons = [
+          { Label: "<green>做完了", Tooltip: "领取奖励" },
+          { Label: "<yellow>还没有", Tooltip: "去接任务" }
+        ];
+        return p;
+      }
+    },
+    {
+      id: "tpl_cinematic_boss", kind: "cinematic", icon: "film", name: "BOSS 登场镜头",
+      desc: "10 秒环绕推近的两段镜头路径",
+      build: function () {
+        const p = newSpecProject("cinematic");
+        p.key = uniqueKey("boss_intro");
+        const f = p.data.fields;
+        f.duration = "200"; f.loop = "false"; f.easing = "EASE_IN_OUT_CUBIC";
+        f.points = [
+          "world,0,80,25,0,-20",
+          "world,12,74,14,0,-15 hold=40",
+          "world,0,70,6,0,0"
+        ];
+        return p;
+      }
+    },
+    {
+      id: "tpl_pin_arena", kind: "pin", icon: "map-pin", name: "竞技场定位点",
+      desc: "半径 12 格、常驻 10 分钟的红色定位点",
+      build: function () {
+        const p = newSpecProject("pin");
+        p.key = uniqueKey("boss_arena");
+        const f = p.data.fields;
+        f.name = "boss_arena"; f.location = "world,0,64,0";
+        f.radius = "12"; f.duration = "6000"; f.color = "RED";
+        return p;
+      }
+    },
+    {
+      id: "tpl_pack_starter", kind: "pack", icon: "layers", name: "示例内容包",
+      desc: "pack.yml 骨架：包名 / 版本 / 描述",
+      build: function () {
+        const p = newSpecProject("pack");
+        p.key = uniqueKey("my_pack");
+        const f = p.data.fields;
+        f.Name = "MyPack"; f.Version = "1.0.0"; f.Author = "你";
+        f.Description = ["我的第一个内容包", "把 Mobs / Skills 等文件夹整个拖进来就行"];
+        return p;
+      }
+    },
+    {
+      id: "tpl_vanilla_zombie", kind: "vanillaoverride", icon: "skull", name: "强化原版僵尸",
+      desc: "给所有僵尸加血加伤害、带 AI 目标",
+      build: function () {
+        const p = newSpecProject("vanillaoverride");
+        p.key = uniqueKey("zombie");
+        const f = p.data.fields;
+        f.Health = "30"; f.Damage = "6"; f.Armor = "2";
+        f.Display = "&2强化僵尸";
+        f.Options = { MovementSpeed: "0.3" };
+        f.AITargetSelectors = ["players"];
+        return p;
+      }
     }
   ];
 
