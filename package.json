@@ -1,6 +1,6 @@
 {
   "name": "mythicmobs-studio",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "MythicMobs visual editor",
   "main": "electron/main.js",
@@ -9,12 +9,36 @@
     "test": "node tools/test_yaml.mjs && node tools/test_import.mjs && node tools/test_catalog.mjs && node tools/test_metaskill.mjs && node tools/test_ai.mjs && node tools/test_spec.mjs",
     "catalog": "python tools/build_catalog.py",
     "spec": "python tools/build_spec.py",
+    "icon": "python tools/make_icon.py",
     "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "io.mythiccraft.mythicmobs-studio",
+    "productName": "MythicMobsStudio",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "MythicMobsStudio-${version}.exe"
+    }
   },
   "dependencies": {
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "electron": "^45.0.0"
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3"
   }
 }
