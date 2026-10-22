@@ -20,7 +20,7 @@ target/
 
 # 测试产生的临时文件（e2e-electron.mjs 会写这两个，跑完自己清）
 tests/fixture-server/**/_write_test.yml
-tests/fixture-server/**/_write_test.yml.bak-*
+tests/fixture-server/**/*.bak-*
 
 # e2e 截图产物（tools/e2e.mjs 会往当前目录写）
 e2e-*.png
