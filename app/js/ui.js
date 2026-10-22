@@ -4,6 +4,36 @@ window.MM_UI = (function () {
 
   let changed = function () {};
   const D = MM_DATA;
+  const CAT = window.MM_CATALOG || null;
+
+  /* 全量目录（wiki 抓取）优先；没有就退回手写表，保证页面永远能开 */
+  function catList(kind) {
+    if (CAT && CAT[kind] && CAT[kind].length) {
+      return CAT[kind].map(function (x) {
+        return {
+          id: x.id,
+          zh: x.zh || x.en || x.id,
+          en: x.en || x.id,
+          group: x.group || "",
+          params: x.params || [],
+          desc: x.desc || ""
+        };
+      });
+    }
+    return (D[kind] || []).map(function (x) {
+      return { id: x.id, zh: x.zh || x.id, en: x.en || x.id, group: "", params: x.params || [], desc: x.desc || "" };
+    });
+  }
+
+  function catFind(kind, id) {
+    return catList(kind).filter(function (x) { return x.id === id; })[0] || null;
+  }
+
+  function groupTitle(gid) {
+    if (!CAT) return "";
+    const g = (CAT.groups || []).filter(function (x) { return x.id === gid; })[0];
+    return g ? g.title : "";
+  }
 
   /* ---------- DOM 小工具 ---------- */
   function el(tag, attrs, children) {
@@ -180,7 +210,13 @@ window.MM_UI = (function () {
       if (!items.length) {
         box.appendChild(el("div", { class: "combo-empty", text: "没有匹配项，可直接输入自定义 ID" }));
       } else {
+        let lastGroup = "";
         items.forEach(function (o, i) {
+          if (o.group && o.group !== lastGroup) {
+            lastGroup = o.group;
+            const t = groupTitle(o.group);
+            if (t) box.appendChild(el("div", { class: "combo-group", text: t }));
+          }
           const r = el("div", { class: "combo-row" + (String(o.id) === String(input.value) ? " on" : "") }, [
             el("span", { class: "zh", text: o.zh || o.id }),
             el("span", { class: "id", text: o.id })
@@ -643,6 +679,89 @@ window.MM_UI = (function () {
     root.appendChild(card("box", "掉落物", "", d.drops.length > 0, [drBody]));
   }
 
+  /* ---------- 技能行 ---------- */
+
+  /* 通用修饰：目录里有 14 项（带中文名与类型）就用目录，目录不在才退回固定 5 项 */
+  const UNIVERSAL_FALLBACK = ["cooldown", "delay", "repeat", "repeatInterval", "chance"];
+  function universalDefs() {
+    const u = CAT && CAT.universal;
+    if (u && u.length) return u;
+    return UNIVERSAL_FALLBACK.map(function (k) {
+      return { name: k, type: "number", def: "0", zh: "" };
+    });
+  }
+
+  /* 预设必须与插件语法一致：health 只认绝对值，百分比要用 healthpercent */
+  const COND_PRESETS = [
+    { label: "血量低于 50%", id: "healthpercent", params: { percent: "<50%" } },
+    { label: "血量低于 30%", id: "healthpercent", params: { percent: "<30%" } },
+    { label: "30% 概率", id: "chance", params: { chance: "0.3" } },
+    { label: "只在白天", id: "day", params: {} },
+    { label: "只在夜晚", id: "night", params: {} },
+    { label: "距离 10 格内", id: "distance", params: { distance: "<10" } },
+    { label: "处于战斗中", id: "incombat", params: {} }
+  ];
+
+  function enumTable(name) {
+    if (!name) return null;
+    if (name === "particles") return catList("particles");
+    if (name === "mechanics") return catList("mechanics");
+    if (name === "targeters") return catList("targeters");
+    if (name === "sounds") return null;
+    const pool = {
+      materials: D.materials, entities: D.entities, enchantments: D.enchantments,
+      potionEffects: D.effects, effects: D.effects, attributes: D.attributes,
+      equipSlots: D.equipSlots, attrOps: D.attrOps
+    };
+    return pool[name] || null;
+  }
+
+  function guessEnum(name) {
+    const n = String(name || "").toLowerCase();
+    if (n.indexOf("particle") === 0) return catList("particles");
+    if (n === "material" || n.indexOf("blocktype") === 0) return D.materials;
+    if (n === "mob" || n === "entity" || n === "entitytype") return D.entities;
+    if (n === "potion" || n === "effect") return D.effects;
+    if (n === "enchantment") return D.enchantments;
+    if (n === "attribute") return D.attributes;
+    if (n === "slot") return D.equipSlots;
+    return null;
+  }
+
+  function paramControl(pp, value, set) {
+    const t = pp.type;
+    const label = pp.zh || pp.name;
+    if (t === "boolean") {
+      return switchRow(label, null, value === true || value === "true", function (v) {
+        set(v ? "true" : "");
+      });
+    }
+    if (t === "number") return numberInput(value, set, { step: "any" });
+    if (t === "enum") {
+      const tbl = enumTable(pp.enum) || guessEnum(pp.name);
+      if (tbl && tbl.length) return listInput(tbl, value, set, pp.def || "");
+    }
+    if (t === "skill") return textInput(value, set, { placeholder: "技能组名，如 my_skill" });
+    if (t === "condition") return textInput(value, set, { placeholder: "条件组名" });
+    if (t === "color") return textInput(value, set, { placeholder: "#FFAA00" });
+    return textInput(value, set, { placeholder: pp.def || "" });
+  }
+
+  function paramGrid(list, getVal, setVal, opts) {
+    const wrap = el("div", { class: "grid " + ((opts && opts.cols) || "three"), style: "margin-top:10px" });
+    list.forEach(function (pp) {
+      const ctl = paramControl(pp, getVal(pp), function (v) { setVal(pp, v); });
+      /* 提示只放「必填 / 默认值」，英文原描述收进 title，避免整屏英文 */
+      let hint = null;
+      if (pp.required && !pp.def) hint = "必填";
+      else if (pp.def !== "" && pp.def !== undefined) hint = "默认 " + pp.def;
+      const f = field(pp.zh || pp.name, hint, ctl);
+      if (pp.desc) f.title = pp.desc;
+      wrap.appendChild(f);
+    });
+    return wrap;
+  }
+
   function skillRow(d, s, i) {
     /* 导入时认不出的技能行：只读展示，可删，不猜语义 */
     if (s.raw) {
@@ -659,79 +778,145 @@ window.MM_UI = (function () {
       ]);
     }
 
-    const mech = D.mechanics.find(function (m) { return m.id === s.mechanic; }) || D.mechanics[0];
-    const tg = D.targeters.find(function (x) { return x.id === s.targeter; });
-    const trg = D.triggers.find(function (x) { return x.id === s.trigger; });
+    if (!s.params) s.params = {};
+    if (!s.conditions) s.conditions = [];
+    if (!s.universal) s.universal = {};
+
+    const mech = catFind("mechanics", s.mechanic);
+    const tg = catFind("targeters", s.targeter);
+
+    function getParam(pp) {
+      const v = s.params[pp.name];
+      return v === undefined ? pp.def : v;
+    }
+    function setParam(pp, v) {
+      s.params[pp.name] = v;
+      MM_STATE.touch(); changed();
+    }
 
     const head = el("div", { class: "grid three" }, [
-      field("触发", null, selectInput(D.triggers, s.trigger, function (v) {
+      field("触发", null, listInput(catList("triggers"), s.trigger, function (v) {
         s.trigger = v; MM_STATE.touch(); changed(true);
-      })),
-      field("效果", null, selectInput(D.mechanics.map(function (m) {
-        return { id: m.id, zh: m.zh };
-      }), s.mechanic, function (v) {
+      }, "onSpawn", true)),
+      field("效果", null, listInput(catList("mechanics"), s.mechanic, function (v) {
         s.mechanic = v;
-        const m2 = D.mechanics.find(function (x) { return x.id === v; });
+        /* 只清空，不预填默认值——生成时只写用户真的改过的字段 */
         s.params = {};
-        if (m2) m2.params.forEach(function (pp) { s.params[pp.name] = pp.def; });
         MM_STATE.touch(); changed(true);
-      })),
-      field("目标", null, selectInput(D.targeters, s.targeter, function (v) {
+      }, "搜索机制名，如 damage / particle", true)),
+      field("目标", null, listInput(catList("targeters"), s.targeter, function (v) {
         s.targeter = v; MM_STATE.touch(); changed(true);
-      }))
+      }, "self"))
     ]);
 
-    const extra = [];
-    if (trg && trg.needsTicks) {
-      extra.push(field("间隔（秒）", null, numberInput(s.seconds === undefined ? 10 : s.seconds, function (v) {
-        s.seconds = v; MM_STATE.touch(); changed();
-      }, { min: 1, step: 1 })));
-    }
-    if (tg && tg.needsRadius) {
-      extra.push(field("半径（格）", null, numberInput(s.radius === undefined ? tg.defaultR : s.radius, function (v) {
-        s.radius = v; MM_STATE.touch(); changed();
-      }, { min: 1, step: 1 })));
-    }
-    const extraWrap = extra.length ? el("div", { class: "grid three", style: "margin-top:10px" }, extra) : null;
+    const descLine = mech ? el("div", { class: "mech-desc" }, [
+      el("b", { text: mech.zh }),
+      mech.desc ? el("span", { class: "mech-desc-en", text: mech.desc }) : null
+    ]) : null;
 
-    const paramWrap = el("div", { class: "grid three", style: "margin-top:10px" });
-    (mech.params || []).forEach(function (pp) {
-      const val = s.params ? s.params[pp.name] : pp.def;
-      let ctl;
-      if (pp.type === "bool") {
-        ctl = switchRow(pp.label, null, !!val, function (v) {
-          s.params[pp.name] = v; MM_STATE.touch(); changed();
-        });
-      } else if (pp.type === "number") {
-        ctl = numberInput(val, function (v) {
-          s.params[pp.name] = v; MM_STATE.touch(); changed();
-        }, { step: "any" });
-      } else if (pp.type === "effect") {
-        ctl = listInput(D.effects, val, function (v) {
-          s.params[pp.name] = v.toUpperCase(); MM_STATE.touch(); changed();
-        });
-      } else if (pp.type === "particle") {
-        ctl = listInput(D.particles, val, function (v) {
-          s.params[pp.name] = v; MM_STATE.touch(); changed();
-        });
-      } else if (pp.type === "entity") {
-        ctl = listInput(D.entities, val, function (v) {
-          s.params[pp.name] = v.toUpperCase(); MM_STATE.touch(); changed();
-        });
-      } else if (pp.type === "material") {
-        ctl = listInput(D.materials, val, function (v) {
-          s.params[pp.name] = v; MM_STATE.touch(); changed();
-        });
-      } else {
-        ctl = textInput(val, function (v) {
-          s.params[pp.name] = v; MM_STATE.touch(); changed();
-        });
-      }
-      paramWrap.appendChild(field(pp.label, null, ctl));
+    const targParamWrap = (tg && tg.params.length)
+      ? paramGrid(tg.params, function (pp) {
+          return s.targetParams && s.targetParams[pp.name] !== undefined ? s.targetParams[pp.name] : pp.def;
+        }, function (pp, v) {
+          if (!s.targetParams) s.targetParams = {};
+          s.targetParams[pp.name] = v;
+          MM_STATE.touch(); changed();
+        })
+      : null;
+
+    const all = mech ? mech.params : [];
+    /* 默认只露「必填」和「用户已经改过」的，其余收进折叠区 */
+    const isTouched = function (pp) {
+      return s.params && s.params[pp.name] !== undefined && s.params[pp.name] !== "";
+    };
+    const mainP = all.filter(function (pp) { return pp.required || isTouched(pp); });
+    const advP = all.filter(function (pp) { return !(pp.required || isTouched(pp)); });
+
+    const paramNodes = [];
+    if (mainP.length) paramNodes.push(paramGrid(mainP, getParam, setParam));
+    else if (advP.length) {
+      paramNodes.push(el("div", { class: "mech-desc", text: "这个效果用默认参数就能工作；要微调就展开下面的「可调参数」。" }));
+    }
+    if (advP.length) {
+      paramNodes.push(el("details", { class: "skill-section" }, [
+        el("summary", { text: "可调参数（" + advP.length + " 项，默认值已对好）" }),
+        paramGrid(advP, getParam, setParam)
+      ]));
+    }
+
+    const condNodes = s.conditions.map(function (c, ci) {
+      const cd = catFind("conditions", c.id);
+      return el("div", { class: "cond-row" }, [
+        el("div", { class: "cond-head" }, [
+          listInput(catList("conditions"), c.id, function (v) {
+            s.conditions[ci] = { id: v, params: {} };
+            MM_STATE.touch(); changed(true);
+          }, "条件名", true),
+          rmButton("删除条件", function () {
+            s.conditions.splice(ci, 1); MM_STATE.touch(); changed(true);
+          })
+        ]),
+        cd && cd.params.length ? paramGrid(cd.params, function (pp) {
+          return c.params && c.params[pp.name] !== undefined ? c.params[pp.name] : pp.def;
+        }, function (pp, v) {
+          if (!c.params) c.params = {};
+          c.params[pp.name] = v;
+          MM_STATE.touch(); changed();
+        }) : null
+      ].filter(Boolean));
     });
 
+    const condWrap = el("details", { class: "skill-section", open: s.conditions.length > 0 }, [
+      el("summary", { text: "触发条件" + (s.conditions.length ? "（" + s.conditions.length + " 个）" : "") }),
+      el("div", { class: "cond-presets" }, COND_PRESETS.map(function (pre) {
+        return el("button", {
+          class: "chip", type: "button", text: pre.label,
+          onclick: function () {
+            s.conditions.push({ id: pre.id, params: Object.assign({}, pre.params) });
+            MM_STATE.touch(); changed(true);
+          }
+        });
+      })),
+      el("div", { class: "cond-list" }, condNodes),
+      addButton("添加条件", function () {
+        s.conditions.push({ id: "chance", params: { chance: "0.3" } });
+        MM_STATE.touch(); changed(true);
+      })
+    ]);
+
+    const uniDefs = universalDefs();
+    const uniFields = uniDefs.map(function (u) {
+      const k = u.name;
+      const label = u.zh || k;
+      const val = s.universal[k];
+      const hint = u.def !== "" && u.def !== undefined ? "默认 " + u.def : null;
+      let node;
+      if (u.type === "boolean") {
+        node = switchRow(label, hint, val === "true", function (v) {
+          s.universal[k] = v ? "true" : "false";
+          MM_STATE.touch(); changed();
+        });
+      } else if (u.type === "text") {
+        node = field(label, hint, textInput(val, function (v) {
+          s.universal[k] = v; MM_STATE.touch(); changed();
+        }, { placeholder: "@Forward{f=10}" }));
+      } else {
+        node = field(label, hint, numberInput(val, function (v) {
+          s.universal[k] = v; MM_STATE.touch(); changed();
+        }, { step: "any" }));
+      }
+      if (u.desc) node.title = u.desc;
+      return node;
+    });
+
+    const uniWrap = el("details", { class: "skill-section" }, [
+      el("summary", { text: "通用修饰（冷却 / 延迟 / 重复 / 概率 等 " + uniDefs.length + " 项）" }),
+      el("div", { class: "grid three", style: "margin-top:10px" }, uniFields)
+    ]);
+
     return el("div", { class: "list-row skill-row" }, [
-      el("div", { class: "row-body" }, [head, extraWrap, paramWrap].filter(Boolean)),
+      el("div", { class: "row-body" },
+        [head, descLine, targParamWrap].concat(paramNodes).concat([condWrap, uniWrap]).filter(Boolean)),
       rmButton("删除", function () {
         d.skills.splice(i, 1); MM_STATE.touch(); changed(true);
       })

@@ -2,7 +2,7 @@
 
 一个给「不会写 YAML 的人」用的 MythicMobs 可视化编辑器。
 
-当前状态：**MVP + 导入** —— 怪物 / 物品的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；数据层（wiki 全站 813 个组件）也已就绪。
+当前状态：**MVP + 导入 + wiki 全量目录** —— 怪物 / 物品的表单编辑、实时生成配置、**导入服务器上已有的 yml 改完写回**都已跑通；wiki 的 **302 机制 / 196 条件 / 91 目标器 / 38 触发器 / 120 粒子** 已全部接进界面并中文化。
 
 ![怪物编辑器](docs/img/editor-mob.png)
 
@@ -26,8 +26,12 @@
 - **126 个官方 Options 全部实现**（通用 37 / 生物大类 15 / 生物专属 74），每个都有中文名 + 一句话说明；顶部可搜索，当前生物的专属选项会自动展开，其余折叠
 - BOSS 血条（标题 / 颜色 / 分段样式 / 显示范围）
 - 装备（6 个槽位，物品中文下拉）
-- 技能：12 种触发器 × 21 种常用机制 × 10 种目标选择器，参数按机制自动出表单
+- 技能：**38 种触发器 × 302 种机制 × 91 种目标器 × 196 种条件**（wiki 全量），机制按用途分 11 组，下拉可搜索；参数按类型自动出控件，默认值不写进配置
+- **行内条件**：点一下「血量低于 50%」「30% 概率」「只在夜晚」「距离 10 格内」就能加，也能自己挑 196 种条件里的任意一个
+- **通用修饰**：14 项（冷却 / 延迟 / 重复次数 / 重复间隔 / 换目标间隔 / 概率 / 起点目标器 / 强度倍率 / 从起点施放 / 强制同步…），写在机制花括号里
 - 掉落物（物品 / 数量范围 / 概率）
+
+![技能编辑与全量目录](docs/img/catalog-ui.png)
 
 **物品**
 - 材质（可搜索下拉，210 种，中文名 + 英文 ID 对照）、显示名、数量、多行描述
@@ -53,8 +57,8 @@
 
 ## 还没做的（下一步）
 
-1. **技能只放出了 21 个常用机制**，schema 里其实有 303 个 —— 需要按使用频率分批放出来（`data/schema.json` 里现成有）。
-2. 条件（Conditions）、技能树、掉落表（DropTable）还没做，带行内条件的技能行目前只读保留。
+1. **条件组（Conditions 块）**：现在只支持行内条件（`?healthpercent{p=<50%}`），`Conditions:` / `TargetConditions:` 这种独立条件块还没做。
+2. 技能树（Metaskill）、掉落表（DropTable）、`AIGoalSelectors` / `DamageModifiers` 的结构化编辑还没做（导入时能原样保留）。
 3. 物品 1.20.5+ 的组件（Food / Tool / Equippable 等）只有数据没做 UI。
 4. 打包成 exe（Tauri 需要 Rust 环境，当前机器没有；Electron 是备选，`electron-builder` 还没装）。
 5. 导入的局限：一个文件多条目只编辑第一个；已有项目的「重新从磁盘读取」还没做。
@@ -73,6 +77,7 @@ app/
   js/icons.js         内联 SVG 图标（无 emoji、无外部字体）
   js/data.js          中文数据表（实体/物品/附魔/属性/触发器等）
   js/options-data.js  怪物 Options 全量 126 项（自动生成）
+  js/catalog.js       ★ wiki 全量目录 302+196+91+38+120+14（自动生成，别手改）
   js/yaml.js          YAML 生成 + 预览高亮
   js/state.js         项目模型、localStorage、模板
   js/import.js        yml → 表单模型（认不出的字段原样保留）
@@ -83,11 +88,14 @@ tools/
   crawl_wiki.py       wiki 抓取         ┐
   build_schema.py     去重归类          ├ 数据管线
   make_docs.py        生成中文索引      ┘
+  build_catalog.py    schema + 中文 → app/js/catalog.js（分组 / 类型推断 / 别名）
   demo_query.py       查 schema 示例
   test_yaml.mjs       YAML 生成器 + 校验单测（11 项）
   test_import.mjs     导入映射 / 往返保真单测（52 项）
-  e2e.mjs             无头浏览器交互测试（37 项）
+  test_catalog.mjs    全量目录测试（39 项：数量、必填推断、条件、通用修饰、302/196/91 逐个生成）
+  e2e.mjs             无头浏览器交互测试（47 项）
   e2e-electron.mjs    Electron 文件系统与导入测试（15 项，含磁盘写回）
+  shot_catalog.mjs    截一张「技能 + 全量目录」的界面图（给 README 用）
 tests/
   fixture-server/     测试用的假服务器目录（Mobs/Items 各一个文件）
 ```
@@ -97,6 +105,7 @@ tests/
 ```powershell
 node tools/test_yaml.mjs                       # 生成器单测
 node tools/test_import.mjs                     # 导入映射 / 往返保真单测（不需要浏览器）
+node tools/test_catalog.mjs                    # 全量目录单测（不需要浏览器）
 node tools/e2e.mjs 9333 .                      # 界面测试（需先启动带 --remote-debugging-port 的 Edge/Electron）
 node tools/e2e-electron.mjs 9350 tests/fixture-server   # 文件系统与导入测试（先 electron . --remote-debugging-port=9350）
 ```
@@ -109,14 +118,15 @@ node tools/e2e-electron.mjs 9350 tests/fixture-server   # 文件系统与导入�
 
 | 类别 | 条数 | 说明 |
 |---|---:|---|
-| 技能机制 Mechanics | 303 | `Skills:` 下 `- 机制名{参数=值}` |
+| 技能机制 Mechanics | 303 | `Skills:` 下 `- 机制名{参数=值}`；其中 `Mechanics` 一条是 14 项通用属性，编辑器里单列 |
 | 条件 Conditions | 196 | `Conditions:` / 行内 `?条件` |
 | 目标选择器 Targeters | 91 | `@Targeter` |
 | 触发器 Triggers | 38 | `~onXXX` |
 | 粒子类型 Particles | 120 | `particle{}` 的取值 |
+| 通用属性 Attributes | 14 | `cooldown` / `delay` / `repeat` / `origin` / `faulty` … |
 | AI 行为 AI Goals | 51 | `AIGoalSelectors:` |
 | AI 目标 AI Targets | 14 | `AITargetSelectors:` |
-| **组件合计** | **813** | 参数条目 **1526** 条，配置示例 **1973** 段 |
+| **组件合计** | **813** | 参数条目 **1681** 条，配置示例 **1973** 段 |
 
 另有 136 个文档页（怪物、物品、掉落、刷怪、Stat、菜单等），其中：
 
@@ -132,10 +142,17 @@ node tools/e2e-electron.mjs 9350 tests/fixture-server   # 文件系统与导入�
 ```
 data/
   schema.json               ★ 编辑器主数据（665 KB，组件 + 参数 + 示例）
+  catalog-report.json       低置信度参数清单（51 条，人工抽检入口）
   mythicmobs-wiki.json      全量数据（4.7 MB，含每页 markdown 正文与文档页）
   index.md                  数据索引（中文）
   index-full.md             全部组件名清单
   zh/glossary.json          常用字段中文对照
+  zh/mechanics.json         302 机制的中文名（按组件分文件）
+  zh/conditions.json        196 条件的中文名
+  zh/targeters.json         91 目标器的中文名
+  zh/triggers.json          38 触发器的中文名
+  zh/particles.json         120 粒子的中文名
+  zh/params.json            约 630 个参数的中文标签（键一律小写）
   mob-options.json          怪物 Options 126 项（含分组/默认值/说明）
   raw/*.html                原始页面缓存（960 个，80 MB，可断点重跑，可删）
 docs/
@@ -180,9 +197,13 @@ tools/
 python tools/crawl_wiki.py    # 抓取（有缓存，第二次约 30 秒；无缓存约 5 分钟）
 python tools/build_schema.py  # 去重、归类、生成 schema.json
 python tools/make_docs.py     # 生成中文索引与字段对照
+python tools/build_catalog.py # schema.json + data/zh/*.json → app/js/catalog.js
 python tools/demo_query.py message   # 试用：查一个机制
 python tools/demo_query.py --list mechanics
 ```
+
+改了 `data/zh/*.json` 或 `build_catalog.py` 里的分组表，跑最后那条 `build_catalog.py`（或 `npm run catalog`）就会重建 `app/js/catalog.js`。
+`catalog.js` 是**生成物，别手改**——下次重建会覆盖。
 
 wiki 若改版，只需清掉 `data/raw/` 重跑第一条命令。
 
@@ -190,8 +211,8 @@ wiki 若改版，只需清掉 `data/raw/` 重跑第一条命令。
 
 1. 少数组件页没有参数表（如 `Cancel Skill`），wiki 原文即注明 *This mechanic has no attributes*，非解析失败。
 2. `inherits` 只记录 wiki 明写"继承某组件全部属性"的 34 处，**继承来的参数未展开合并**；编辑器需要自己按 `inherits` 递归取参数。
-3. 少数参数表把多个参数写在一行（如 `x1, y1, z1`），会被当成一个参数名，需在编辑器里手工拆分。
-4. 中文释义是人工整理的常用子集（约 230 条），未覆盖全部 1526 个参数。
+3. **wiki 没有参数类型列**，类型是推断出来的（示例实证 + 语义词典 + 默认值形态 + 描述关键词四路投票），86% 高置信度；剩余 51 条低置信度在 `data/catalog-report.json`，抽检后改 `data/zh/params.json` 与语义词典即可。
+4. 参数中文标签是**按名字**复用的一张表（`data/zh/params.json`），所以 `amount` 在伤害机制里也叫「数量」——没有按机制上下文改写。
 5. 只抓了 MythicMobs 本体；ModelEngine / MythicCrucible / MythicEnchants 等扩展 wiki 是独立站点，尚未纳入。
 
 ## 参考

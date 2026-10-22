@@ -130,10 +130,12 @@ window.MM_STATE = (function () {
           { item: "diamond_sword", slot: "HAND" }
         ];
         p.data.skills = [
-          { trigger: "onSpawn", mechanic: "title", targeter: "pir", radius: 30, params: { title: "&c&l骷髅王 降临", subtitle: "&7准备战斗" } },
-          { trigger: "onAttack", mechanic: "damage", targeter: "target", params: { amount: 6, ignoreArmor: false } },
-          { trigger: "onDamaged", mechanic: "lightning", targeter: "self", params: {} },
-          { trigger: "onDeath", mechanic: "message", targeter: "pir", radius: 30, params: { message: "&a你击败了骷髅王！" } }
+          { trigger: "onSpawn", mechanic: "sendtitle", targeter: "playersinradius", targetParams: { radius: 30 }, params: { title: "&c&l骷髅王 降临", subtitle: "&7准备战斗", duration: 40, fadeIn: 10, fadeOut: 10 } },
+          { trigger: "onAttack", mechanic: "damage", targeter: "target", params: { amount: 6 } },
+          { trigger: "onDamaged", mechanic: "lightning", targeter: "self", params: { damage: 5 }, universal: { cooldown: "5" } },
+          { trigger: "onDeath", mechanic: "message", targeter: "playersinradius", targetParams: { radius: 30 }, params: { message: "&a你击败了骷髅王！" } },
+          { trigger: "onDamaged", mechanic: "particle", targeter: "self", params: { particle: "flame", amount: 20, spread: 1 },
+            conditions: [{ id: "healthpercent", params: { percent: "<50%" } }] }
         ];
         p.data.drops = [
           { item: "diamond", amount: "2-4", chance: "1" },

@@ -702,3 +702,75 @@ code {
 .file-note { font-size: 12px; color: var(--ink-2); background: #fafaf8; border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; margin-bottom: 10px; }
 .file-path { font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px; color: var(--ink-3); word-break: break-all; margin-bottom: 10px; }
 .file-actions { display: flex; gap: 8px; }
+
+/* ---------- 全量目录：分组下拉、机制说明、条件编辑 ---------- */
+.combo-group {
+  padding: 7px 8px 3px;
+  font-size: 11px;
+  color: var(--ink-3);
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+}
+.combo-group:first-child { border-top: none; margin-top: 0; padding-top: 3px; }
+
+.mech-desc {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.mech-desc b { font-weight: 500; color: var(--ink); }
+.mech-desc-en { margin-left: 8px; font-size: 11.5px; color: var(--ink-4); }
+
+.skill-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+.skill-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.skill-section > summary::-webkit-details-marker { display: none; }
+.skill-section > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid var(--ink-4);
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform .12s;
+}
+.skill-section[open] > summary::before { transform: rotate(90deg); }
+.skill-section > summary:hover { color: var(--ink); }
+
+.cond-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.cond-row {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-2);
+  padding: 8px 10px;
+}
+.cond-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+.cond-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip {
+  border: 1px solid var(--line-2);
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }

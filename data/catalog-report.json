@@ -1,0 +1,429 @@
+{
+ "counts": {
+  "mechanics": 302,
+  "conditions": 196,
+  "targeters": 91,
+  "triggers": 38,
+  "particles": 120,
+  "universal": 14,
+  "params": 1516
+ },
+ "types": {
+  "text": 427,
+  "number": 660,
+  "boolean": 338,
+  "skill": 34,
+  "enum": 38,
+  "condition": 16,
+  "color": 3
+ },
+ "confidence": {
+  "high": 1283,
+  "mid": 154,
+  "low": 79
+ },
+ "group_count": {
+  "entity": 36,
+  "flow": 42,
+  "item": 19,
+  "visual": 20,
+  "damage": 45,
+  "state": 33,
+  "move": 41,
+  "ui": 18,
+  "world": 28,
+  "heal": 11,
+  "sound": 9
+ },
+ "misc_mechanics": [],
+ "no_param": [
+  "armanimation",
+  "blackscreen",
+  "blockdestabilize",
+  "blockphysics",
+  "cancelevent",
+  "cancelskill",
+  "cinematiccancel",
+  "clearexperience",
+  "clearexperiencelevels",
+  "cleartarget",
+  "clearthreat",
+  "closedialog",
+  "closeinventory",
+  "decapitate",
+  "dismount",
+  "ejectpassenger",
+  "ender",
+  "enderdragonresetcrystals",
+  "extinguish",
+  "fakeexplosion",
+  "fear",
+  "flames",
+  "fly",
+  "glow",
+  "goatram",
+  "modifymobscore",
+  "mountme",
+  "mounttarget",
+  "onattack",
+  "onblockbreak",
+  "onblockplace",
+  "ondamaged",
+  "ondeath",
+  "oninteract",
+  "onshoot",
+  "onswing",
+  "printparenttree",
+  "remount",
+  "removeowner",
+  "resetai",
+  "setdragonpodium",
+  "setowner",
+  "setparent",
+  "setscore",
+  "settarget",
+  "settonguetarget",
+  "showentity",
+  "stataura",
+  "stopusingitem",
+  "stun",
+  "suicide",
+  "swap",
+  "swingoffhand",
+  "togglepiston",
+  "tracklocation",
+  "undisguise",
+  "variableunset"
+ ],
+ "missing_param_zh": [],
+ "low_confidence": [
+  {
+   "component": "animatearmorstand",
+   "param": "head",
+   "type": "text",
+   "def": "",
+   "desc": "The pose for the armorstand's head"
+  },
+  {
+   "component": "animatearmorstand",
+   "param": "body",
+   "type": "text",
+   "def": "",
+   "desc": "The pose for the armorstand's body"
+  },
+  {
+   "component": "animatearmorstand",
+   "param": "leftleg",
+   "type": "text",
+   "def": "",
+   "desc": "The pose for the armorstand's left leg"
+  },
+  {
+   "component": "animatearmorstand",
+   "param": "rightleg",
+   "type": "text",
+   "def": "",
+   "desc": "The pose for the armorstand's right leg"
+  },
+  {
+   "component": "aura",
+   "param": "components",
+   "type": "text",
+   "def": "",
+   "desc": "The aura components to apply. Better explained later in the page"
+  },
+  {
+   "component": "aura",
+   "param": "attachmenttype",
+   "type": "text",
+   "def": "",
+   "desc": "The Attachment to apply to the entity the aura is applied to"
+  },
+  {
+   "component": "aura",
+   "param": "attachmentmodel",
+   "type": "text",
+   "def": "",
+   "desc": "The model of the attachment"
+  },
+  {
+   "component": "aura",
+   "param": "attachmentstate",
+   "type": "text",
+   "def": "",
+   "desc": "The state the model will be playing"
+  },
+  {
+   "component": "aura",
+   "param": "attachmentcolor",
+   "type": "text",
+   "def": "",
+   "desc": "The color applied to the model"
+  },
+  {
+   "component": "aura",
+   "param": "attachmentglowcolor",
+   "type": "text",
+   "def": "",
+   "desc": "The glow color of the model, if attachmentGlowing is set to true"
+  },
+  {
+   "component": "chain",
+   "param": "onBounce",
+   "type": "text",
+   "def": "",
+   "desc": "The skill that bounces between targets"
+  },
+  {
+   "component": "cinematiccamera",
+   "param": "onStart",
+   "type": "text",
+   "def": "",
+   "desc": "Skill executed when the cinematic begins. It runs with this mechanic's caster and targets,"
+  },
+  {
+   "component": "cinematiccamera",
+   "param": "onEnd",
+   "type": "text",
+   "def": "",
+   "desc": "Skill executed when the cinematic ends. It runs with this mechanic's caster and targets, n"
+  },
+  {
+   "component": "damage",
+   "param": "tags",
+   "type": "text",
+   "def": "",
+   "desc": "Allows you to specify any number of arbitrary tags for the mechanic using tags=THIS,THAT. "
+  },
+  {
+   "component": "damage",
+   "param": "rawtags",
+   "type": "text",
+   "def": "",
+   "desc": "Works the same as tags and what is put here will also qualify as a tag, but it will not be"
+  },
+  {
+   "component": "damage",
+   "param": "bonusdamage",
+   "type": "text",
+   "def": "",
+   "desc": "The bonus damage to deal, in the format FIRE 5,LIGHTNING 5"
+  },
+  {
+   "component": "damage",
+   "param": "bonusdamagemodifiers",
+   "type": "text",
+   "def": "",
+   "desc": "Multiplies the associated bonus damages by the specified values. for instance, to double t"
+  },
+  {
+   "component": "doppleganger",
+   "param": "usePlayerName",
+   "type": "text",
+   "def": "",
+   "desc": "Uses the player name as the nameplate"
+  },
+  {
+   "component": "fawepaste",
+   "param": "pasteID",
+   "type": "text",
+   "def": "",
+   "desc": "The paste's id. Can be used to undo the paste via the undoPaste mechanic"
+  },
+  {
+   "component": "fawepaste",
+   "param": "trapchestDropTable",
+   "type": "text",
+   "def": "",
+   "desc": "Which MythicMob Drop Tables to supply the Trapped Chests within the Schematic with"
+  },
+  {
+   "component": "giveitem",
+   "param": "variable",
+   "type": "text",
+   "def": "",
+   "desc": "The Item variable whose value is to be given as an actual item"
+  },
+  {
+   "component": "heal",
+   "param": "rawtags",
+   "type": "text",
+   "def": "",
+   "desc": "Works the same as tags and what is put here will also qualify as a tag, but it will not be"
+  },
+  {
+   "component": "healpercent",
+   "param": "rawtags",
+   "type": "text",
+   "def": "",
+   "desc": "Works the same as tags and what is put here will also qualify as a tag, but it will not be"
+  },
+  {
+   "component": "orbital",
+   "param": "bullettype",
+   "type": "text",
+   "def": "",
+   "desc": "The Projectile Bullet Type. Also makes the orbital inherits every related attribute"
+  },
+  {
+   "component": "orbital",
+   "param": "hitTargeter",
+   "type": "text",
+   "def": "",
+   "desc": "An entity targeter. Once the orbital hits, targeted entities will be targeted by the onHit"
+  },
+  {
+   "component": "particle",
+   "param": "color",
+   "type": "text",
+   "def": "",
+   "desc": "The color of the particle, if supported"
+  },
+  {
+   "component": "particleequation",
+   "param": "variables",
+   "type": "text",
+   "def": "",
+   "desc": "A map of variables for the equation expression, like x/y/z are, separated by ;for example,"
+  },
+  {
+   "component": "pickupitem",
+   "param": "onpickup",
+   "type": "text",
+   "def": "",
+   "desc": "The [metaskill] to execute once the item is picked up"
+  },
+  {
+   "component": "projectile",
+   "param": "hitTargeter",
+   "type": "text",
+   "def": "",
+   "desc": "An entity targeter. Once the projectile hits, targeted entities will be targeted by the on"
+  },
+  {
+   "component": "projectile",
+   "param": "bulletColor",
+   "type": "text",
+   "def": "",
+   "desc": "The color of the material, if applicable"
+  },
+  {
+   "component": "projectile",
+   "param": "bulletstate",
+   "type": "text",
+   "def": "",
+   "desc": "The state to play for the MEG model"
+  },
+  {
+   "component": "projectile",
+   "param": "bulletglowcolor",
+   "type": "text",
+   "def": "",
+   "desc": "The glow color of the bullet, if bulletGlowing is set to true"
+  },
+  {
+   "component": "projectile",
+   "param": "forcedBulletRotation",
+   "type": "text",
+   "def": "",
+   "desc": "Forces the rotation of the bullet with the specified pitch, yaw and roll, in the x,y,z for"
+  },
+  {
+   "component": "pushblock",
+   "param": "onPush",
+   "type": "text",
+   "def": "",
+   "desc": "The metaskill to execute once the block has been successfully pushed"
+  },
+  {
+   "component": "pushblock",
+   "param": "onFail",
+   "type": "text",
+   "def": "",
+   "desc": "The metaskill to execute if the block failed to be pushed"
+  },
+  {
+   "component": "pushbutton",
+   "param": "location",
+   "type": "text",
+   "def": "",
+   "desc": "Location of the action, in a x,y,z syntax. If set, other attributes are ignored"
+  },
+  {
+   "component": "sendtoast",
+   "param": "iconnbt",
+   "type": "text",
+   "def": "",
+   "desc": "The NBT of the icon."
+  },
+  {
+   "component": "shoot",
+   "param": "tridentitem",
+   "type": "text",
+   "def": "",
+   "desc": "The trident item"
+  },
+  {
+   "component": "sound",
+   "param": "emitter",
+   "type": "text",
+   "def": "",
+   "desc": "Anchor sound playback dynamically to an entity, rather than a static location"
+  },
+  {
+   "component": "sudoskill",
+   "param": "target",
+   "type": "text",
+   "def": "",
+   "desc": "Sets the inherited targets of the called metaskill to the specified ones"
+  },
+  {
+   "component": "summon",
+   "param": "onSummon",
+   "type": "text",
+   "def": "",
+   "desc": "The metaskill to execute on the summoned mobs"
+  },
+  {
+   "component": "switch",
+   "param": "condition",
+   "type": "text",
+   "def": "",
+   "desc": "A condition to test for"
+  },
+  {
+   "component": "takeitem",
+   "param": "variable",
+   "type": "text",
+   "def": "",
+   "desc": "The Item variable whose value is to be taken from the inventory. When set, item is ignored"
+  },
+  {
+   "component": "terminable",
+   "param": "onterminate",
+   "type": "text",
+   "def": "",
+   "desc": "The metaskill to execute once the onStart is terminated"
+  },
+  {
+   "component": "togglelever",
+   "param": "location",
+   "type": "text",
+   "def": "",
+   "desc": "Location of the action, in a x,y,z syntax. If set, other location attributes are ignored"
+  },
+  {
+   "component": "variableskill",
+   "param": "variable",
+   "type": "text",
+   "def": "",
+   "desc": "The MetaSkill variable whose value is to be executed. When set, skill is ignored"
+  }
+ ],
+ "missing_zh": {
+  "mechanics": [],
+  "conditions": [],
+  "targeters": [],
+  "triggers": []
+ }
+}

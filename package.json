@@ -1,12 +1,13 @@
 {
   "name": "mythicmobs-studio",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "MythicMobs visual editor",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node tools/test_yaml.mjs && node tools/test_import.mjs",
+    "test": "node tools/test_yaml.mjs && node tools/test_import.mjs && node tools/test_catalog.mjs",
+    "catalog": "python tools/build_catalog.py",
     "dist": "electron-builder --win portable"
   },
   "dependencies": {

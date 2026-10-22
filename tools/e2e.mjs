@@ -106,15 +106,15 @@ async function main() {
   // 4. 切换机制为「造成伤害」
   await evalJs(`(() => {
     const skillRow = document.querySelector('.skill-row');
-    const sels = skillRow.querySelectorAll('select');
-    const mechSel = sels[1];
-    mechSel.value = 'damage';
-    mechSel.dispatchEvent(new Event('change', {bubbles:true}));
-    return mechSel.value;
+    const inputs = skillRow.querySelectorAll('.combo-field input');
+    const mechInput = inputs[1];
+    mechInput.value = 'damage';
+    mechInput.dispatchEvent(new Event('input', {bubbles:true}));
+    return mechInput.value;
   })()`);
   await new Promise(r => setTimeout(r, 450));
-  check("切换为造成伤害后参数表更新", await evalJs(`document.body.innerText.includes("伤害值")`));
-  check("YAML 变成 damage", await evalJs(`document.getElementById("yamlOut").innerText.includes("damage{amount=")`));
+  check("切换为造成伤害后参数表更新", await evalJs(`(document.querySelector(".mech-desc")||{}).innerText.includes("造成伤害")`));
+  check("YAML 变成 damage", await evalJs(`/^\\s*-\\s+damage/m.test(document.getElementById("yamlOut").innerText)`));
 
   // 5. BOSS 血条开关
   await evalJs(`(() => {
@@ -259,7 +259,52 @@ async function main() {
   })()`);
   await new Promise(r => setTimeout(r, 500));
   check("模板 BOSS 生成成功", await evalJs(`document.getElementById("yamlOut").innerText.includes("BossBar:")`));
+  check("BOSS 模板带血量条件", await evalJs(`document.getElementById("yamlOut").innerText.includes("?healthpercent{p=<50%}")`));
+  check("BOSS 模板带通用冷却", await evalJs(`document.getElementById("yamlOut").innerText.includes("cooldown=5")`));
+  check("BOSS 模板没有校验警告", await evalJs(`document.getElementById("yamlWarn").hidden`),
+    await evalJs(`document.getElementById("yamlWarn").innerText`));
+  check("BOSS 模板可以直接下载", await evalJs(`!document.getElementById("btnDownload").disabled`));
+  check("通用修饰区 14 项且都有中文", await evalJs(`(() => {
+    const d = [...document.querySelectorAll('.skill-row .skill-section')]
+      .filter(x => x.querySelector('summary').textContent.includes('通用修饰'))[0];
+    if (!d) return false;
+    const grid = d.querySelector('.grid');
+    const labels = [...grid.querySelectorAll('.field > label, .sw-label')].map(x => x.textContent.trim());
+    return grid.children.length === 14 && labels.length === 14
+      && labels.filter(t => /[\\u4e00-\\u9fa5]/.test(t)).length === 14;
+  })()`));
   await shot("e2e-template");
+
+  // 8.1 全量目录
+  const cat = await evalJs(`JSON.stringify({ m: MM_CATALOG.mechanics.length, c: MM_CATALOG.conditions.length, t: MM_CATALOG.targeters.length })`);
+  const cd = JSON.parse(cat);
+  check("机制已放开 302 个", cd.m === 302, cat);
+  check("条件已放开 196 个", cd.c === 196, cat);
+  check("目标器已放开 91 个", cd.t === 91, cat);
+  check("机制下拉带分组标题", await evalJs(`(() => {
+    const row = document.querySelector('.skill-row');
+    const inp = row.querySelectorAll('.combo-field input')[1];
+    inp.focus();
+    return new Promise(res => setTimeout(() => {
+      const n = document.querySelectorAll('.combo-pop .combo-group').length;
+      document.body.click();
+      res(n > 3);
+    }, 260));
+  })()`));
+
+  // 8.2 条件预设能直接写进 YAML
+  const condOk = await evalJs(`(async () => {
+    const row = document.querySelector('.skill-row');
+    const sec = [...row.querySelectorAll('.skill-section')].find(s => s.textContent.includes('触发条件'));
+    if (!sec) return 'no-section';
+    sec.open = true;
+    const chip = [...sec.querySelectorAll('.chip')].find(c => c.textContent.includes('只在夜晚'));
+    if (!chip) return 'no-chip';
+    chip.click();
+    await new Promise(r => setTimeout(r, 400));
+    return document.getElementById('yamlOut').innerText.includes('?night');
+  })()`);
+  check("条件预设一键写入 YAML", condOk === true, String(condOk));
 
   // 9. 使用说明弹窗
   await evalJs(`document.getElementById("btnHelp").click(); true`);

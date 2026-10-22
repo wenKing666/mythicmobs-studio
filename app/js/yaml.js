@@ -146,32 +146,148 @@ window.MM_YAML = (function () {
     return L.join("\n") + "\n";
   }
 
+  /* 参数值里含空格或分隔符时要加引号，否则 MM 会把后半截当成新参数 */
+  function pval(v) {
+    const s = String(v);
+    if (/^".*"$/.test(s) || /^'.*'$/.test(s)) return s;
+    if (/[\s;{}@~]/.test(s)) return '"' + s.replace(/"/g, '\\"') + '"';
+    return s;
+  }
+
+  function catOf(kind, id) {
+    const c = window.MM_CATALOG;
+    if (!c || !c[kind]) return null;
+    for (let i = 0; i < c[kind].length; i++) if (c[kind][i].id === id) return c[kind][i];
+    return null;
+  }
+
+  function mechParamsOf(id) {
+    const m = mechDefOf(id);
+    return m ? m.params : null;
+  }
+
+  /* catalog 优先；测试或降级场景下回退到手写表 */
+  function mechDefOf(id) {
+    const c = catOf("mechanics", id);
+    if (c) return c;
+    const old = MM_DATA.mechanics.filter(function (x) { return x.id === id; })[0];
+    return old ? { id: old.id, zh: old.zh, en: old.id, params: old.params || [] } : null;
+  }
+
+  /* 输出时用最短的别名：radius → r，health → h，和 wiki 示例一致 */
+  function shortParamName(pp) {
+    if (pp && pp.aliases && pp.aliases.length) {
+      let best = pp.aliases[0];
+      for (let i = 1; i < pp.aliases.length; i++) {
+        if (pp.aliases[i].length < best.length) best = pp.aliases[i];
+      }
+      return best;
+    }
+    return pp ? pp.name : "";
+  }
+
+  function skTarget(s) {
+    const old = MM_DATA.targeters.filter(function (x) { return x.id === s.targeter; })[0];
+    if (old && old.tpl) {
+      const r = (s.targetParams && s.targetParams.radius) || s.radius || old.defaultR || 5;
+      return s.targeter === "self" ? "" : " " + old.tpl.replace("%r%", r);
+    }
+    const tg = catOf("targeters", s.targeter);
+    if (!tg) return " " + (s.targeter ? "@" + s.targeter : "");
+    const parts = [];
+    (tg.params || []).forEach(function (pp) {
+      const v = s.targetParams ? s.targetParams[pp.name] : undefined;
+      if (v === undefined || v === null || v === "") return;
+      if (pp.type === "boolean") { if (v === "true" || v === true) parts.push(shortParamName(pp) + "=true"); return; }
+      parts.push(shortParamName(pp) + "=" + pval(v));
+    });
+    if (!parts.length && s.radius) parts.push("r=" + s.radius);
+    /* 单词型用 id（@target / @self），组合词用驼峰（@PlayersInRadius），和 wiki 一致 */
+    const enName = String(tg.en || tg.id);
+    const name = /\s/.test(enName) ? enName.replace(/\s+/g, "") : tg.id;
+    return " @" + name + (parts.length ? "{" + parts.join(";") + "}" : "");
+  }
+
+  function skTrigger(s) {
+    const old = MM_DATA.triggers.filter(function (x) { return x.id === s.trigger; })[0];
+    if (old && old.syntax) {
+      let syn = old.syntax;
+      if (old.needsTicks) syn = syn.replace("%t%", String((Number(s.seconds) || 10) * 20));
+      return " " + syn;
+    }
+    if (!s.trigger) return "";
+    if (s.trigger === "ontimer") return " ~onTimer:" + String((Number(s.seconds) || 10) * 20);
+    const tg = catOf("triggers", s.trigger);
+    const name = tg ? String(tg.en || tg.id).replace(/\s+/g, "") : s.trigger;
+    return " ~" + name;
+  }
+
+  function condText(c) {
+    if (!c || !c.id) return "";
+    const cd = catOf("conditions", c.id);
+    const byName = {};
+    (cd ? cd.params || [] : []).forEach(function (pp) { byName[pp.name] = pp; });
+    const parts = [];
+    Object.keys(c.params || {}).forEach(function (k) {
+      const v = c.params[k];
+      if (v === undefined || v === null || v === "") return;
+      if (v === "false" || v === false) return;
+      const pp = byName[k];
+      parts.push((pp ? shortParamName(pp) : k) + "=" + pval(v));
+    });
+    return "?" + c.id + (parts.length ? "{" + parts.join(";") + "}" : "");
+  }
+
   function skillLine(s) {
-    const mech = MM_DATA.mechanics.find(function (m) { return m.id === s.mechanic; });
-    let params = "";
-    if (mech && mech.params.length) {
-      const parts = [];
-      mech.params.forEach(function (p) {
-        const v = s.params ? s.params[p.name] : undefined;
-        if (v === undefined || v === null || v === "") return;
-        if (p.type === "bool") { if (v) parts.push(p.name + "=true"); }
-        else parts.push(p.name + "=" + v);
-      });
-      if (parts.length) params = "{" + parts.join(";") + "}";
-    }
-    let t = "";
-    const tg = MM_DATA.targeters.find(function (x) { return x.id === s.targeter; });
-    if (tg && s.targeter !== "self") {
-      t = " " + tg.tpl.replace("%r%", s.radius || tg.defaultR || 5);
-    }
-    let tr = "";
-    const trg = MM_DATA.triggers.find(function (x) { return x.id === s.trigger; });
-    if (trg) {
-      let syn = trg.syntax;
-      if (trg.needsTicks) syn = syn.replace("%t%", String((Number(s.seconds) || 10) * 20));
-      tr += " " + syn;
-    }
-    return s.mechanic + params + t + tr;
+    if (s.raw) return String(s.raw).replace(/^\s*-\s*/, "");
+
+    const parts = [];
+    const defs = mechParamsOf(s.mechanic);
+    const known = {};
+    (defs || []).forEach(function (p) {
+      known[p.name] = 1;
+      const v = s.params ? s.params[p.name] : undefined;
+      if (v === undefined || v === null || v === "") return;
+      if (p.type === "bool" || p.type === "boolean") {
+        if (v === true || v === "true") parts.push(p.name + "=true");
+        return;
+      }
+      parts.push(p.name + "=" + pval(v));
+    });
+
+    /* 定义外的参数（导入时保留下来的、或是插件新增的）不丢 */
+    Object.keys(s.params || {}).forEach(function (k) {
+      if (known[k]) return;
+      const v = s.params[k];
+      if (v === undefined || v === null || v === "") return;
+      if (v === "false" || v === false) return;
+      parts.push(k + "=" + pval(v));
+    });
+
+    /* 通用修饰：顺序以目录为准（冷却 / 延迟 / 重复 / 间隔 / 概率 / 起点…），目录外的新键追加在后 */
+    const uni = s.universal || {};
+    const uniKeys = ((window.MM_CATALOG && window.MM_CATALOG.universal) || [])
+      .map(function (x) { return x.name; });
+    ["cooldown", "delay", "repeat", "repeatInterval", "chance"].forEach(function (k) {
+      if (uniKeys.indexOf(k) < 0) uniKeys.push(k);
+    });
+    Object.keys(uni).forEach(function (k) {
+      if (uniKeys.indexOf(k) < 0) uniKeys.push(k);
+    });
+    uniKeys.forEach(function (k) {
+      const v = uni[k];
+      if (v === undefined || v === null || v === "") return;
+      parts.push(k + "=" + pval(v));
+    });
+
+    let out = s.mechanic + (parts.length ? "{" + parts.join(";") + "}" : "");
+    out += skTarget(s);
+    (s.conditions || []).forEach(function (c) {
+      const t = condText(c);
+      if (t) out += " " + t;
+    });
+    out += skTrigger(s);
+    return out;
   }
 
   /* ---------- 物品 ---------- */
@@ -241,13 +357,13 @@ window.MM_YAML = (function () {
       if (!p.data.type) out.push("生物类型未选择");
       (p.data.skills || []).forEach(function (s, i) {
         if (s.raw) return;                      // 原样保留的技能行不拦
-        const mech = D.mechanics.find(function (m) { return m.id === s.mechanic; });
+        const mech = mechDefOf(s.mechanic);
         if (!mech) { out.push("第 " + (i + 1) + " 个技能：效果未选择"); return; }
         (mech.params || []).forEach(function (pp) {
           if (!pp.required) return;
           const v = s.params ? s.params[pp.name] : undefined;
           if (v === undefined || v === null || String(v).trim() === "") {
-            out.push("技能「" + mech.zh + "」的 " + pp.label + " 没填");
+            out.push("技能「" + (mech.zh || mech.en || mech.id) + "」的 " + (pp.zh || pp.label || pp.name) + " 没填");
           }
         });
       });

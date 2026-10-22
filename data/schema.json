@@ -1,7 +1,7 @@
 {
  "meta": {
   "source": "https://wiki.mythiccraft.io/mythicmobs",
-  "generated_at": "2026-10-21T21:08:28+0800",
+  "generated_at": "2026-10-22T14:25:18+0800",
   "note": "键名与取值保留 wiki 原文(英文/原大小写), YAML 键名必须与插件一致; 中文对照见 data/zh/",
   "crawled_pages": 1491,
   "unique_pages": 949,
@@ -18,7 +18,7 @@
   "component_pages": 813,
   "components_with_attributes": 483,
   "components_with_fields": 6,
-  "total_attributes": 1526,
+  "total_attributes": 1681,
   "total_fields": 531,
   "total_examples": 1973
  },
@@ -822,6 +822,124 @@
      ],
      "description": "Whether or not the aura will run onEndSkill when it's removed by auraremove mechanic",
      "default": "true"
+    },
+    {
+     "name": "attachmentmodel",
+     "aliases": [
+      "attachmodel",
+      "model"
+     ],
+     "description": "The model of the attachment",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "attachmentstate",
+     "aliases": [
+      "attachstate",
+      "state"
+     ],
+     "description": "The state the model will be playing",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "attachmentcolor",
+     "aliases": [
+      "attachcolor"
+     ],
+     "description": "The color applied to the model",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "attachmentscale",
+     "aliases": [
+      "attachscale"
+     ],
+     "description": "The scale of the model",
+     "default": "1",
+     "inherited": true
+    },
+    {
+     "name": "attachmentViewRadius",
+     "aliases": [
+      "attackviewradius"
+     ],
+     "description": "The view radius of the model. Leave as -1 to use ModelEngine's default settings",
+     "default": "-1",
+     "inherited": true
+    },
+    {
+     "name": "attachmentEnchanted",
+     "aliases": [
+      "attachEnchanted",
+      "enchanted"
+     ],
+     "description": "Whether the model should have an enchantment glint applied to it",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "attachmentGlowing",
+     "aliases": [
+      "attachGlowing",
+      "glowing"
+     ],
+     "description": "Whether the model should be glowing",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "attachmentglowcolor",
+     "aliases": [
+      "attachglowcolor"
+     ],
+     "description": "The glow color of the model, if attachmentGlowing is set to true",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "attachmentCulling",
+     "aliases": [
+      "attachCulling",
+      "culling"
+     ],
+     "description": "Whether the model should be able to be culled by ModelEngine",
+     "default": "true",
+     "inherited": true
+    },
+    {
+     "name": "attachmentoffset",
+     "aliases": [
+      "attachoffset"
+     ],
+     "description": "The model's offset from the attached entity, in a x,y,z,yaw,pitch format.Can also be written as x,y,z or x,y,z,yaw",
+     "default": "0,0,0,0,0",
+     "inherited": true
+    },
+    {
+     "name": "bartimerdisplay",
+     "aliases": [
+      "bartimertext"
+     ],
+     "description": "The text in the bossbar",
+     "default": "auraname",
+     "inherited": true
+    },
+    {
+     "name": "bartimercolor",
+     "aliases": [],
+     "description": "The Color of the bossbar",
+     "default": "RED",
+     "inherited": true
+    },
+    {
+     "name": "bartimerstyle",
+     "aliases": [],
+     "description": "The Style of the bossbar",
+     "default": "SOLID",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -2305,6 +2423,172 @@
      ],
      "description": "The amount of damage to deal",
      "default": "1"
+    },
+    {
+     "name": "ignoreArmor",
+     "aliases": [
+      "ia",
+      "i"
+     ],
+     "description": "Whether or not to ignore armor, but will still use enchantment modifiers when calculating total damage",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "preventknockback",
+     "aliases": [
+      "pkb",
+      "pk"
+     ],
+     "description": "Whether or not to prevent knockback",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "preventimmunity",
+     "aliases": [
+      "pi"
+     ],
+     "description": "Whether or not to prevent the damage immunity ticks on the target by setting them to 0 after the damage is inflicted",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "damagecause",
+     "aliases": [
+      "dc",
+      "cause"
+     ],
+     "description": "Sets the damage cause for this damage mechanic. (This option is only available for 1.17+)",
+     "default": "entity_attack",
+     "inherited": true
+    },
+    {
+     "name": "ignoreenchantments",
+     "aliases": [
+      "ignoreenchants",
+      "ie"
+     ],
+     "description": "Whether or not to ignore enchantments when calculating total damage.(This option is only available for 1.19+)",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "noanger",
+     "aliases": [
+      "na"
+     ],
+     "description": "Whether or not to generate anger when damaging the entity",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "ignoreinvulnerability",
+     "aliases": [
+      "ignoreinvulnerable",
+      "ii"
+     ],
+     "description": "Whether or not to ignore the damage immunity ticks on the target by setting them to 0 before the damage is inflicted",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "ignoreshield",
+     "aliases": [
+      "is"
+     ],
+     "description": "Whether or not to ignore the shield blocking on the target",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "damageshelmet",
+     "aliases": [
+      "dh"
+     ],
+     "description": "Whether or not the helmet should be damaged",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "ignoreeffects",
+     "aliases": [
+      "ieff"
+     ],
+     "description": "Whether or not effects should be ignored",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "ignoreresistance",
+     "aliases": [
+      "ir"
+     ],
+     "description": "Whether or not resistance should be ignored",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "poweraffectsdamage",
+     "aliases": [
+      "pad"
+     ],
+     "description": "Should the skill's power affect the damage inflicted",
+     "default": "true",
+     "inherited": true
+    },
+    {
+     "name": "tags",
+     "aliases": [
+      "tag"
+     ],
+     "description": "Allows you to specify any number of arbitrary tags for the mechanic using tags=THIS,THAT. All tags inserted will be UPPERCASED, so always use uppercased names when checking against them",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "rawtags",
+     "aliases": [
+      "rtag"
+     ],
+     "description": "Works the same as tags and what is put here will also qualify as a tag, but it will not be UPPERCASED like tags",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "damagetype",
+     "aliases": [
+      "element",
+      "e"
+     ],
+     "description": "Becomes one of the Tags",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "triggerSkills",
+     "aliases": [
+      "ts"
+     ],
+     "description": "Whether the damage mechanic should also be able to trigger onAttack related triggers",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "bonusdamage",
+     "aliases": [],
+     "description": "The bonus damage to deal, in the format FIRE 5,LIGHTNING 5",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "bonusdamagemodifiers",
+     "aliases": [
+      "bonusdamagemods"
+     ],
+     "description": "Multiplies the associated bonus damages by the specified values. for instance, to double the previous ones, you could use FIRE 2,LIGHTNING 2",
+     "default": "",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -5841,6 +6125,35 @@
      ],
      "description": "Changes the formula with which random spawn locations for the particles are computed",
      "default": "false"
+    },
+    {
+     "name": "useEyeLocation",
+     "aliases": [
+      "uel"
+     ],
+     "description": "(true/false) Whether to base the particles on the entity's eyes",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "forwardOffset",
+     "aliases": [
+      "startfoffset",
+      "sfo"
+     ],
+     "description": "The forward-offset from the targeted entity, does not work when directional is set to true",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "sideOffset",
+     "aliases": [
+      "soffset",
+      "sso"
+     ],
+     "description": "The side-offset from the targeted entity, does not work when directional is set to true",
+     "default": "0",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -7633,6 +7946,486 @@
      ],
      "description": "An entity targeter. Once the projectile hits, targeted entities will be targeted by the onHit Metaskill and given immune delay just like the projectile's main target",
      "default": ""
+    },
+    {
+     "name": "Type",
+     "aliases": [],
+     "description": "The \"type\" of projectile. Default projectiles are launched from the mob's location towards the target. METEOR type projectiles fall from the sky above the target.",
+     "default": "NORMAL",
+     "inherited": true
+    },
+    {
+     "name": "gravity",
+     "aliases": [
+      "g"
+     ],
+     "description": "Determines the gravity of the projectile; use fractions (0.1-0.2) for low gravity",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "Bounces",
+     "aliases": [
+      "bounce"
+     ],
+     "description": "Should the projectile bounce. Bounce radius depends on the projectile's hitbox. Premium Only.",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "BounceVelocity",
+     "aliases": [
+      "bv"
+     ],
+     "description": "Every time the projectile bounces, its velocity will be multiplied by this value. Premium Only .",
+     "default": "0.9",
+     "inherited": true
+    },
+    {
+     "name": "HugSurface",
+     "aliases": [
+      "hs"
+     ],
+     "description": "Whether or not the projectile should move along the ground.",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "HugLiquid",
+     "aliases": [
+      "hugwater",
+      "huglava"
+     ],
+     "description": "when using hugSurface will also move on top of liquids",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "HeightFromSurface",
+     "aliases": [
+      "hfs"
+     ],
+     "description": "For NORMAL projectiles, how high above the surface the projectile should glide if HugSurface is set to TRUE. For METEOR projectiles, how high above the surface the projectile starts above the target.",
+     "default": "0.5",
+     "inherited": true
+    },
+    {
+     "name": "MaxClimbHeight",
+     "aliases": [
+      "mch"
+     ],
+     "description": "The number of attempts the projectile will make to increase its y-location before terminating itself, when the projectiles is \"hugging\" either a block or a liquid",
+     "default": "3",
+     "inherited": true
+    },
+    {
+     "name": "MaxDropHeight",
+     "aliases": [
+      "mdh"
+     ],
+     "description": "The number of attempts the projectile will make to decrease its y-location before terminating itself, when the projectiles is \"hugging\" either a block or a liquid",
+     "default": "10",
+     "inherited": true
+    },
+    {
+     "name": "highAccuracyMode",
+     "aliases": [
+      "ham"
+     ],
+     "description": "Whether to use high-accuracy mode, which raytraces every tick to ensure the projectile cannot ever go through anything. Values can be true, false, PLAYERS_ONLY",
+     "default": "PLAYERS_ONLY",
+     "inherited": true
+    },
+    {
+     "name": "bulletforwardoffset",
+     "aliases": [
+      "bulletfo",
+      "bulletoffset",
+      "bfo"
+     ],
+     "description": "The offset of the bullet",
+     "default": "1.8",
+     "inherited": true
+    },
+    {
+     "name": "bulletYOffset",
+     "aliases": [
+      "byo"
+     ],
+     "description": "The Y offset of the bullet",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "arrowtype",
+     "aliases": [
+      "bulletarrowtype"
+     ],
+     "description": "The type of the projectile to use. Can be NORMAL,SPECTRAL,TRIDENT",
+     "default": "NORMAL",
+     "inherited": true
+    },
+    {
+     "name": "bulletmaterial",
+     "aliases": [
+      "material",
+      "mat"
+     ],
+     "description": "The material of the bullet",
+     "default": "STONE",
+     "inherited": true
+    },
+    {
+     "name": "bulletspin",
+     "aliases": [
+      "bspin"
+     ],
+     "description": "The spin of the bullet",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "audience",
+     "aliases": [],
+     "description": "The Audience of the bullet",
+     "default": "world",
+     "inherited": true
+    },
+    {
+     "name": "bulletModel",
+     "aliases": [
+      "model"
+     ],
+     "description": "The CustomModelData integer for the material (define model strings on a MythicItem instead)",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "bulletColor",
+     "aliases": [],
+     "description": "The color of the material, if applicable",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "bulletmatchdirection",
+     "aliases": [
+      "bmd",
+      "bulletsmall"
+     ],
+     "description": "Should the bullet face where the projectile is facing",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "bulletEnchanted",
+     "aliases": [
+      "enchanted"
+     ],
+     "description": "Should the material be enchanted",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "mob",
+     "aliases": [
+      "mobType",
+      "mm"
+     ],
+     "description": "The mob of the bullet",
+     "default": "SkeletalKnight",
+     "inherited": true
+    },
+    {
+     "name": "bulletKillable",
+     "aliases": [
+      "bk"
+     ],
+     "description": "Allow other entities to damage the projectile bullet",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "pitch",
+     "aliases": [],
+     "description": "The pitch rotation, in radians",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "yaw",
+     "aliases": [],
+     "description": "The yaw rotation, in radians",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "roll",
+     "aliases": [],
+     "description": "The roll rotation, in radians",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "rotation",
+     "aliases": [
+      "rot"
+     ],
+     "description": "The rotation of the bullet in radians, in the x,y,z format",
+     "default": "0,0,0",
+     "inherited": true
+    },
+    {
+     "name": "pitchspeed",
+     "aliases": [
+      "ps"
+     ],
+     "description": "The pitch rotation speed",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "yawspeed",
+     "aliases": [
+      "ys"
+     ],
+     "description": "The yaw rotation speed",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "rollspeed",
+     "aliases": [
+      "rs"
+     ],
+     "description": "The roll rotation speed",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "rotationspeed",
+     "aliases": [
+      "rotspeed",
+      "rots"
+     ],
+     "description": "The rotation speed of the bullet, in the x,y,z format",
+     "default": "0,0,0",
+     "inherited": true
+    },
+    {
+     "name": "bulletcustommodeldata",
+     "aliases": [
+      "custommodeldata",
+      "cmd"
+     ],
+     "description": "The CustomModelData integer for the material",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "bulletscale",
+     "aliases": [
+      "scale"
+     ],
+     "description": "The scale of the bullet",
+     "default": "0.5,0.5,0.5",
+     "inherited": true
+    },
+    {
+     "name": "bulletBillboarding",
+     "aliases": [
+      "bulletBillboard"
+     ],
+     "description": "The billboard type of the bullet",
+     "default": "FIXED",
+     "inherited": true
+    },
+    {
+     "name": "bulletbrightness",
+     "aliases": [
+      "bulletbrightnessblock"
+     ],
+     "description": "The bullet's brightness",
+     "default": "-1",
+     "inherited": true
+    },
+    {
+     "name": "bulletbrightnesssky",
+     "aliases": [],
+     "description": "The bullet's sky light brightness",
+     "default": "bulletbrightness",
+     "inherited": true
+    },
+    {
+     "name": "bulletCullingDistance",
+     "aliases": [
+      "bulletViewDistance",
+      "bulletViewRange"
+     ],
+     "description": "The range in which the bullet will be visible",
+     "default": "50",
+     "inherited": true
+    },
+    {
+     "name": "tx",
+     "aliases": [],
+     "description": "The translation on the x axis",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "ty",
+     "aliases": [],
+     "description": "The translation on the y axis",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "tz",
+     "aliases": [],
+     "description": "The translation on the z axis",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "translation",
+     "aliases": [
+      "pos",
+      "offset"
+     ],
+     "description": "The translations on the axes, in the x,y,z format",
+     "default": "0,0,0",
+     "inherited": true
+    },
+    {
+     "name": "hideFirstTick",
+     "aliases": [
+      "hft"
+     ],
+     "description": "Hides the item for the first tick",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "bulletCullingHeight",
+     "aliases": [
+      "cullHeight"
+     ],
+     "description": "The bullet's display culling height",
+     "default": "0.0",
+     "inherited": true
+    },
+    {
+     "name": "bulletCullingWidth",
+     "aliases": [
+      "cullWidth"
+     ],
+     "description": "The bullet's display culling width",
+     "default": "0.0",
+     "inherited": true
+    },
+    {
+     "name": "bulletgen",
+     "aliases": [
+      "generation",
+      "bulletgeneration"
+     ],
+     "description": "If MythicCrucible is installed, the generation option for the bullet item",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "bulletstate",
+     "aliases": [
+      "state"
+     ],
+     "description": "The state to play for the MEG model",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "bulletGlowing",
+     "aliases": [
+      "glowing"
+     ],
+     "description": "Whether the bullet's model should be glowing",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "bulletglowcolor",
+     "aliases": [],
+     "description": "The glow color of the bullet, if bulletGlowing is set to true",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "bulletCulling",
+     "aliases": [
+      "culling"
+     ],
+     "description": "Whether to apply culling for the bullet model",
+     "default": "true",
+     "inherited": true
+    },
+    {
+     "name": "bulletViewRadius",
+     "aliases": [],
+     "description": "From how far the bullet can be seen, if greater than 0.",
+     "default": "-1",
+     "inherited": true
+    },
+    {
+     "name": "bulletalod",
+     "aliases": [
+      "alod"
+     ],
+     "description": "Whether to use LOD culling on the bullet",
+     "default": "true",
+     "inherited": true
+    },
+    {
+     "name": "bulletText",
+     "aliases": [
+      "text"
+     ],
+     "description": "The text of the bullet",
+     "default": "*",
+     "inherited": true
+    },
+    {
+     "name": "bulletBillboard",
+     "aliases": [
+      "billboard"
+     ],
+     "description": "The billboard type of the bullet",
+     "default": "CENTER",
+     "inherited": true
+    },
+    {
+     "name": "forcedBulletRotation",
+     "aliases": [
+      "forcedRotation"
+     ],
+     "description": "Forces the rotation of the bullet with the specified pitch, yaw and roll, in the x,y,z format. Leave empty to allow the bullet to dynamically rotate based on the travel direction",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "bulletRotatesBasedOnDirection",
+     "aliases": [],
+     "description": "Whether the text bullet should rotate based on the direction of movement. Might not be what you expect",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "backgroundcolor",
+     "aliases": [
+      "color"
+     ],
+     "description": "The Background color, in the ARGB format",
+     "default": "64,0,0,0",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -9897,6 +10690,27 @@
      ],
      "description": "How long (in ticks) the variable should last. Does not apply to SKILL-scoped variables",
      "default": "Infinite"
+    },
+    {
+     "name": "value",
+     "aliases": [
+      "val",
+      "v",
+      "amount",
+      "a"
+     ],
+     "description": "The value to set the variable to. Must be applicable for type or the mechanic will fail. Should be surrounded in double-quotes if using spaces or semicolons. Value can also include placeholders, even from PlaceholderAPI",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "type",
+     "aliases": [
+      "t"
+     ],
+     "description": "The type of the variable. Set to STRING if you are using text instead of numbers",
+     "default": "INTEGER",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -10258,6 +11072,97 @@
      ],
      "description": "Whether the projectile should be shot from the origin of the mechanic",
      "default": "false"
+    },
+    {
+     "name": "potiontype",
+     "aliases": [
+      "ptype",
+      "effect",
+      "pt",
+      "pe"
+     ],
+     "description": "The type of the potion applied to the projectile, if POTION",
+     "default": "SLOW",
+     "inherited": true
+    },
+    {
+     "name": "potionduration",
+     "aliases": [
+      "pduration",
+      "pd"
+     ],
+     "description": "The duration of the potion effect",
+     "default": "100",
+     "inherited": true
+    },
+    {
+     "name": "potionlevel",
+     "aliases": [
+      "plevel",
+      "lvl",
+      "pl"
+     ],
+     "description": "The level of the potion effect",
+     "default": "1",
+     "inherited": true
+    },
+    {
+     "name": "force",
+     "aliases": [
+      "overwrite",
+      "ow",
+      "override",
+      "or"
+     ],
+     "description": "Whether to override the effect on the target if already applied",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "potioncolor",
+     "aliases": [
+      "pc"
+     ],
+     "description": "The color of the potion",
+     "default": "#FFFFFF",
+     "inherited": true
+    },
+    {
+     "name": "hasParticles",
+     "aliases": [
+      "particles"
+     ],
+     "description": "Whether not to show the status effect particles.",
+     "default": "true",
+     "inherited": true
+    },
+    {
+     "name": "hasIcon",
+     "aliases": [
+      "icon"
+     ],
+     "description": "Whether not to show the status effect icon.",
+     "default": "true",
+     "inherited": true
+    },
+    {
+     "name": "ambientparticles",
+     "aliases": [
+      "ambient"
+     ],
+     "description": "Whether to show ambient particles.",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "tridentitem",
+     "aliases": [
+      "titem",
+      "ti"
+     ],
+     "description": "The trident item",
+     "default": "",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -20294,6 +21199,447 @@
      ],
      "description": "The fallback targeter to use, if this one returns no target",
      "default": ""
+    },
+    {
+     "name": "sudoparent",
+     "aliases": [
+      "fromparent",
+      "ofparent",
+      "asparent",
+      "parent",
+      "ofparent"
+     ],
+     "description": "If this attribute is set to true, the targeter will be parsed as if it was the Parent of the casting entity executing the mechanic",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "sudoowner",
+     "aliases": [
+      "fromowner",
+      "ofowner",
+      "asowner",
+      "owner",
+      "ofowner"
+     ],
+     "description": "If this attribute is set to true, the targeter will be parsed as if it was the Owner of the casting entity executing the mechanic",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "sudotrigger",
+     "aliases": [
+      "fromtrigger",
+      "oftrigger",
+      "astrigger",
+      "trigger",
+      "oftrigger"
+     ],
+     "description": "If this attribute is set to true, the targeter will be parsed as if it was the Trigger of the skilltree executing the mechanic",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "useboundingbox",
+     "aliases": [
+      "bb"
+     ],
+     "description": "If the targeter is performing a distance check, this option allows it to check against the bounding box of the target instead of the center of its hitbox",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "unique",
+     "aliases": [
+      "u"
+     ],
+     "description": "The maximum number of times an entity can be targeted. Defaults to 1, disable with 0. This is mostly used for meg models with multiple hitboxes",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "nomegbb",
+     "aliases": [
+      "nmb"
+     ],
+     "description": "Whether MEG sub hitboxes should be filtered out",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "xoffset",
+     "aliases": [
+      "xo",
+      "x"
+     ],
+     "description": "Centers the offset on the x axis",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "yoffset",
+     "aliases": [
+      "yo",
+      "y"
+     ],
+     "description": "Centers the offset on the y axis",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "zoffset",
+     "aliases": [
+      "zo",
+      "z"
+     ],
+     "description": "Centers the offset on the z axis",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "forwardOffset",
+     "aliases": [
+      "foffset",
+      "fo"
+     ],
+     "description": "Centers forward and backward offset, based on the caster's viewing angle",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "sideOffset",
+     "aliases": [
+      "soffset",
+      "so"
+     ],
+     "description": "Centers left and right offset, based on the caster's viewing angle",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "upoffset",
+     "aliases": [
+      "uoffset",
+      "uo"
+     ],
+     "description": "Centers up and down offset, based on the caster's viewing angle",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "rotatex",
+     "aliases": [
+      "rotx"
+     ],
+     "description": "Rotation on the x axis",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "rotatey",
+     "aliases": [
+      "roty"
+     ],
+     "description": "Rotation on the y axis",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "rotatez",
+     "aliases": [
+      "rotz"
+     ],
+     "description": "Rotation on the z axis",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "coordinatex",
+     "aliases": [
+      "cx"
+     ],
+     "description": "Sets the x axis coordinate",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "coordinatey",
+     "aliases": [
+      "cy"
+     ],
+     "description": "Sets the y axis coordinate",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "coordinatez",
+     "aliases": [
+      "cz"
+     ],
+     "description": "Sets the z axis coordinate",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "length",
+     "aliases": [],
+     "description": "Multiplied the direction vector by the specified value",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "blocktypes",
+     "aliases": [
+      "blocktype",
+      "bt"
+     ],
+     "description": "Only targets selected block types. Multiple blocks can be listed by separating them using a ,You can add a # at the front of the type to indicate that the block only needs to match part of the type, add @ to indicate that the block only needs to match the start of the typeYou can add a * at the front of the type to indicate that the one specified is not a block type, but a block tag (example: blocktype=*sculk_replaceable )",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "blockignores",
+     "aliases": [
+      "blockignore",
+      "bi"
+     ],
+     "description": "Excludes selected block types from the targeter. Multiple blocks can be listed by separating them using a ,Can use the special syntaxes specified in blocktype",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "coordinateyaw",
+     "aliases": [
+      "cyaw"
+     ],
+     "description": "Sets the yaw value",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "coordinatepitch",
+     "aliases": [
+      "cpitch"
+     ],
+     "description": "Sets the pitch value",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "blockcentered",
+     "aliases": [
+      "centered"
+     ],
+     "description": "Boolean value. If set to true, the center of the block at the target location will be targeted, instead of the target location itself",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "faulty",
+     "aliases": [],
+     "description": "Whether the old vector calculation formula should be used",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "blockSurface",
+     "aliases": [
+      "surface"
+     ],
+     "description": "Whether the plugin should attempt to adjust the location to be on a surface",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "blockSurfaceTolerance",
+     "aliases": [
+      "surfaceTolerance"
+     ],
+     "description": "The tolerance used when searching for a surface, when blockSurface is set to true",
+     "default": "5",
+     "inherited": true
+    },
+    {
+     "name": "target",
+     "aliases": [],
+     "description": "The entity types to target",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "ignore",
+     "aliases": [],
+     "description": "The entity types to not target",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetself",
+     "aliases": [],
+     "description": "Whether to target the caster of the mechanic",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetplayers",
+     "aliases": [],
+     "description": "Whether to target players",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetcreative",
+     "aliases": [],
+     "description": "Whether to target players in creative mode",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetspectator",
+     "aliases": [],
+     "description": "Whether to target players in spectator mode",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetinvulnerable",
+     "aliases": [],
+     "description": "Whether to target invulnerable entities",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetarmorstands",
+     "aliases": [],
+     "description": "Whether to target armor stands",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetmarkers",
+     "aliases": [],
+     "description": "Whether to target markers",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targettextdisplays",
+     "aliases": [
+      "targettextdisplay"
+     ],
+     "description": "Whether to target text displays",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetitemdisplays",
+     "aliases": [
+      "targetitemdisplay"
+     ],
+     "description": "Whether to target item displays",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetblockdisplays",
+     "aliases": [
+      "targetblockdisplay"
+     ],
+     "description": "Whether to target block displays",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetinteractions",
+     "aliases": [
+      "targetinteraction"
+     ],
+     "description": "Whether to target interaction entities",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetnpcs",
+     "aliases": [],
+     "description": "Whether to target Citizens NPCs",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetanimals",
+     "aliases": [],
+     "description": "Whether to target animals",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetcreatures",
+     "aliases": [],
+     "description": "Whether to target creatures",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetsamefaction",
+     "aliases": [],
+     "description": "Whether to target entities of the same faction",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetowner",
+     "aliases": [],
+     "description": "Whether to target the caster's owner",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetvanilla",
+     "aliases": [
+      "targetnonmythic"
+     ],
+     "description": "Whether to target non-Mythic entities",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetvillagers",
+     "aliases": [],
+     "description": "Whether to target villagers",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "targetall",
+     "aliases": [],
+     "description": "Whether to target everything. If this is true, all filters are ignored",
+     "default": "false",
+     "inherited": true
+    },
+    {
+     "name": "sort",
+     "aliases": [
+      "sortby"
+     ],
+     "description": "How to sort the targeted entities/locations. Distance-based sorts are made against the mechanic's origin",
+     "default": "",
+     "inherited": true
+    },
+    {
+     "name": "skipTargetsUpToIndex",
+     "aliases": [
+      "stuti"
+     ],
+     "description": "skips the first n targets of the targeter after the sort is applied, if >0",
+     "default": "0",
+     "inherited": true
+    },
+    {
+     "name": "limit",
+     "aliases": [],
+     "description": "The limit to the targeted entities/locations after the skip is applied, if >0",
+     "default": "0",
+     "inherited": true
     }
    ],
    "fields": [],
@@ -22492,6 +23838,42 @@
      ],
      "description": "The material the itemstack particle will be based on",
      "default": "STONE"
+    },
+    {
+     "name": "color",
+     "aliases": [
+      "c"
+     ],
+     "description": "The color of the particle",
+     "default": "#FF0000",
+     "inherited": true
+    },
+    {
+     "name": "size",
+     "aliases": [],
+     "description": "The size of the particle",
+     "default": "1",
+     "inherited": true
+    },
+    {
+     "name": "color2",
+     "aliases": [
+      "c2",
+      "tocolor",
+      "tc"
+     ],
+     "description": "The color the particles transitions to",
+     "default": "#0000FF",
+     "inherited": true
+    },
+    {
+     "name": "power",
+     "aliases": [
+      "p"
+     ],
+     "description": "The power of the spell particle",
+     "default": "1",
+     "inherited": true
     }
    ],
    "fields": [],

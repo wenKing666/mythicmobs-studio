@@ -145,107 +145,202 @@ window.MM_IMPORT = (function () {
     return String(v === undefined || v === null ? "" : v).replace(/^["']/, "").replace(/["']$/, "");
   }
 
+  function catOf(kind, id) {
+    const c = window.MM_CATALOG;
+    if (!c || !c[kind]) return null;
+    for (let i = 0; i < c[kind].length; i++) if (c[kind][i].id === id) return c[kind][i];
+    return null;
+  }
+
+  /* 触发器在两边都要认：onTimer / ~onTimer:200 / On Timer 都算同一个 */
   function triggerIdOf(syntax) {
-    /* ~onTimer:200 / ~onAttack → 找到对应的触发器定义 */
-    const base = String(syntax).split(":")[0];
-    const hit = MM_DATA.triggers.find(function (t) {
-      return String(t.syntax).split(":")[0] === base;
-    });
-    return hit || null;
+    const base = String(syntax).split(":")[0].replace(/^~/, "").replace(/[{}].*$/, "").toLowerCase();
+    const c = window.MM_CATALOG;
+    if (c && c.triggers) {
+      for (let i = 0; i < c.triggers.length; i++) {
+        const t = c.triggers[i];
+        if (t.id === base || String(t.en || "").replace(/\s+/g, "").toLowerCase() === base) {
+          return { id: t.id, needsTicks: base === "ontimer" };
+        }
+      }
+    }
+    const old = MM_DATA.triggers.filter(function (t) {
+      return String(t.syntax).split(":")[0].replace(/^~/, "").toLowerCase() === base;
+    })[0];
+    return old || null;
   }
 
   function targeterIdOf(token) {
-    /* @PlayersInRadius{r=30} / @Target */
-    const base = String(token).split("{")[0];
-    const hit = MM_DATA.targeters.find(function (t) {
-      return String(t.tpl).split("{")[0] === base;
+    const base = String(token).split("{")[0].replace(/^@/, "").toLowerCase();
+    const c = window.MM_CATALOG;
+    if (c && c.targeters) {
+      for (let i = 0; i < c.targeters.length; i++) {
+        const t = c.targeters[i];
+        if (t.id === base || String(t.en || "").replace(/\s+/g, "").toLowerCase() === base) return t;
+      }
+    }
+    const old = MM_DATA.targeters.filter(function (t) {
+      return String(t.tpl).split("{")[0].replace(/^@/, "").toLowerCase() === base;
+    })[0];
+    return old || null;
+  }
+
+  /* 通用修饰：目录里有 14 项就用目录，目录不在才退回固定 5 项 */
+  const UNIVERSAL_FALLBACK = ["cooldown", "delay", "repeat", "repeatInterval", "chance"];
+  function universalDefs() {
+    const u = window.MM_CATALOG && window.MM_CATALOG.universal;
+    if (u && u.length) return u;
+    return UNIVERSAL_FALLBACK.map(function (k) {
+      return { name: k, type: "number", def: "0" };
     });
-    return hit || null;
+  }
+  function universalSet() {
+    const set = {};
+    universalDefs().forEach(function (x) { set[x.name] = 1; });
+    return set;
+  }
+
+  /* 别名归一：a=10 → amount，r=30 → radius。UI 只认正式参数名 */
+  function normKeys(pairs, defs) {
+    const map = {};
+    (defs || []).forEach(function (pp) {
+      map[String(pp.name).toLowerCase()] = pp.name;
+      (pp.aliases || []).forEach(function (a) { map[String(a).toLowerCase()] = pp.name; });
+    });
+    const out = {};
+    Object.keys(pairs).forEach(function (k) {
+      out[map[k.toLowerCase()] || k] = pairs[k];
+    });
+    return out;
+  }
+
+  /* a=1;b=2 → {a:"1", b:"2"} */
+  function parsePairs(text) {
+    const out = {};
+    String(text || "").split(";").forEach(function (pair) {
+      if (!pair.trim()) return;
+      const eq = pair.indexOf("=");
+      if (eq < 0) { out[unquote(pair.trim())] = ""; return; }
+      out[unquote(pair.slice(0, eq).trim())] = unquote(pair.slice(eq + 1).trim());
+    });
+    return out;
+  }
+
+  /* 切出行内条件 ?条件{参数}，只在花括号外面才算条件 */
+  function splitInlineConditions(s) {
+    const conds = [];
+    let base = "", depth = 0, i = 0;
+    while (i < s.length) {
+      const ch = s[i];
+      if (ch === "?" && depth === 0) {
+        const m = s.slice(i).match(/^\?([A-Za-z_][\w]*)/);
+        if (!m) return null;
+        let j = i + m[0].length;
+        let body = "";
+        if (s[j] === "{") {
+          let d = 0, k = j;
+          for (; k < s.length; k++) {
+            if (s[k] === "{") d++;
+            else if (s[k] === "}") { d--; if (d === 0) { k++; break; } }
+          }
+          body = s.slice(j + 1, k - 1);
+          j = k;
+        }
+        conds.push({ id: m[1], body: body });
+        i = j;
+        continue;
+      }
+      if (ch === "{") depth++;
+      else if (ch === "}") depth = Math.max(0, depth - 1);
+      base += ch;
+      i++;
+    }
+    return { base: base.replace(/\s+/g, " ").trim(), conds: conds };
   }
 
   /* 一行技能 → 结构化；拿不准就整行保留 */
   function parseSkill(line) {
-    const s = String(line).trim();
+    const s = String(line).trim().replace(/^-\s+/, "");
     if (!s) return null;
-    /* 带行内条件、元技能、变量等复杂写法，直接留原文 */
-    if (s.indexOf("?") >= 0 || /^skill\{/i.test(s) || s.indexOf("$") >= 0) return { raw: s };
+    if (/^skill\{/i.test(s) || s.indexOf("$") >= 0) return { raw: s };
 
-    const m = s.match(/^([A-Za-z_][\w]*)\s*(?:\{([^}]*)\})?\s*(.*)$/);
+    const split = splitInlineConditions(s);
+    if (!split) return { raw: s };
+
+    const conditions = [];
+    for (let ci = 0; ci < split.conds.length; ci++) {
+      const cd = catOf("conditions", split.conds[ci].id);
+      if (!cd) return { raw: s };                 // 有认不出的条件，整行保留
+      conditions.push({ id: cd.id, params: normKeys(parsePairs(split.conds[ci].body), cd.params || []) });
+    }
+
+    const m = split.base.match(/^([A-Za-z_][\w]*)\s*(?:\{([^}]*)\})?\s*(.*)$/);
     if (!m) return { raw: s };
 
     const mechId = m[1];
     const paramsText = m[2] || "";
     let rest = (m[3] || "").trim();
-    const mech = MM_DATA.mechanics.find(function (x) { return x.id === mechId; });
+    const mech = catOf("mechanics", mechId);
     if (!mech) return { raw: s };
 
-    /* 参数表 */
-    const params = {};
-    if (paramsText.trim()) {
-      const pairs = paramsText.split(";");
-      for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i];
-        if (!pair.trim()) continue;
-        const eq = pair.indexOf("=");
-        if (eq < 0) return { raw: s };              // 认不出的参数写法
-        const k = pair.slice(0, eq).trim();
-        params[k] = unquote(pair.slice(eq + 1).trim());
-      }
-    }
-    /* 有表单装不下的参数名 → 整行保留，别悄悄丢 */
+    /* 机制自己的参数优先：通用修饰的别名（cd、sync…）放在前面，遇到同名以机制为准 */
+    const params = normKeys(parsePairs(paramsText), universalDefs().concat(mech.params || []));
     const declared = {};
     (mech.params || []).forEach(function (pp) { declared[pp.name] = pp; });
-    const extra = Object.keys(params).filter(function (k) { return !declared[k]; });
-    if (extra.length) return { raw: s };
+
+    /* 冷却 / 延迟 / 重复 / 概率 / 起点… 属于通用修饰，单拎出来 */
+    const universal = {};
+    const UK = universalSet();
+    Object.keys(params).forEach(function (k) {
+      if (UK[k] && !declared[k]) {
+        universal[k] = params[k];
+        delete params[k];
+      }
+    });
 
     /* 目标选择器 */
     let targeter = "self";
-    let radius;
-    const tg = rest.match(/@([A-Za-z]+)(?:\{([^}]*)\})?/);
+    let targetParams = {};
+    const tg = rest.match(/@([A-Za-z_]+)(?:\{([^}]*)\})?/);
     if (tg) {
       const hit = targeterIdOf(tg[0]);
-      if (!hit) return { raw: s };                  // 陌生目标器
+      if (!hit) return { raw: s };                // 陌生目标器
       targeter = hit.id;
-      if (tg[2]) {
-        const rm = tg[2].match(/r\s*=\s*([\d.]+)/);
-        if (rm) radius = Number(rm[1]);
-      }
+      targetParams = normKeys(parsePairs(tg[2] || ""), hit.params || []);
       rest = (rest.slice(0, tg.index) + rest.slice(tg.index + tg[0].length)).trim();
     }
 
     /* 触发器 */
     let trigger = null;
     let seconds;
-    const tr = rest.match(/~([A-Za-z]+)(?::(\d+))?/);
+    const tr = rest.match(/~([A-Za-z_]+)(?::(\d+))?/);
     if (tr) {
       const hit = triggerIdOf("~" + tr[1]);
-      if (!hit) return { raw: s };                  // 陌生触发器
+      if (!hit) return { raw: s };                // 陌生触发器
       trigger = hit.id;
       if (tr[2] && hit.needsTicks) seconds = Number(tr[2]) / 20;
       rest = (rest.slice(0, tr.index) + rest.slice(tr.index + tr[0].length)).trim();
     }
-    if (rest) return { raw: s };                    // 还有没消化掉的尾巴
+    if (rest) return { raw: s };                  // 还有没消化掉的尾巴
 
-    /* 参数值按声明类型收敛 */
+    /* 参数值按声明类型收敛；声明里没有的键也留着，生成时会原样写回 */
     const outParams = {};
-    (mech.params || []).forEach(function (pp) {
-      const v = params[pp.name];
-      if (v === undefined) return;
-      if (pp.type === "bool") outParams[pp.name] = asBool(v, !!pp.def);
-      else if (pp.type === "number") outParams[pp.name] = v === "" ? "" : Number(v);
-      else outParams[pp.name] = v;
+    Object.keys(params).forEach(function (k) {
+      const pp = declared[k];
+      const v = params[k];
+      if (pp && (pp.type === "boolean" || pp.type === "bool")) outParams[k] = asBool(v, pp.def === "true");
+      else if (pp && pp.type === "number") outParams[k] = v === "" ? "" : Number(v);
+      else outParams[k] = v;
     });
 
     const item = { mechanic: mech.id, trigger: trigger || "onSpawn", targeter: targeter, params: outParams };
-    if (radius !== undefined) item.radius = radius;
-    else if (targeter !== "self") {
-      const t = MM_DATA.targeters.find(function (x) { return x.id === targeter; });
-      if (t && t.needsRadius) item.radius = t.defaultR;
-    }
+    if (Object.keys(universal).length) item.universal = universal;
+    if (Object.keys(targetParams).length) item.targetParams = targetParams;
+    if (conditions.length) item.conditions = conditions;
     if (seconds !== undefined) item.seconds = seconds;
     else if (trigger) {
-      const t = MM_DATA.triggers.find(function (x) { return x.id === trigger; });
-      if (t && t.needsTicks) item.seconds = 10;
+      const t2 = triggerIdOf(trigger);
+      if (t2 && t2.needsTicks) item.seconds = 10;
     }
     return item;
   }

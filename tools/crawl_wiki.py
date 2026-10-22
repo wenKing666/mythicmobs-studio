@@ -420,13 +420,28 @@ def parse_page(url: str, html_text: str) -> dict:
 
     blocks = p.blocks
     examples = [b["text"] for b in blocks if b["tag"] == "pre" and b["text"].strip()]
+    """一页可能有**两张**属性表：Non-Inheritable Attributes 和 Inheritable Attributes。
+       只取第一张会丢掉全部继承来的参数（Damage 就只剩 amount，ignoreArmor / damagecause 全丢），
+       所以这里把所有属性表按顺序合并，后表里与前面同名的跳过，其余标记 inherited。"""
     attr_table = None
+    seen_attr = set()
     for b in blocks:
-        if b["tag"] == "table":
-            a = parse_attr_table(b["rows"])
-            if a:
-                attr_table = a
-                break
+        if b["tag"] != "table":
+            continue
+        a = parse_attr_table(b["rows"])
+        if not a:
+            continue
+        if attr_table is None:
+            attr_table = a
+            seen_attr = {x["name"].lower() for x in a}
+            continue
+        for x in a:
+            key = x["name"].lower()
+            if key in seen_attr:
+                continue
+            seen_attr.add(key)
+            x["inherited"] = True
+            attr_table.append(x)
 
     # 正文第一段作为 description
     desc = ""
