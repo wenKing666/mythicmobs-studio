@@ -10,7 +10,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 /* 浏览器里的模块都挂在 window 上，这里造一个最小 shim */
 const win = {};
 globalThis.window = win;
-for (const f of ["app/js/data.js", "app/js/options-data.js", "app/js/extras-data.js", "app/js/yaml.js", "app/js/state.js", "app/js/import.js"]) {
+for (const f of ["app/js/data.js", "app/js/options-data.js", "app/js/extras-data.js", "app/js/spec-data.js", "app/js/spec.js", "app/js/yaml.js", "app/js/state.js", "app/js/import.js"]) {
   const src = fs.readFileSync(path.join(ROOT, f), "utf8");
   (0, eval)(src);
   Object.assign(globalThis, win);
@@ -157,6 +157,76 @@ console.log("\n[5] 边界");
   eq("拒绝时不污染项目", p.key, "");
   const r2 = MM_IMPORT.fill(MM_STATE.newMob(), { js: null, text: "", filePath: "x" });
   ok("空内容拒绝导入", !r2.ok);
+}
+
+console.log("\n[6] 多条目切换（0.8.0）");
+{
+  /* switchEntry 需要解析器；单测里用 yaml 库假扮 MM_HOST.parseText，
+     Electron 里这条路走的是主进程 fs:parseText，行为一致 */
+  win.MM_HOST = { parseText: async (t) => ({ text: t, js: parse(t), errors: [] }) };
+  globalThis.MM_HOST = win.MM_HOST;
+
+  const text = [
+    "skeleton_king:",
+    "  Type: SKELETON",
+    "  Health: 500",
+    "  Display: '&6&l骷髅王'",
+    "zombie_horde:",
+    "  Type: ZOMBIE",
+    "  Health: 20",
+    "  Options:",
+    "    MovementSpeed: 0.3"
+  ].join("\n");
+  const { p } = importMob(text, "Mobs/two_mobs.yml");
+  eq("导入只吃第一个条目", p.key, "skeleton_king");
+  eq("条目清单", MM_IMPORT.entryKeys(p), ["zombie_horde"]);
+
+  const sw = await MM_IMPORT.switchEntry(p, 0);
+  ok("切换成功", sw.ok, JSON.stringify(sw));
+  eq("切到第二个条目", p.key, "zombie_horde");
+  eq("第二个条目的类型", p.data.type, "ZOMBIE");
+  eq("第二个条目的血量", p.data.health, 20);
+  eq("旧条目进 others", MM_IMPORT.entryKeys(p), ["skeleton_king"]);
+
+  /* 切换后整体生成：两个条目都在，原字段没丢 */
+  const full = MM_YAML.generate(p);
+  ok("旧条目没丢", full.includes("skeleton_king:") && full.includes("Health: 500"), full);
+  ok("新条目在当前位", /^zombie_horde:/m.test(full), full);
+  ok("陌生 Option 原样保留", full.includes("MovementSpeed: 0.3"), full);
+
+  /* 再切回去，往返一轮 */
+  const back = await MM_IMPORT.switchEntry(p, 0);
+  ok("切回第一个条目", back.ok && p.key === "skeleton_king", JSON.stringify(back));
+  eq("血量读回来了", p.data.health, 500);
+  ok("显示名没丢", MM_YAML.generate(p).includes("Display: '&6&l骷髅王'"));
+
+  /* pins（listFile）形态：others 里是 - name: 块 */
+  const pinText = [
+    "- name: boss_arena",
+    "  location: world,100,64,-20",
+    "  radius: 12",
+    "- name: tutorial_start",
+    "  location: world,0,64,0",
+    "  radius: 5"
+  ].join("\n");
+  const pp = MM_STATE.newSpecProject("pin");
+  const pr = MM_IMPORT.fillSpec(pp, { js: parse(pinText), text: pinText });
+  ok("pins 多项导入成功", pr.ok, JSON.stringify(pr));
+  eq("pins 条目清单", MM_IMPORT.entryKeys(pp), ["tutorial_start"]);
+  const sw2 = await MM_IMPORT.switchEntry(pp, 0);
+  ok("pins 切换成功", sw2.ok, JSON.stringify(sw2));
+  eq("pins 切到第二项", pp.key, "tutorial_start");
+  eq("第二项的半径", pp.data.fields.radius, 5);
+  const pinOut = MM_YAML.generate(pp);
+  ok("pins 切换后整份输出仍两行 name 都在",
+    (pinOut.match(/^- name:/gm) || []).length === 2, pinOut);
+
+  /* 越界与空块 */
+  const bad = await MM_IMPORT.switchEntry(p, 99);
+  ok("越界拒绝", !bad.ok);
+  win.MM_HOST = undefined; globalThis.MM_HOST = undefined;
+  const noHost = await MM_IMPORT.switchEntry(p, 0);
+  ok("没有解析器时拒绝（纯浏览器）", !noHost.ok);
 }
 
 console.log("\n" + (fail ? "✗ " : "") + pass + " 通过, " + fail + " 失败\n");

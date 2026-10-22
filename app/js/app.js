@@ -18,13 +18,17 @@
   }
 
   /* 两块提示共用这个框：
-     必填项缺失 = 拦截保存（红），引用检查 = 只提示（蓝），后者不挡保存 */
-  function renderWarnings(issues, refs) {
+     必填项缺失 = 拦截保存（红），引用检查 = 只提示（蓝），后者不挡保存。
+     0.8.0 起引用检查是可点的：不存在的名字一键新建，已存在的引用一键跳到那个文件。 */
+  function renderWarnings(issues) {
     const box = $("yamlWarn");
     const dl = $("btnDownload");
+    const p = MM_STATE.current();
     issues = issues || [];
-    refs = refs || [];
-    if (!issues.length && !refs.length) {
+    const missing = (window.MM_YAML.refMissing ? MM_YAML.refMissing(p) : []);
+    const found = (window.MM_YAML.refFound ? MM_YAML.refFound(p) : { skills: [], droptables: [] });
+    const hasRefs = missing.length || found.skills.length || found.droptables.length;
+    if (!issues.length && !hasRefs) {
       box.hidden = true;
       box.innerHTML = "";
       box.classList.remove("soft");
@@ -36,39 +40,101 @@
     box.classList.toggle("soft", !issues.length);
     box.innerHTML = "";
 
-    function listHead(title, arr) {
+    function miniBtn(text, onclick, title) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mini-btn";
+      b.textContent = text;
+      if (title) b.title = title;
+      b.addEventListener("click", onclick);
+      return b;
+    }
+
+    function listHead(title) {
       const head = document.createElement("b");
       head.textContent = title;
       box.appendChild(head);
       const ul = document.createElement("ul");
-      arr.slice(0, 6).forEach(function (t) {
+      box.appendChild(ul);
+      return ul;
+    }
+
+    if (issues.length) {
+      const ul = listHead("还差 " + issues.length + " 项才能用：");
+      issues.slice(0, 6).forEach(function (t) {
         const li = document.createElement("li");
         li.textContent = t;
         ul.appendChild(li);
       });
-      if (arr.length > 6) {
+      if (issues.length > 6) {
         const li = document.createElement("li");
-        li.textContent = "……还有 " + (arr.length - 6) + " 项";
+        li.textContent = "……还有 " + (issues.length - 6) + " 项";
         ul.appendChild(li);
       }
-      box.appendChild(ul);
-    }
-
-    if (issues.length) {
-      listHead("还差 " + issues.length + " 项才能用：", issues);
       dl.disabled = true;
       dl.title = "先补全上面列出的必填项";
     } else {
       dl.disabled = false;
       dl.title = "";
     }
-    if (refs.length) listHead("引用检查（不影响保存）：", refs);
+
+    if (missing.length) {
+      const ul = listHead("引用检查（不影响保存）：");
+      missing.slice(0, 8).forEach(function (m) {
+        const li = document.createElement("li");
+        li.appendChild(document.createTextNode(m.msg + "　"));
+        li.appendChild(miniBtn(m.kind === "skills" ? "新建技能组" : "新建掉落表", function () {
+          const np = m.kind === "skills" ? MM_STATE.newSkill() : MM_STATE.newDropTable();
+          np.key = m.name;
+          MM_STATE.add(np);
+          /* 新建的还没落盘，但名字已经存在了——同步进引用索引，报警立刻消失 */
+          if (window.MM_REFS && MM_REFS[m.kind]) {
+            MM_REFS[m.kind][m.name.toLowerCase()] = {
+              path: null, rel: "", name: m.name + ".yml",
+              kind: m.kind === "skills" ? "skill" : "droptable", size: 0, mtime: 0
+            };
+          }
+          refresh(true);
+          toast("已新建「" + m.name + "」，那条引用现在能找到了");
+        }, "建一个叫这个名字的空配置，引用就不报警了"));
+        ul.appendChild(li);
+      });
+      if (missing.length > 8) {
+        const li = document.createElement("li");
+        li.textContent = "……还有 " + (missing.length - 8) + " 项";
+        ul.appendChild(li);
+      }
+    }
+
+    /* 已存在的引用：列出来，点「打开」直接进那个文件（已打开过就切回去） */
+    [["skills", "引用的技能组"], ["droptables", "引用的掉落表"]].forEach(function (pair) {
+      const kind = pair[0], names = found[kind];
+      if (!names.length) return;
+      const row = document.createElement("div");
+      row.className = "ref-found";
+      row.appendChild(document.createTextNode(pair[1] + "："));
+      names.slice(0, 10).forEach(function (n, i) {
+        if (i) row.appendChild(document.createTextNode("、"));
+        const b = miniBtn(n, function () {
+          const meta = window.MM_REFS && MM_REFS[kind] && MM_REFS[kind][String(n).toLowerCase()];
+          if (!meta || !window.MM_HOST_OPEN_FILE) {
+            toast("纯浏览器模式没有文件系统，打不开；用桌面版扫目录后可以跳转");
+            return;
+          }
+          if (!meta.path) { toast("「" + n + "」还没保存到磁盘，保存后再打开"); return; }
+          MM_HOST_OPEN_FILE(meta);
+        }, "打开 " + n);
+        b.classList.add("ref-link");
+        row.appendChild(b);
+      });
+      box.appendChild(row);
+    });
   }
 
   function refresh(rebuild) {
     const p = MM_STATE.current();
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
-    renderWarnings(MM_YAML.validate(p), MM_YAML.refIssues(p));
+    renderWarnings(MM_YAML.validate(p));
 
     // 侧栏标题随名字变化
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
@@ -87,7 +153,7 @@
     MM_UI.renderEditor($("editor"), MM_STATE.current());
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
-    renderWarnings(MM_YAML.validate(MM_STATE.current()), MM_YAML.refIssues(MM_STATE.current()));
+    renderWarnings(MM_YAML.validate(MM_STATE.current()));
     $("editor").scrollTop = 0;
   }
 
@@ -105,6 +171,50 @@
     MM_UI.renderEditor($("editor"), p);
     refresh();
     $("editor").scrollTop = 0;
+  }
+
+  /* 导入过的项目：丢掉本地改动，按磁盘上的最新内容重填表单 */
+  async function reloadFromDisk() {
+    const p = MM_STATE.current();
+    if (!p || !p.filePath) { toast("这个项目不是从文件导入的"); return; }
+    if (!window.MM_HOST || !MM_HOST.readParsed) { toast("纯浏览器模式没有文件系统"); return; }
+    if (!window.confirm("从磁盘重新读取会丢掉这个项目里没保存的修改，继续？")) return;
+    try {
+      const r = await MM_HOST.readParsed(p.filePath);
+      if (r.errors && r.errors.length) { toast("文件解析失败：" + r.errors[0]); return; }
+      const sp = MM_SPEC && MM_SPEC.type(p.kind);
+      const base = p.kind === "mob" ? MM_STATE.newMob()
+        : p.kind === "skill" ? MM_STATE.newSkill()
+        : p.kind === "droptable" ? MM_STATE.newDropTable()
+        : sp ? MM_STATE.newSpecProject(p.kind)
+        : MM_STATE.newItem();
+      const res = MM_IMPORT.fill(base, { js: r.js, text: r.text, filePath: p.filePath });
+      if (!res.ok) { toast(res.reason || "重新读取失败"); return; }
+      /* 多条目文件：fill 只吃第一个条目；原来编辑的是第 N 个就切回第 N 个 */
+      if (base.key !== p.key && MM_IMPORT.entryKeys(base).indexOf(p.key) >= 0) {
+        const back = await MM_IMPORT.switchEntry(base, MM_IMPORT.entryKeys(base).indexOf(p.key));
+        if (!back.ok) { toast("切回条目失败：" + back.reason); return; }
+      }
+      p.key = base.key;
+      p.data = base.data;
+      p.raw = base.raw;
+      p.mtime = r.mtime;
+      refresh(true);
+      toast("已从磁盘重新读取「" + p.key + "」");
+    } catch (e) {
+      toast("读取失败：" + e.message);
+    }
+  }
+
+  /* 多条目文件：切到另一个条目（当前条目会原样写回 others，保存时不丢） */
+  async function switchEntry(idx) {
+    const p = MM_STATE.current();
+    if (!p) return;
+    const r = await MM_IMPORT.switchEntry(p, idx);
+    if (!r.ok) { toast(r.reason || "切换失败"); return; }
+    refresh(true);
+    $("editor").scrollTop = 0;
+    toast("已切到条目「" + r.key + "」");
   }
 
   /* 「更多类型」下拉：9 种通用配置类型直接按字段表生成按钮 */
@@ -213,7 +323,7 @@
     MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
     MM_UI.renderEditor($("editor"), MM_STATE.current());
     $("yamlOut").innerHTML = MM_YAML.highlight(currentYaml());
-    renderWarnings(MM_YAML.validate(MM_STATE.current()), MM_YAML.refIssues(MM_STATE.current()));
+    renderWarnings(MM_YAML.validate(MM_STATE.current()));
 
     document.addEventListener("keydown", function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -224,7 +334,8 @@
     });
 
     // 给空状态里的按钮用
-    window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject };
+    window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
+      reload: reloadFromDisk, switchEntry: switchEntry };
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

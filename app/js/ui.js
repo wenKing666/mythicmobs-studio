@@ -640,12 +640,34 @@ window.MM_UI = (function () {
       ]));
       return;
     }
+    const tabs = entryTabs(project);
+    if (tabs) root.appendChild(tabs);
     root.appendChild(editorHeader(project));
     if (window.MM_STATE.specOf && MM_STATE.specOf(project.kind)) renderSpec(root, project);
     else if (project.kind === "mob") renderMob(root, project);
     else if (project.kind === "skill") renderSkill(root, project);
     else if (project.kind === "droptable") renderDropTable(root, project);
     else renderItem(root, project);
+  }
+
+  /* 多条目文件（mob/pin 等）：只编辑第一个，其余原样在 raw.others；
+     0.8.0 起这里显示切换条，点别的条目就把当前条目原样存回去、解析那一个进来 */
+  function entryTabs(p) {
+    if (!window.MM_IMPORT || !MM_IMPORT.entryKeys) return null;
+    const keys = MM_IMPORT.entryKeys(p);
+    if (!keys.length) return null;
+    const bar = el("div", { class: "entry-tabs" }, [
+      el("span", { class: "et-label", text: "这个文件里有 " + (keys.length + 1) + " 个条目：" })
+    ]);
+    bar.appendChild(el("button", { class: "et-tab on", text: p.key || "(未命名)", title: "正在编辑这个条目" }));
+    keys.forEach(function (k, i) {
+      bar.appendChild(el("button", {
+        class: "et-tab", text: k,
+        title: "切到这个条目；当前条目会原样存回文件，保存时不丢",
+        onclick: function () { window.MM_APP && MM_APP.switchEntry(i); }
+      }));
+    });
+    return bar;
   }
 
   /* 配置类型 → 图标名（侧栏、文件列表、编辑器头都用这一份） */
@@ -686,10 +708,20 @@ window.MM_UI = (function () {
 
     syncId();
 
+    /* 从磁盘导入的项目：一键丢掉本地改动、按最新文件重填（外部改过文件后用） */
+    const reloadBtn = (p.filePath && window.MM_HOST && MM_HOST.isElectron)
+      ? el("button", {
+          class: "mini-btn", text: "↻ 重新读取", type: "button",
+          title: "文件可能被外部改过（或想放弃本地修改）时，按磁盘上的最新内容重填表单",
+          onclick: function () { window.MM_APP && MM_APP.reload(); }
+        })
+      : null;
+
     return el("div", { class: "card" }, [
       el("div", { class: "card-head" }, [
         el("span", { class: "card-icon", html: MM_ICONS.get(iconName, 15) }),
-        el("span", { text: kindName })
+        el("span", { text: kindName }),
+        reloadBtn
       ]),
       el("div", { class: "card-body" }, [
         el("div", { class: "grid" + (isSkill ? " one" : "") }, [

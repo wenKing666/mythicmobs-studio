@@ -158,6 +158,19 @@ ipcMain.handle("fs:readParsed", async (_e, file) => {
   return { text, js, errors, size: st.size, mtime: st.mtimeMs };
 });
 
+/* 解析一段内存里的 YAML 文本（多条目切换时用来解析 raw.others 里的块） */
+ipcMain.handle("fs:parseText", async (_e, text) => {
+  const doc = YAML.parseDocument(String(text || ""));
+  const errors = doc.errors.map((e) => e.message);
+  let js = null;
+  try {
+    js = doc.toJS();
+  } catch (e) {
+    errors.push(String(e && e.message ? e.message : e));
+  }
+  return { text: String(text || ""), js, errors };
+});
+
 ipcMain.handle("fs:write", async (_e, file, text) => {
   let backup = null;
   if (fs.existsSync(file)) {

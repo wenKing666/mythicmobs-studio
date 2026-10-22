@@ -904,10 +904,86 @@ window.MM_IMPORT = (function () {
     };
   }
 
+  /* ---------- 多条目文件：只编辑第一个，其余原样在 raw.others 里 ----------
+     0.8.0 起支持切换：把当前条目序列化回 others、把目标块解析进表单。
+     保存逻辑不用改 —— generate 本来就是 head + 当前条目 + others。 */
+
+  /* others 里每一块的显示名：wrap 是块首行的 key，pins 是 - name: xxx */
+  function entryKeyOf(blockText) {
+    const lines = String(blockText || "").replace(/\r\n/g, "\n").split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (!t) continue;
+      const list = t.match(/^-\s+(?:name|Name)\s*:\s*(.+)$/);
+      if (list) return list[1].trim().replace(/^["']|["']$/g, "");
+      const m = t.match(KEY_LINE);
+      if (m) return m[1].trim();
+      return t.slice(0, 24);
+    }
+    return "(空)";
+  }
+
+  function entryKeys(p) {
+    const raw = p && p.raw;
+    if (!raw || !raw.others || !raw.others.length) return [];
+    return raw.others.map(entryKeyOf);
+  }
+
+  /* 当前条目单独序列化成一块（临时摘掉 head 与 others，避免它们被带进来） */
+  function entryOnly(p) {
+    const raw = p.raw || (p.raw = {});
+    const savedO = raw.others, savedH = raw.head;
+    raw.others = []; raw.head = [];
+    try {
+      return String(MM_YAML.generate(p)).replace(/\s+$/, "");
+    } finally {
+      raw.others = savedO; raw.head = savedH;
+    }
+  }
+
+  /* 切到 others 里第 idx 块：当前条目写回那个位置，目标块解析进表单。
+     需要 MM_HOST.parseText（渲染层没有 YAML 解析器），纯浏览器里不可用。 */
+  async function switchEntry(p, idx) {
+    const raw = p && p.raw;
+    if (!raw || !raw.others || !raw.others[idx]) return { ok: false, reason: "没有这个条目" };
+    if (!window.MM_HOST || !MM_HOST.parseText) return { ok: false, reason: "解析需要桌面版" };
+    const target = String(raw.others[idx]);
+    /* 1. 当前条目 → 块文本 */
+    const cur = entryOnly(p);
+    /* 2. 目标块 → js（wrap 是 {Key:{..}}，pins 是 [{..}]） */
+    const parsed = await MM_HOST.parseText(target);
+    if (parsed.errors && parsed.errors.length) {
+      return { ok: false, reason: "那一块解析失败：" + parsed.errors[0] };
+    }
+    if (parsed.js === null || parsed.js === undefined) {
+      return { ok: false, reason: "那一块是空的" };
+    }
+    /* 3. 填一个干净壳（fill 会把陌生块放进 base.raw.entry） */
+    const sp = (window.MM_SPEC && MM_SPEC.type(p.kind)) || null;
+    const base = p.kind === "mob" ? MM_STATE.newMob()
+      : p.kind === "skill" ? MM_STATE.newSkill()
+      : p.kind === "droptable" ? MM_STATE.newDropTable()
+      : sp ? MM_STATE.newSpecProject(p.kind)
+      : MM_STATE.newItem();
+    const res = fill(base, { js: parsed.js, text: target, filePath: p.filePath });
+    if (!res.ok) return { ok: false, reason: res.reason || "那一块没能读成表单" };
+    /* 4. 交换：当前条目进 others 的这个位置，目标块成为活跃编辑对象 */
+    const others = raw.others.slice();
+    others[idx] = cur;
+    p.key = base.key;
+    p.data = base.data;
+    p.raw = base.raw;
+    p.raw.others = others;
+    /* base.raw.entry 里是目标块的陌生字段；others 的回车排版保持原样 */
+    return { ok: true, key: base.key };
+  }
+
   return {
     fill: fill,
     fillSpec: fillSpec,
     guessKind: guessKind,
+    entryKeys: entryKeys,
+    switchEntry: switchEntry,
     /* 供测试用 */
     parseSkill: parseSkill,
     splitTop: splitTop,

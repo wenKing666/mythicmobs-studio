@@ -25,13 +25,16 @@
   }
 
   /* 扫到的文件建一份索引，yaml.js 的引用检查拿它判断 skill{s=xxx} / Drops 里的表名是否存在。
+     值是文件信息（不再是 true），引用检查的「跳转」要拿它打开对应文件。
      只在扫过服务器目录时才有值，纯浏览器里 window.MM_REFS 一直是 undefined，引用检查自动跳过。 */
   function buildRefs() {
     const mk = function (kind) {
       const s = {};
       files.forEach(function (f) {
         if (f.kind !== kind) return;
-        s[String(f.name).replace(/\.ya?ml$/i, "").toLowerCase()] = true;
+        s[String(f.name).replace(/\.ya?ml$/i, "").toLowerCase()] = {
+          path: f.path, rel: f.rel, name: f.name, kind: kind, size: f.size, mtime: f.mtime
+        };
       });
       return s;
     };
@@ -67,14 +70,17 @@
       if (!list.length) return;
       box.appendChild(el("div", { class: "file-group", text: title + " · " + list.length }));
       list.forEach(function (f) {
+        /* 磁盘上的文件比打开时新了 → 在条目上标出来，点开后用「重新读取」拿最新内容 */
+        const opened = (window.MM_STATE ? MM_STATE.all() : []).find(function (p) { return p.filePath === f.path; });
+        const dirty = !!(opened && opened.mtime && f.mtime && f.mtime > opened.mtime + 1);
         box.appendChild(el("div", {
-          class: "file-item",
-          title: f.rel,
+          class: "file-item" + (dirty ? " dirty" : ""),
+          title: f.rel + (dirty ? "（磁盘上已被外部修改）" : ""),
           onclick: function () { openFile(f); }
         }, [
           el("span", { class: "file-icon", html: MM_ICONS.get(kindIcon(f), 13) }),
-          el("span", { class: "file-name", text: f.name }),
-          el("span", { class: "file-size", text: fmtSize(f.size) })
+          el("span", { class: "file-name", text: f.name + (dirty ? " ·" : "") }),
+          el("span", { class: "file-size", text: (dirty ? "已改动 · " : "") + fmtSize(f.size) })
         ]));
       });
     }
@@ -157,6 +163,7 @@
         return;
       }
       MM_STATE.add(base);
+      base.mtime = r.mtime;   /* 记下打开时的修改时间，文件列表用它发现「外部已改动」 */
       MM_APP.refresh(true);
       toast(res.warnings.length
         ? "已导入「" + res.key + "」：" + res.warnings.join("；")

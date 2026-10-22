@@ -703,9 +703,33 @@ window.MM_YAML = (function () {
      服务器只会静默不执行。只在真的扫过服务器目录（MM_REFS 已建）时才查，
      否则纯手工编辑时满屏假警告。 */
   function refIssues(p) {
+    return scanRefs(p).missing.map(function (m) { return m.msg; });
+  }
+
+  /* 结构化版：missing 里带 kind/name 供「一键新建」，found 是确实存在的引用（可跳转）。
+     纯浏览器没有 MM_REFS 时两个都返回空。 */
+  function refMissing(p) {
+    return scanRefs(p).missing;
+  }
+
+  function refFound(p) {
+    return scanRefs(p).found;
+  }
+
+  function scanRefs(p) {
     const refs = window.MM_REFS;
-    if (!refs || !p) return [];
-    const out = [];
+    const missing = [], found = { skills: [], droptables: [] };
+    if (!refs || !p) return { missing: missing, found: found };
+    const seen = { skills: {}, droptables: {} };
+    function record(kind, name, where, ok) {
+      if (seen[kind][name]) return;   /* 同一个名字只报一次 */
+      seen[kind][name] = true;
+      if (ok) found[kind].push(name);
+      else missing.push({
+        kind: kind, name: name,
+        msg: where + "引用的「" + name + "」在 " + (kind === "skills" ? "Skills/" : "Drops/") + " 目录里找不到"
+      });
+    }
     function miss(kind, name, where) {
       const set = refs[kind];
       if (!set || !name) return;
@@ -714,7 +738,7 @@ window.MM_YAML = (function () {
       if (kind === "droptables") n = n.replace(/^table\s*:\s*/i, "").trim();
       /* 带占位符或变量的名字没法静态判断，放过 */
       if (!n || /[<${}]/.test(n)) return;
-      if (!set[n.toLowerCase()]) out.push(where + "引用的「" + n + "」在 " + (kind === "skills" ? "Skills/" : "Drops/") + " 目录里找不到");
+      record(kind, n, where, !!set[n.toLowerCase()]);
     }
     /* `skill{s=xxx;cooldown=2}` 里取技能组名；s / skill / name 都认 */
     function pickSkillArg(args) {
@@ -749,7 +773,7 @@ window.MM_YAML = (function () {
         if (x && x.table) miss("droptables", x.table, "第 " + (i + 1) + " 条掉落：");
       });
     }
-    return out;
+    return { missing: missing, found: found };
   }
 
   /* ---------- 通用配置类型（Spawners / RandomSpawns / Stats / Menus / Dialogs /
@@ -916,6 +940,6 @@ window.MM_YAML = (function () {
     };
   }
 
-  return { generate: generate, validate: validate, refIssues: refIssues, mob: mob, item: item, specDoc: specDoc, highlight: highlight, scalar: scalar };
+  return { generate: generate, validate: validate, refIssues: refIssues, refMissing: refMissing, refFound: refFound, mob: mob, item: item, specDoc: specDoc, highlight: highlight, scalar: scalar };
 })();
 

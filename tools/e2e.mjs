@@ -613,6 +613,76 @@ async function main() {
 
   await shot("e2e-mob-extra");
 
+  /* ---------- 0.8.0：易用性三件套 ---------- */
+
+  // 13. 多条目切换（纯浏览器没有解析器，只能验 tabs 显示与拒绝提示）
+  await evalJs(`(() => {
+    MM_APP.new("mob");
+    const p = MM_STATE.current();
+    p.raw = { head: [], entry: [], options: {}, itemExtra: [],
+      others: ["zombie_horde:\\n  Type: ZOMBIE\\n  Health: 20"] };
+    MM_APP.refresh(true);
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("多条目文件显示切换条", await evalJs(`!!document.querySelector("#editor .entry-tabs")
+    && document.querySelectorAll("#editor .entry-tabs .et-tab").length === 2`),
+    await evalJs(`String(document.querySelectorAll("#editor .entry-tabs .et-tab").length)`));
+  await evalJs(`(() => { window.confirm = () => true;
+    const t = [...document.querySelectorAll("#editor .entry-tabs .et-tab")]
+      .find(b => b.textContent === "zombie_horde");
+    t.click(); return true; })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("纯浏览器切换给出降级提示", await evalJs(`document.getElementById("toast").classList.contains("show")
+    && document.getElementById("toast").textContent.length > 0`),
+    await evalJs(`document.getElementById("toast").textContent`));
+
+  // 14. 引用检查按钮化（手工造一个 MM_REFS：引用不存在的 GuardTaunt 与存在的 boss_phase2）
+  await evalJs(`(() => {
+    window.MM_REFS = { skills: { boss_phase2: { path: "C:/x/Skills/boss_phase2.yml", rel: "Skills/boss_phase2.yml", name: "boss_phase2.yml", kind: "skill" } }, droptables: {} };
+    MM_APP.new("mob");
+    const p = MM_STATE.current();
+    p.data.skills.push({ trigger: "onAttack", mechanic: "skill", targeter: "target",
+      params: { s: "GuardTaunt" }, radius: 10, seconds: 10 });
+    p.data.skills.push({ trigger: "onAttack", mechanic: "skill", targeter: "target",
+      params: { s: "boss_phase2" }, radius: 10, seconds: 10 });
+    MM_APP.refresh(true);
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("不存在的引用带「新建技能组」按钮", await evalJs(`(() => {
+    const b = [...document.querySelectorAll("#yamlWarn .mini-btn")]
+      .find(x => x.textContent === "新建技能组");
+    return !!b;
+  })()`));
+  check("已存在的引用显示为可点按钮", await evalJs(`(() => {
+    const b = [...document.querySelectorAll("#yamlWarn .ref-link")]
+      .find(x => x.textContent === "boss_phase2");
+    return !!b;
+  })()`));
+  await evalJs(`(() => {
+    const b = [...document.querySelectorAll("#yamlWarn .mini-btn")]
+      .find(x => x.textContent === "新建技能组");
+    b.click(); return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("一键新建出技能组并选中", await evalJs(`MM_STATE.current().kind === "skill"
+    && MM_STATE.current().key === "GuardTaunt"`),
+    await evalJs(`MM_STATE.current().key`));
+  check("新建后那条引用不再报警（挪进已存在清单）", await evalJs(`(() => {
+    MM_STATE.select(MM_STATE.all().find(x => x.kind === "mob" && x.data.skills.length === 2).id);
+    MM_APP.refresh(true);
+    const t = document.getElementById("yamlWarn").innerText;
+    return !t.includes("找不到") && t.includes("boss_phase2");
+  })()`),
+    await evalJs(`document.getElementById("yamlWarn").innerText`));
+
+  await shot("e2e-refs");
+
+  // 15. 重新读取按钮（纯浏览器没有 MM_HOST，按钮不该出现）
+  check("纯浏览器不显示「重新读取」", await evalJs(`![...document.querySelectorAll("#editor .card-head .mini-btn")]
+    .some(b => b.textContent.includes("重新读取"))`));
+
   // 11. 使用说明弹窗
   await evalJs(`document.getElementById("btnHelp").click(); true`);
   await new Promise(r => setTimeout(r, 250));
@@ -622,7 +692,7 @@ async function main() {
   await new Promise(r => setTimeout(r, 200));
   check("使用说明能关闭", await evalJs(`document.getElementById("helpModal").hidden`));
 
-  // 12. 删除
+  // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);
   await evalJs(`(() => {

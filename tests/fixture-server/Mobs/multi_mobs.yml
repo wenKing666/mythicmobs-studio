@@ -1,0 +1,9 @@
+skeleton_king:
+  Type: SKELETON
+  Health: 500
+  Display: '&6&l骷髅王'
+zombie_horde:
+  Type: ZOMBIE
+  Health: 20
+  Options:
+    MovementSpeed: 0.3

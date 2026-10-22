@@ -58,6 +58,13 @@ async function main() {
   await send("Runtime.enable");
   await sleep(800);
 
+  /* 上一次运行留下的项目还在 localStorage 里（openFile 会切回旧项目而不是重新导入，
+     夹具一改断言就对不上），先清掉再刷新，保证从干净状态跑 */
+  await send("Page.enable");
+  await ev(`localStorage.clear(); true`);
+  await send("Page.reload");
+  await sleep(1500);
+
   check("Electron 环境已注入", await ev(`!!(window.MM_HOST && window.MM_HOST.isElectron)`));
   check("顶栏出现「打开文件夹」", await ev(`document.getElementById("btnOpenFolder").hidden === false`));
 
@@ -73,9 +80,9 @@ async function main() {
 
   const dir = FIXTURE.replace(/\\/g, "\\\\");
   const scan = await ev(`MM_HOST.scan("${dir}")`);
-  /* 夹具：Mobs/skeleton_king.yml、Mobs/ai_guard.yml、Items/flame_sword.yml、
+  /* 夹具：Mobs/skeleton_king.yml、Mobs/ai_guard.yml、Mobs/multi_mobs.yml、Items/flame_sword.yml、
      Skills/boss_phase2.yml、Drops/boss_loot.yml、Spawners/boss_spawner.yml、pins.yml */
-  check("扫描目录拿到 7 个文件", scan.files.length === 7, "count=" + scan.files.length);
+  check("扫描目录拿到 8 个文件", scan.files.length === 8, "count=" + scan.files.length);
   check("识别出 mob / item / skill / droptable",
     ["mob", "item", "skill", "droptable"].every(k => scan.files.some(f => f.kind === k)),
     JSON.stringify(scan.files.map(f => f.kind)));
@@ -361,6 +368,99 @@ async function main() {
     check("等级写进怪物 YAML",
       await ev(`document.getElementById("yamlOut").innerText.includes("Level: 3to7")`),
       await ev(`document.getElementById("yamlOut").innerText.match(/Level[^\\n]*/)`));
+  }
+
+  /* ---------- 0.8.0：易用性三件套 ---------- */
+
+  const multiFile = scan.files.find(f => f.rel.replace(/\\/g, "/") === "Mobs/multi_mobs.yml");
+
+  if (!multiFile) {
+    check("夹具里有多条目怪物文件", false, JSON.stringify(scan.files.map(f => f.rel)));
+  } else {
+    /* 多条目切换：一个文件 skeleton_king + zombie_horde */
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: multiFile.path, name: multiFile.name, kind: "mob", rel: multiFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("多条目文件显示切换条",
+      await ev(`document.querySelectorAll("#editor .entry-tabs .et-tab").length === 2`),
+      await ev(`String(document.querySelectorAll("#editor .entry-tabs .et-tab").length)`));
+    check("默认编辑第一个条目", await ev(`MM_STATE.current().key === "skeleton_king"`));
+    await ev(`(() => {
+      [...document.querySelectorAll("#editor .entry-tabs .et-tab")]
+        .find(b => b.textContent === "zombie_horde").click();
+      return true;
+    })()`);
+    await sleep(500);
+    check("点第二个条目切过去", await ev(`MM_STATE.current().key === "zombie_horde"`),
+      await ev(`MM_STATE.current().key`));
+    check("第二个条目的血量读进来了", await ev(`MM_STATE.current().data.health === 20`));
+    check("切换后整份文件两个条目都在",
+      await ev(`(() => {
+        const y = MM_YAML.generate(MM_STATE.current());
+        return y.includes("skeleton_king:") && y.includes("Health: 500")
+          && y.includes("MovementSpeed: 0.3");
+      })()`),
+      await ev(`MM_YAML.generate(MM_STATE.current())`));
+
+    /* 重新读取：改血量 → 不保存 → ↻ → 回到磁盘上的值 */
+    await ev(`(() => { MM_STATE.current().data.health = 777; MM_APP.refresh(true); return true; })()`);
+    await sleep(300);
+    await ev(`window.confirm = () => true;
+      [...document.querySelectorAll("#editor .card-head .mini-btn")]
+        .find(b => b.textContent.includes("重新读取")).click(); true`);
+    await sleep(600);
+    check("重新读取后丢掉本地改动", await ev(`MM_STATE.current().data.health === 20`),
+      await ev(`String(MM_STATE.current().data.health)`));
+  }
+
+  /* 引用跳转：ai_guard.yml 引用了存在的 boss_phase2 与不存在的 GuardTaunt */
+  if (aiFile) {
+    await ev(`MM_HOST_OPEN_FILE(${JSON.stringify({
+      path: aiFile.path, name: aiFile.name, kind: "mob", rel: aiFile.rel, size: 0, mtime: 0
+    })}); true`);
+    await sleep(400);
+    check("不存在的引用有「新建技能组」按钮",
+      await ev(`[...document.querySelectorAll("#yamlWarn .mini-btn")]
+        .some(b => b.textContent === "新建技能组")`));
+    check("存在的引用显示为可点按钮",
+      await ev(`[...document.querySelectorAll("#yamlWarn .ref-link")]
+        .some(b => b.textContent === "boss_phase2")`));
+    await ev(`(() => {
+      [...document.querySelectorAll("#yamlWarn .ref-link")]
+        .find(b => b.textContent === "boss_phase2").click();
+      return true;
+    })()`);
+    await sleep(600);
+    check("点引用直接跳进那个技能组", await ev(`MM_STATE.current().kind === "skill"
+      && MM_STATE.current().key === "boss_phase2"`),
+      await ev(`MM_STATE.current().kind + ":" + MM_STATE.current().key`));
+  }
+
+  /* 外部改动检测：外部改文件 → 重扫 → 文件列表标「已改动」→ 打开后重新读取拿到新值 */
+  const mobPath = mob.path;
+  const origMob = await ev(`MM_HOST.read(${JSON.stringify(mobPath)})`).then(r => r.text);
+  try {
+    fs.writeFileSync(mobPath, origMob.replace(/Health:\s*500/, "Health: 999"));
+    await ev(`MM_HOST_OPEN_DIR(${JSON.stringify(FIXTURE)}); true`);
+    await sleep(500);
+    check("外部改过的文件标「已改动」",
+      await ev(`[...document.querySelectorAll("#serverFiles .file-item.dirty .file-size")]
+        .some(x => x.textContent.includes("已改动"))`));
+    await ev(`(() => {
+      const item = [...document.querySelectorAll("#serverFiles .file-item.dirty")]
+        .find(x => x.textContent.includes("skeleton_king"));
+      item.click(); return true;
+    })()`);
+    await sleep(500);
+    await ev(`window.confirm = () => true;
+      [...document.querySelectorAll("#editor .card-head .mini-btn")]
+        .find(b => b.textContent.includes("重新读取")).click(); true`);
+    await sleep(600);
+    check("重新读取拿到磁盘上的新血量", await ev(`MM_STATE.current().data.health === 999`),
+      await ev(`String(MM_STATE.current().data.health)`));
+  } finally {
+    fs.writeFileSync(mobPath, origMob);
   }
 
   /* 清掉导入的项目，别留在下次运行里 */

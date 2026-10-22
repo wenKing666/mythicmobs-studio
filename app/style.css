@@ -887,3 +887,30 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 .dropdown-item:hover { background: var(--accent-soft); }
 .dropdown-item .di-ico { color: var(--ink-3); display: flex; }
 .dropdown-item .di-d { color: var(--ink-4); font-size: 11px; font-family: ui-monospace, monospace; }
+
+/* 0.8.0 引用检查可点击：小按钮 + 已存在引用的行内链接 */
+.mini-btn { padding: 2px 8px; margin-left: 6px; border-radius: 5px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--ink-2); font-size: 11px; cursor: pointer; }
+.mini-btn:hover { background: var(--accent-soft); color: var(--ink); }
+.yaml-warn.soft .mini-btn { background: #1d2a37; border-color: #2c3a49; color: #a9c3da; }
+.yaml-warn.soft .mini-btn:hover { background: #26374a; color: #d7e6f4; }
+.ref-found { margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.yaml-warn.soft .ref-found { color: #9fb8d0; }
+.ref-link { margin: 0 2px; font-family: ui-monospace, monospace; }
+/* 文件列表里「磁盘上已被外部修改」的条目 */
+.file-item.dirty .file-name { color: #e8b96a; }
+.file-item.dirty .file-size { color: #e8b96a; }
+
+/* 多条目文件的条目切换条 */
+.entry-tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 12px; padding: 8px 12px; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+.entry-tabs .et-label { flex: 0 0 auto; }
+.entry-tabs .et-tab { padding: 3px 10px; border-radius: 5px; border: 1px solid var(--line);
+  background: transparent; color: var(--ink-2); font-size: 12px; cursor: pointer;
+  font-family: ui-monospace, monospace; }
+.entry-tabs .et-tab:hover { background: var(--accent-soft); }
+.entry-tabs .et-tab.on { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); }
+
+/* 编辑器头部的「重新读取」推到右侧 */
+.card-head .mini-btn { margin-left: auto; }

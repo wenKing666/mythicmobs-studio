@@ -23,6 +23,7 @@ ai_guard:
   - iron_sword HAND
   Skills:
   - skill{s=GuardTaunt} @target ~onTimer:100
+  - skill{s=boss_phase2} @target ~onTimer:200
   Options:
     MovementSpeed: 0.24
   Drops:
