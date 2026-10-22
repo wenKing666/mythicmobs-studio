@@ -1,0 +1,16 @@
+skeleton_king:
+  Type: SKELETON
+  Display: '&6&l骷髅王'
+  Health: 500
+  Damage: 15
+  Armor: 8
+  Options:
+    MovementSpeed: 0.28
+    PreventSunburn: true
+  Equipment:
+  - diamond_helmet HEAD
+  - diamond_sword HAND
+  Skills:
+  - skill{s=KingSlam} @Target ~onAttack
+  Drops:
+  - diamond 2-4 1

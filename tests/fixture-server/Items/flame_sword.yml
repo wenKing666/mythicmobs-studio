@@ -1,0 +1,10 @@
+flame_sword:
+  Id: diamond_sword
+  Display: '&c烈焰之剑'
+  Lore:
+  - '&7燃烧着不灭的火焰'
+  Enchantments:
+  - FIRE_ASPECT 2
+  Attributes:
+    MainHand:
+      ATTACK_DAMAGE: 9 ADD

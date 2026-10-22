@@ -1,0 +1,12 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("MM_HOST", {
+  isElectron: true,
+  info: () => ipcRenderer.invoke("app:info"),
+  openFolder: () => ipcRenderer.invoke("dialog:openFolder"),
+  scan: (dir) => ipcRenderer.invoke("fs:scan", dir),
+  read: (file) => ipcRenderer.invoke("fs:read", file),
+  write: (file, text) => ipcRenderer.invoke("fs:write", file, text),
+  saveAs: (name) => ipcRenderer.invoke("dialog:saveFile", name),
+  reveal: (file) => ipcRenderer.invoke("shell:showItem", file)
+});

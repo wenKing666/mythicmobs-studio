@@ -1,0 +1,1460 @@
+[
+ {
+  "name": "AlwaysShowName",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether the name-tag is always displayed. Equivalent to the NBT-tag CustomNameVisible. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n AlwaysShowName: false",
+  "zh": "始终显示名字（等同 CustomNameVisible）"
+ },
+ {
+  "name": "AttackSpeed",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "The attack speed of the mob Defaults to vanilla attack speed of the respective mobs",
+  "default": "vanilla attack speed of the respective mobs",
+  "example": "Options:\n AttackSpeed: 1",
+  "zh": "攻击速度"
+ },
+ {
+  "name": "VisibleByDefault",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Sets whether the mob is visible by default when the mobs spawns or when the mob gets loaded. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n VisibleByDefault: true",
+  "zh": "默认可见"
+ },
+ {
+  "name": "Invisible",
+  "group": "Universal options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets the permanent invisibility effect on the mob; no need to apply invisibility potion with ~onSpawn trigger. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Invisible: true",
+  "zh": "永久隐身"
+ },
+ {
+  "name": "Collidable",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether the mob has collisions. Collisions in Minecraft are bidirectional, so this would need to be set to false on both the entity colliders to ensure that no collisions takes place but will also stop the player from pushing the mob. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n Collidable: true",
+  "zh": "是否参与碰撞"
+ },
+ {
+  "name": "DigOutOfGround",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Teleports the mob two blocks up if it takes SUFFOCATION damage. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n DigOutOfGround: false",
+  "zh": "窒息时上移两格"
+ },
+ {
+  "name": "Despawn",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Determines how the mob will despawn. This option should be turned on if you're using a lot of mob spawners or entities will overwhelm your server, or the entity you are making requires some special behavior regarding its despawn policy (Npcs, Bosses etc.) Defaults to true.",
+  "default": "true",
+  "example": "Options:\n Despawn: true",
+  "zh": "远离玩家后自然消失"
+ },
+ {
+  "name": "FollowRange",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "The range in blocks within which a mob will target to attack or track an entity. Defaults to vanilla follow range - 32.",
+  "default": "vanilla follow range - 32",
+  "example": "Options:\n FollowRange: 32",
+  "zh": "索敌/跟随范围"
+ },
+ {
+  "name": "Glowing",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Sets whether the mob is permanently glowing. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Glowing: false",
+  "zh": "发光描边"
+ },
+ {
+  "name": "HealOnReload",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Allows non-despawning mobs to heal once the chunk they are in gets reloaded. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n HealOnReload: false",
+  "zh": "区块重载后回满血"
+ },
+ {
+  "name": "Hidden",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "If true the mob will be left out of command suggestions and the mob browser menu, useful for template mobs and internal utility mobs. Defaults to false.",
+  "default": "false",
+  "example": "example_mob:\n Type: ZOMBIE\n Hidden: true",
+  "zh": "隐藏（不参与实体计数等）"
+ },
+ {
+  "name": "Invincible",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Makes the mob completely invincible to all types of damage. This option cannot be changed by command skills. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Invincible: false",
+  "zh": "无敌"
+ },
+ {
+  "name": "Interactable",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Sets whether the mob can be interacted with. If the mob is an armor stand, it will deny any interaction with the equipments. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Interactable: false",
+  "zh": "可被玩家交互"
+ },
+ {
+  "name": "LockPitch",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Keeps the mob's head from looking up/down. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n LockPitch: false",
+  "zh": "锁定俯仰角"
+ },
+ {
+  "name": "KnockbackResistance",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "A percentage of knockback resisted from attacks. This option can be anywhere between 0 and 1. But a mob with 100% knockback resistance can still be knocked back by a bow's enchantment: ARROW_KNOCKBACK (punch enchantment). For true knockback resistance, see the velocity mechanic page. Defaults to 0.",
+  "default": "0",
+  "example": "Options:\n KnockbackResistance: 0.5",
+  "zh": "击退抗性"
+ },
+ {
+  "name": "MaxCombatDistance",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevents players that are a number of blocks away from damaging the mob. Setting this option to a number less than the distance of a certain mob skill or attack will ensure that the mob can damage the player and will not be as easy to exploit. Defaults to 256.",
+  "default": "256",
+  "example": "Options:\n MaxCombatDistance: 256",
+  "zh": "最大交战距离"
+ },
+ {
+  "name": "MovementSpeed",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "The movement speed of the mob. Most mobs has a default move speed of 0.2 and any value higher than 1 tends to make a mob difficult or impossible to fight.",
+  "default": "",
+  "example": "Options:\n MovementSpeed: 0.2",
+  "zh": "移动速度"
+ },
+ {
+  "name": "NoAI",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether the mob should have AI. This option overrides any AI goals specified in AIGoalSelectors. As opposed to AIGoalSelectors, this will work on entities that have hardcoded AI. And if this is set to true, the mob will never cast any skills. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n NoAI: false",
+  "zh": "关闭原版 AI"
+ },
+ {
+  "name": "NoDamageTicks",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Defines how long in ticks the mob is invulnerable after taking damage. If ImmunityTables is enabled for the mob, then NoDamageTicks will be per player instead of global. Defaults to 10.",
+  "default": "10",
+  "example": "Options:\n NoDamageTicks: 20",
+  "zh": "受伤无敌帧时长"
+ },
+ {
+  "name": "NoGravity",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether the mob should not have gravity. If set to true, the mob CANNOT have the velocity mechanic used on it. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n NoGravity: false",
+  "zh": "不受重力"
+ },
+ {
+  "name": "PassthroughDamage",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Causes all damage taken to be redirected to the mob's parent, if one exists. A mob's parent is the entity that initially summoned the mob. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PassthroughDamage: false",
+  "zh": ""
+ },
+ {
+  "name": "PreventItemPickup",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevent mobs from picking up items; Defaults to true.",
+  "default": "true",
+  "example": "Options:\n PreventItemPickup: false",
+  "zh": "禁止拾取物品"
+ },
+ {
+  "name": "PreventLeashing",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether to prevent a leash from being placed on the mob. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n PreventLeashing: false",
+  "zh": "禁止被拴绳"
+ },
+ {
+  "name": "PreventMobKillDrops",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevents a MythicMob's target from dropping loot. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventMobKillDrops: false",
+  "zh": "禁止掉落自身掉落物"
+ },
+ {
+  "name": "PreventOtherDrops",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevents the mob from dropping its vanilla loot table. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventOtherDrops: false",
+  "zh": "禁止其他插件/原版掉落"
+ },
+ {
+  "name": "PreventRandomEquipment",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevents the mob from spawning with random equipment. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventRandomEquipment: false",
+  "zh": "禁止随机装备"
+ },
+ {
+  "name": "PreventRenaming",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevents the mob from being renamed using a nametag. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n PreventRenaming: false",
+  "zh": "禁止改名"
+ },
+ {
+  "name": "PreventSunburn",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Prevents the mob from burning in the sun. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventSunburn: true",
+  "zh": "防止日晒燃烧"
+ },
+ {
+  "name": "PreventTransformation",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Sets whether the mob should be prevented from being turned into other entities. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n PreventTransformation: false",
+  "zh": "防止转化（僵尸村民/溺尸等）"
+ },
+ {
+  "name": "PreventVanillaDamage",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Cancels every instance of the mob dealing \"regular\" vanilla damage, canceling it. Skills that triggers onAttack will still be executed. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventVanillaDamage: true",
+  "zh": "免疫原版伤害"
+ },
+ {
+  "name": "RepeatAllSkills",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether to repeat HP based skills if a mob heals back above the health threshold. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n RepeatAllSkills: false",
+  "zh": "技能可重复触发"
+ },
+ {
+  "name": "ReviveHealth",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "When the mob's death event gets cancelled (via a Cancelevent mechanic ~onDeath) the one specified is the amount of health the mob's will be set to. If the value is -1, the mob will heal to its own max health value.",
+  "default": "",
+  "example": "#This mob will always return to 50 health every time the death event is cancelled\nExampleMob:\n Type: COW\n Health: 100\n Options:\n ReviveHealth: 50\n Skills:\n - cancelevent{sync=true} @self ~onDeath",
+  "zh": "复活后的血量"
+ },
+ {
+  "name": "Scale",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "The scale of the mob. If set to -1, the option is ignored. Defaults to -1.",
+  "default": "-1",
+  "example": "Options:\n Scale: 2",
+  "zh": "体型缩放"
+ },
+ {
+  "name": "ShowHealth",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Displays the health of the mob through messages broadcast within a radius and formatting by Mobs.ShowHealth.Radius and Mobs.ShowHealth.Formatting, respectively, in /plugins/MythicMobs/config.yml Defaults to false.",
+  "default": "false",
+  "example": "Options:\n ShowHealth: false",
+  "zh": "显示血量"
+ },
+ {
+  "name": "Silent",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether a mob should use vanilla sound effects. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Silent: false",
+  "zh": "静音"
+ },
+ {
+  "name": "UseThreatTable",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "Whether the mob should have Threat Tables enabled",
+  "default": "",
+  "example": "Options:\n UseThreatTable: true",
+  "zh": "启用威胁表"
+ },
+ {
+  "name": "RandomizeProperties",
+  "group": "Universal options",
+  "sub": "",
+  "subs": [],
+  "description": "RandomizeProperties is the vanilla feature in charge of giving variations to mobs when they spawn, such as equipment, zombie leader status, animal variations, zombie/spider jockey, mob size, chance of spawning as baby, etc This is ideal if you are heavily overriding entity behaviors and don't want the natural randomization Defaults to true",
+  "default": "true",
+  "example": "Options:\n RandomizeProperties: false",
+  "zh": "随机化部分属性"
+ },
+ {
+  "name": "Type",
+  "group": "Group specific options",
+  "sub": "Boat & BoatChest",
+  "subs": [
+   "Boat & BoatChest",
+   "Frog",
+   "Villagers"
+  ],
+  "description": "The type of the boat entity. Aliases: BoatType. Defaults to OAK",
+  "default": "OAK",
+  "example": "Options:\n BoatType: MANGROVE",
+  "zh": ""
+ },
+ {
+  "name": "Age",
+  "group": "Group specific options",
+  "sub": "Breedable mobs",
+  "subs": [
+   "Breedable mobs"
+  ],
+  "description": "The age of the mob. Use -1 for Baby and 1 for Adults. Usable on any mob that can age. For example: Sheep, Pigs, Cows... When above 0, represents the number of ticks before this mob can breed again. Equivalent to the Age NBT. Use very low negative numbers to mess with the mobs model (not supported). May not be working properly under some situations. Defaults to 1.",
+  "default": "1",
+  "example": "Options:\n Age: -1",
+  "zh": "年龄（幼年/成年计时）"
+ },
+ {
+  "name": "AgeLock",
+  "group": "Group specific options",
+  "sub": "Breedable mobs",
+  "subs": [
+   "Breedable mobs"
+  ],
+  "description": "Whether the mobs age should be locked in place. Useful for keeping a baby mob from growing up over time. This is required if you want Age option to work over time. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n AgeLock: true",
+  "zh": "锁定年龄"
+ },
+ {
+  "name": "Adult",
+  "group": "Group specific options",
+  "sub": "Breedable mobs",
+  "subs": [
+   "Breedable mobs"
+  ],
+  "description": "Sets adult status of mob. Use if Age does not work.",
+  "default": "",
+  "example": "Options:\n Adult: true",
+  "zh": "强制成年"
+ },
+ {
+  "name": "Baby",
+  "group": "Group specific options",
+  "sub": "Breedable mobs",
+  "subs": [
+   "Breedable mobs"
+  ],
+  "description": "Sets baby/adult status of mob. Use if Age does not work.",
+  "default": "",
+  "example": "Options:\n Baby: true",
+  "zh": "强制幼年"
+ },
+ {
+  "name": "Angry",
+  "group": "Group specific options",
+  "sub": "Neutral Entities",
+  "subs": [
+   "Neutral Entities"
+  ],
+  "description": "Whether the mob will spawn angry or not.",
+  "default": "",
+  "example": "Options:\n Angry: true",
+  "zh": "愤怒状态"
+ },
+ {
+  "name": "PreventSlimeSplit",
+  "group": "Group specific options",
+  "sub": "Slimes & Magma Cubes",
+  "subs": [
+   "Slimes & Magma Cubes"
+  ],
+  "description": "Prevents slimes and magmacubes from splitting. Default to false.",
+  "default": "false",
+  "example": "Options:\n PreventSlimeSplit: true",
+  "zh": "禁止史莱姆分裂"
+ },
+ {
+  "name": "Size",
+  "group": "Group specific options",
+  "sub": "Entities with variable size",
+  "subs": [
+   "Entities with variable size"
+  ],
+  "description": "Sets the size of slimes, magma cubes, and phantoms. Can get VERY big and get exponentially larger with each increase. Extremely high size will cause server lag and possibly crashes. Default to 1to8 (Phantoms is 1)",
+  "default": "1to8 (Phantoms is 1",
+  "example": "Options:\n Size: 10",
+  "zh": "尺寸（史莱姆/岩浆怪）"
+ },
+ {
+  "name": "CanJoinRaid",
+  "group": "Group specific options",
+  "sub": "Raiders",
+  "subs": [
+   "Raiders"
+  ],
+  "description": "Whether the entity can join a raid. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n CanJoinRaid: false",
+  "zh": "可加入袭击"
+ },
+ {
+  "name": "PatrolLeader",
+  "group": "Group specific options",
+  "sub": "Raiders",
+  "subs": [
+   "Raiders"
+  ],
+  "description": "Whether the entity is the leader of a patrol. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PatrolLeader: true",
+  "zh": "巡逻队长"
+ },
+ {
+  "name": "PatrolSpawnPoint",
+  "group": "Group specific options",
+  "sub": "Raiders",
+  "subs": [
+   "Raiders"
+  ],
+  "description": "Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PatrolSpawnPoint: true",
+  "zh": ""
+ },
+ {
+  "name": "Tameable",
+  "group": "Group specific options",
+  "sub": "Tameable Mobs",
+  "subs": [
+   "Tameable Mobs"
+  ],
+  "description": "Whether players are able to tame the mob. Used for wolves, cats and horses. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Tameable: true",
+  "zh": "可驯服"
+ },
+ {
+  "name": "PreventJockeyMounts",
+  "group": "Group specific options",
+  "sub": "Zombies (all variants)",
+  "subs": [
+   "Zombies (all variants)"
+  ],
+  "description": "Sets whether the zombie will be prevented from spawning as a jockey. Only works for Zombies. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventJockeyMounts: true",
+  "zh": ""
+ },
+ {
+  "name": "PreventConversion",
+  "group": "Group specific options",
+  "sub": "Zombies (all variants)",
+  "subs": [
+   "Zombies (all variants)",
+   "Skeleton"
+  ],
+  "description": "Prevents the Zombie from being converted into other types of zombies. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventConversion: true",
+  "zh": ""
+ },
+ {
+  "name": "ReinforcementsChance",
+  "group": "Group specific options",
+  "sub": "Zombies (all variants)",
+  "subs": [
+   "Zombies (all variants)"
+  ],
+  "description": "Chance for zombies to spawn reinforcements on taking damage. Should be a number between 0 and 1 (0% and 100% chance). Only works for Zombies. Defaults to 0.",
+  "default": "0",
+  "example": "Options:\n ReinforcementsChance: 0.38",
+  "zh": ""
+ },
+ {
+  "name": "CanMove",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets whether an armor stand can move. Defaults to true and requires PaperSpigot",
+  "default": "true and requires PaperSpigot",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n CanMove: true",
+  "zh": "可移动"
+ },
+ {
+  "name": "CanTick",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets whether an armor stand can tick. Defaults to true and requires PaperSpigot",
+  "default": "true and requires PaperSpigot",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n CanTick: true",
+  "zh": "参与 tick 更新"
+ },
+ {
+  "name": "HasArms",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets whether an armor stand has arms. Defaults to false.",
+  "default": "false",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n HasArms: true",
+  "zh": ""
+ },
+ {
+  "name": "HasBasePlate",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets whether an armor stand has a baseplate. Defaults to true",
+  "default": "true",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n HasBasePlate: false",
+  "zh": ""
+ },
+ {
+  "name": "HasGravity",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets whether the armor stand is affected by gravity. Defaults to true.",
+  "default": "true",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n HasGravity: true",
+  "zh": ""
+ },
+ {
+  "name": "ItemBody",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Designates the Mythic Item that should go in the body/chest slot of an armor stand.",
+  "default": "",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n ItemBody: AN_EXAMPLE_CHESTPLATE",
+  "zh": ""
+ },
+ {
+  "name": "ItemFeet",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Designates the Mythic Item that should go in the feet slot of an armor stand.",
+  "default": "",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n ItemFeet: AN_EXAMPLE_BOOTS",
+  "zh": ""
+ },
+ {
+  "name": "ItemHand",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Designates the Mythic Item that should go in the main hand slot of an armor stand.",
+  "default": "",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n ItemHand: AN_EXAMPLE_SWORD",
+  "zh": ""
+ },
+ {
+  "name": "ItemOffhand",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Designates the Mythic Item that should go in the off hand slot of an armor stand.",
+  "default": "",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n ItemOffhand: AN_EXAMPLE_STICK",
+  "zh": ""
+ },
+ {
+  "name": "ItemHead",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Designates the Mythic Item that should go in the helmet slot of an armor stand.",
+  "default": "",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n ItemHead: AN_EXAMPLE_HELMET",
+  "zh": ""
+ },
+ {
+  "name": "ItemLegs",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Designates the Mythic Item that should go in the leggings slot of an armor stand.",
+  "default": "",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n ItemLegs: AN_EXAMPLE_PANTS",
+  "zh": ""
+ },
+ {
+  "name": "Marker",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets the armor stand as a marker. This option prevents the armor stand from being destroyed in game, making it completely non-interactable. Defaults to false.",
+  "default": "false",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n Marker: false",
+  "zh": "标记实体（无碰撞无体积）"
+ },
+ {
+  "name": "Small",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets the armor stand to small variant. Defaults to false.",
+  "default": "false",
+  "example": "Dummy:\n Type: ARMOR_STAND\n Options:\n Small: true",
+  "zh": "小型（盔甲架等）"
+ },
+ {
+  "name": "Pose",
+  "group": "Mob specific options",
+  "sub": "Armor Stand",
+  "subs": [
+   "Armor Stand"
+  ],
+  "description": "Sets the body part's current pose. Default values are 0,0,0 and accepts ranges like #to#. These will go under the Pose section instead of the Options section.",
+  "default": "",
+  "example": "Mob:\n Type: armor_stand\n Pose:\n Head: 0,50,0",
+  "zh": "姿势（盔甲架）"
+ },
+ {
+  "name": "Anger",
+  "group": "Mob specific options",
+  "sub": "Bee",
+  "subs": [
+   "Bee"
+  ],
+  "description": "Sets the time in ticks until bee anger ends. If set to 0 the bee will not be angry. Defaults to 0.",
+  "default": "0",
+  "example": "Options:\n Anger: 200",
+  "zh": ""
+ },
+ {
+  "name": "HasNectar",
+  "group": "Mob specific options",
+  "sub": "Bee",
+  "subs": [
+   "Bee"
+  ],
+  "description": "Whether the bee is carrying pollen. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n HasNectar: true",
+  "zh": ""
+ },
+ {
+  "name": "HasStung",
+  "group": "Mob specific options",
+  "sub": "Bee",
+  "subs": [
+   "Bee"
+  ],
+  "description": "Whether the bee has stung an entity. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n HasStung: true",
+  "zh": ""
+ },
+ {
+  "name": "PreventStingerLoss",
+  "group": "Mob specific options",
+  "sub": "Bee",
+  "subs": [
+   "Bee"
+  ],
+  "description": "Whether to prevent the bee from losing its stinger once it hits an entity. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventStingerLoss: true",
+  "zh": ""
+ },
+ {
+  "name": "Saddled",
+  "group": "Mob specific options",
+  "sub": "Camel",
+  "subs": [
+   "Camel",
+   "Horses, Donkeys, and Mules",
+   "Pig"
+  ],
+  "description": "Whether the entity is saddled or not. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Saddled: true",
+  "zh": "已装鞍"
+ },
+ {
+  "name": "Tamed",
+  "group": "Mob specific options",
+  "sub": "Camel",
+  "subs": [
+   "Camel",
+   "Cat",
+   "Horses, Donkeys, and Mules",
+   "Llama"
+  ],
+  "description": "Whether the entity is tamed or not. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Tamed: true",
+  "zh": "已驯服"
+ },
+ {
+  "name": "CatType",
+  "group": "Mob specific options",
+  "sub": "Cat",
+  "subs": [
+   "Cat"
+  ],
+  "description": "Sets the type of cat. Types can be ALL_BLACK, BLACK, BRITISH_SHORTHAIR, CALICO, PERSIAN, JELLIE, RAGDOLL, RED, SIAMESE, TABBY or WHITE.",
+  "default": "",
+  "example": "Options:\n CatType: BLACK",
+  "zh": ""
+ },
+ {
+  "name": "CollarColor",
+  "group": "Mob specific options",
+  "sub": "Cat",
+  "subs": [
+   "Cat"
+  ],
+  "description": "Sets the color of the cat's collar. Available colors are: BLACK, BLUE, BROWN, CYAN, GRAY, GREEN, LIGHT_BLUE, LIGHT_GRAY, LIME, MAGENTA, ORANGE, PINK, PURPLE, RED, WHITE, or YELLOW.",
+  "default": "",
+  "example": "Options:\n CollarColor: GREEN",
+  "zh": ""
+ },
+ {
+  "name": "Variant",
+  "group": "Mob specific options",
+  "sub": "Cow",
+  "subs": [
+   "Cow",
+   "Chicken",
+   "Parrot",
+   "Pig",
+   "Wolfs"
+  ],
+  "description": "The variant to use for the cow entity. Accepts a namespace, if there is a datapack adding more variants. Read more on the subject on the Minecraft Wiki here and here",
+  "default": "",
+  "example": "Options:\n Variant: WARM",
+  "zh": ""
+ },
+ {
+  "name": "Jockey",
+  "group": "Mob specific options",
+  "sub": "Chicken",
+  "subs": [
+   "Chicken"
+  ],
+  "description": "Whether or not the chicken has the IsChickenJockey NBT set to 1. If true, the chicken can naturally despawn, drops 10 experience upon death instead of 1-3 and cannot lay eggs. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Jockey: true",
+  "zh": ""
+ },
+ {
+  "name": "ExplosionRadius",
+  "group": "Mob specific options",
+  "sub": "Creepers",
+  "subs": [
+   "Creepers"
+  ],
+  "description": "Sets the radius/power of the creepers explosion. Negative values are ignored, and the explosion radius remains the creeper's default one. Defaults to -1.",
+  "default": "-1",
+  "example": "Options:\n ExplosionRadius: 5",
+  "zh": "爆炸半径"
+ },
+ {
+  "name": "FuseTicks",
+  "group": "Mob specific options",
+  "sub": "Creepers",
+  "subs": [
+   "Creepers",
+   "TNT"
+  ],
+  "description": "Sets the number of ticks it takes for creepers to explode. Negative values are ignored, and the time it takes remains the creeper's default one. Defaults to -1.",
+  "default": "-1",
+  "example": "Options:\n FuseTicks: 60",
+  "zh": "引信时长（苦力怕）"
+ },
+ {
+  "name": "SuperCharged",
+  "group": "Mob specific options",
+  "sub": "Creepers",
+  "subs": [
+   "Creepers"
+  ],
+  "description": "Whether the creeper should spawn as a super charged creeper. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n SuperCharged: true",
+  "zh": "闪电苦力怕状态"
+ },
+ {
+  "name": "PreventSuicide",
+  "group": "Mob specific options",
+  "sub": "Creepers",
+  "subs": [
+   "Creepers"
+  ],
+  "description": "Prevents creepers from dying upon exploding. Set mobGriefing gamerule to true for this option to work. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventSuicide: true",
+  "zh": ""
+ },
+ {
+  "name": "WeatheringState",
+  "group": "Mob specific options",
+  "sub": "Copper_Golem",
+  "subs": [
+   "Copper_Golem"
+  ],
+  "description": "The weathering state of the golem. Can be any of these values",
+  "default": "",
+  "example": "Options:\n WeatheringState: OXIDIZED",
+  "zh": ""
+ },
+ {
+  "name": "Waxed",
+  "group": "Mob specific options",
+  "sub": "Copper_Golem",
+  "subs": [
+   "Copper_Golem"
+  ],
+  "description": "Whether the copper golem is waxed. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n Waxed: false",
+  "zh": ""
+ },
+ {
+  "name": "PreventTeleport",
+  "group": "Mob specific options",
+  "sub": "Enderman",
+  "subs": [
+   "Enderman"
+  ],
+  "description": "Meant for Endermen but //might// work on other mobs. May break teleport skills! Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventTeleport: true",
+  "zh": ""
+ },
+ {
+  "name": "HeldBlock",
+  "group": "Mob specific options",
+  "sub": "Enderman",
+  "subs": [
+   "Enderman"
+  ],
+  "description": "Sets the block that the Enderman is carrying. Defaults to AIR.",
+  "default": "AIR",
+  "example": "Options:\n HeldBlock: STONE",
+  "zh": ""
+ },
+ {
+  "name": "Experience",
+  "group": "Mob specific options",
+  "sub": "Experience_orb",
+  "subs": [
+   "Experience_orb"
+  ],
+  "description": "Sets the amount of experience give by the experience orb mob. Defaults to 1.",
+  "default": "1",
+  "example": "Options:\n Experience: 10",
+  "zh": ""
+ },
+ {
+  "name": "Block",
+  "group": "Mob specific options",
+  "sub": "Falling Blocks",
+  "subs": [
+   "Falling Blocks"
+  ],
+  "description": "Determines the type of the block. Defaults to STONE.",
+  "default": "STONE",
+  "example": "Options:\n Block: BIRCH_WOOD",
+  "zh": ""
+ },
+ {
+  "name": "BlockData",
+  "group": "Mob specific options",
+  "sub": "Falling Blocks",
+  "subs": [
+   "Falling Blocks"
+  ],
+  "description": "Additional field for inputting blockdata. Defaults to 0.",
+  "default": "0",
+  "example": "",
+  "zh": ""
+ },
+ {
+  "name": "DropsItem",
+  "group": "Mob specific options",
+  "sub": "Falling Blocks",
+  "subs": [
+   "Falling Blocks"
+  ],
+  "description": "Should the entity be able to drops the falling block's item. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n DropsItem: false",
+  "zh": ""
+ },
+ {
+  "name": "HurtsEntities",
+  "group": "Mob specific options",
+  "sub": "Falling Blocks",
+  "subs": [
+   "Falling Blocks"
+  ],
+  "description": "Damages entities on impact. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n HurtsEntities: false",
+  "zh": ""
+ },
+ {
+  "name": "ReplaceSpawnLocationBlock",
+  "group": "Mob specific options",
+  "sub": "Falling Blocks",
+  "subs": [
+   "Falling Blocks"
+  ],
+  "description": "If the entity should replace the block at its spawn location. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n ReplaceSpawnLocationBlock: true",
+  "zh": ""
+ },
+ {
+  "name": "UseSpawnLocationType",
+  "group": "Mob specific options",
+  "sub": "Falling Blocks",
+  "subs": [
+   "Falling Blocks"
+  ],
+  "description": "If the type of the falling block should be the one at the spawn location. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n UseSpawnLocationType: true",
+  "zh": ""
+ },
+ {
+  "name": "FoxType",
+  "group": "Mob specific options",
+  "sub": "Fox",
+  "subs": [
+   "Fox"
+  ],
+  "description": "Determines the type of the fox. Can be RED or SNOW. Defaults to RED.",
+  "default": "RED",
+  "example": "Options:\n FoxType: SNOW",
+  "zh": ""
+ },
+ {
+  "name": "Screaming",
+  "group": "Mob specific options",
+  "sub": "Goat",
+  "subs": [
+   "Goat"
+  ],
+  "description": "Sets if this is a screaming goat. A screaming goat makes screaming sounds and rams more often. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Screaming: true",
+  "zh": "尖叫（幻翼）"
+ },
+ {
+  "name": "ImmuneToZombification",
+  "group": "Mob specific options",
+  "sub": "Hoglin",
+  "subs": [
+   "Hoglin",
+   "Piglin",
+   "Piglin Brute"
+  ],
+  "description": "Whether or not the hoglin is immune to being zombified. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n ImmuneToZombification: true",
+  "zh": ""
+ },
+ {
+  "name": "Huntable",
+  "group": "Mob specific options",
+  "sub": "Hoglin",
+  "subs": [
+   "Hoglin"
+  ],
+  "description": "Whether the hoglin is able to be hunted by piglins. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n Huntable: true",
+  "zh": ""
+ },
+ {
+  "name": "HorseArmor",
+  "group": "Mob specific options",
+  "sub": "Horses, Donkeys, and Mules",
+  "subs": [
+   "Horses, Donkeys, and Mules"
+  ],
+  "description": "Used for horses to set the type of armor they have on. Can be iron, gold, or diamond [armor_type] must be in lower case",
+  "default": "",
+  "example": "Options:\n HorseArmor: gold",
+  "zh": ""
+ },
+ {
+  "name": "CarryingChest",
+  "group": "Mob specific options",
+  "sub": "Horses, Donkeys, and Mules",
+  "subs": [
+   "Horses, Donkeys, and Mules",
+   "Llama"
+  ],
+  "description": "Used for donkeys to set whether they are carrying a chest or not. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n CarryingChest: true",
+  "zh": ""
+ },
+ {
+  "name": "HorseColor",
+  "group": "Mob specific options",
+  "sub": "Horses, Donkeys, and Mules",
+  "subs": [
+   "Horses, Donkeys, and Mules"
+  ],
+  "description": "Sets color of the horse. Colors must be uppercase,can be any of the Spigot Horse colors.",
+  "default": "",
+  "example": "Options:\n HorseColor: CREAMY",
+  "zh": ""
+ },
+ {
+  "name": "HorseStyle",
+  "group": "Mob specific options",
+  "sub": "Horses, Donkeys, and Mules",
+  "subs": [
+   "Horses, Donkeys, and Mules"
+  ],
+  "description": "Sets the style of the horse. Styles can be any of the Spigot Horse Style",
+  "default": "",
+  "example": "Options:\n HorseStyle: WHITE_DOTS",
+  "zh": ""
+ },
+ {
+  "name": "HorseType",
+  "group": "Mob specific options",
+  "sub": "Horses, Donkeys, and Mules",
+  "subs": [
+   "Horses, Donkeys, and Mules"
+  ],
+  "description": "Defines the type of horse Can be any of the Spigot Horse variants Defaults to HORSE Removed in MC 1.11+, useType instead.",
+  "default": "HORSE Removed in MC 1",
+  "example": "",
+  "zh": ""
+ },
+ {
+  "name": "Height",
+  "group": "Mob specific options",
+  "sub": "Interaction",
+  "subs": [
+   "Interaction"
+  ],
+  "description": "The Height of the Interaction entity. Defaults to 1.",
+  "default": "1",
+  "example": "Options:\n Height: 2",
+  "zh": "高度"
+ },
+ {
+  "name": "Width",
+  "group": "Mob specific options",
+  "sub": "Interaction",
+  "subs": [
+   "Interaction"
+  ],
+  "description": "The Width of the Interaction entity. Defaults to the value of the Height option.",
+  "default": "the value of the Height option",
+  "example": "Options:\n Width: 3",
+  "zh": "宽度"
+ },
+ {
+  "name": "Responsive",
+  "group": "Mob specific options",
+  "sub": "Interaction",
+  "subs": [
+   "Interaction"
+  ],
+  "description": "If the Interaction entity is responsive. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n Responsive: false",
+  "zh": ""
+ },
+ {
+  "name": "PlayerCreated",
+  "group": "Mob specific options",
+  "sub": "IronGolem",
+  "subs": [
+   "IronGolem"
+  ],
+  "description": "Acts as if the player built the mob. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PlayerCreated: true",
+  "zh": ""
+ },
+ {
+  "name": "Item",
+  "group": "Mob specific options",
+  "sub": "Item",
+  "subs": [
+   "Item"
+  ],
+  "description": "The material of the item entity. Defaults to STONE.",
+  "default": "STONE",
+  "example": "Options:\n Item: BRICK",
+  "zh": ""
+ },
+ {
+  "name": "Amount",
+  "group": "Mob specific options",
+  "sub": "Item",
+  "subs": [
+   "Item"
+  ],
+  "description": "The amount of items in the itemstack. Defaults to 1.",
+  "default": "1",
+  "example": "Options:\n Amount: 10",
+  "zh": ""
+ },
+ {
+  "name": "CanPickup",
+  "group": "Mob specific options",
+  "sub": "Item",
+  "subs": [
+   "Item"
+  ],
+  "description": "If the itemstack can be picked up. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n CanPickup: false",
+  "zh": ""
+ },
+ {
+  "name": "Color",
+  "group": "Mob specific options",
+  "sub": "Llama",
+  "subs": [
+   "Llama",
+   "Wolfs"
+  ],
+  "description": "Sets color of the llama. Colors must be uppercase,can be any of the Spigot Llama colors.",
+  "default": "",
+  "example": "Options:\n Color: CREAMY",
+  "zh": "颜色（羊/马等）"
+ },
+ {
+  "name": "ChestContents",
+  "group": "Mob specific options",
+  "sub": "MinecartChest",
+  "subs": [
+   "MinecartChest"
+  ],
+  "description": "The droptable that will be put inside the chest.",
+  "default": "",
+  "example": "Options:\n ChestContents: example_droptable",
+  "zh": ""
+ },
+ {
+  "name": "MainGene",
+  "group": "Mob specific options",
+  "sub": "Panda",
+  "subs": [
+   "Panda"
+  ],
+  "description": "Sets the main gene that the panda can pass on to its offspring. Can be NORMAL, AGGRESSIVE, LAZY, WORRIED, PLAYFUL, WEAK, BROWN. Defaults to NORMAL.",
+  "default": "NORMAL",
+  "example": "Options:\n MainGene: LAZY",
+  "zh": ""
+ },
+ {
+  "name": "HiddenGene",
+  "group": "Mob specific options",
+  "sub": "Panda",
+  "subs": [
+   "Panda"
+  ],
+  "description": "Sets the hidden gene that the panda can pass on to its offspring. Can be NORMAL, AGGRESSIVE, LAZY, WORRIED, PLAYFUL, WEAK, BROWN. Defaults to NORMAL.",
+  "default": "NORMAL",
+  "example": "Options:\n HiddenGene: WORRIED",
+  "zh": ""
+ },
+ {
+  "name": "FlyingSpeed",
+  "group": "Mob specific options",
+  "sub": "Parrot",
+  "subs": [
+   "Parrot"
+  ],
+  "description": "The flying speed of the parrot. Defaults to -1 (The option is not applied)",
+  "default": "-1 (The option is not applied",
+  "example": "Options:\n FlyingSpeed: 0.2",
+  "zh": "飞行速度"
+ },
+ {
+  "name": "AbleToHunt",
+  "group": "Mob specific options",
+  "sub": "Piglin",
+  "subs": [
+   "Piglin"
+  ],
+  "description": "Whether or not the piglin is able to hunt. Defaults to true.",
+  "default": "true",
+  "example": "Options:\n AbleToHunt: false",
+  "zh": ""
+ },
+ {
+  "name": "IsKillerBunny",
+  "group": "Mob specific options",
+  "sub": "Rabbit",
+  "subs": [
+   "Rabbit"
+  ],
+  "description": "Alias: Angry. Sets the rabbit as the Killer Bunny. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n IsKillerBunny: true",
+  "zh": ""
+ },
+ {
+  "name": "RabbitType",
+  "group": "Mob specific options",
+  "sub": "Rabbit",
+  "subs": [
+   "Rabbit"
+  ],
+  "description": "Sets the type of rabbit. Types can be BLACK, BLACK_AND_WHITE, BROWN, GOLD, SALT_AND_PEPPER, THE_KILLER_BUNNY or WHITE",
+  "default": "",
+  "example": "Options:\n RabbitType: SALT_AND_PEPPER",
+  "zh": ""
+ },
+ {
+  "name": "Sheared",
+  "group": "Mob specific options",
+  "sub": "Sheep",
+  "subs": [
+   "Sheep"
+  ],
+  "description": "Whether the Sheep is already sheared. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Sheared: true",
+  "zh": ""
+ },
+ {
+  "name": "PreventBlockInfection",
+  "group": "Mob specific options",
+  "sub": "Silverfish",
+  "subs": [
+   "Silverfish"
+  ],
+  "description": "Prevent silverfish from infecting blocks. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventBlockInfection: true",
+  "zh": ""
+ },
+ {
+  "name": "Derp",
+  "group": "Mob specific options",
+  "sub": "Snow Golem",
+  "subs": [
+   "Snow Golem"
+  ],
+  "description": "Whether the Snow Golem has its pumpkin already sheared. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Derp: true",
+  "zh": ""
+ },
+ {
+  "name": "PreventSnowFormation",
+  "group": "Mob specific options",
+  "sub": "Snow Golem",
+  "subs": [
+   "Snow Golem"
+  ],
+  "description": "Prevent the Snow Golem from creating snow. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n PreventSnowFormation: true",
+  "zh": ""
+ },
+ {
+  "name": "ExplosionYield",
+  "group": "Mob specific options",
+  "sub": "TNT",
+  "subs": [
+   "TNT"
+  ],
+  "description": "Determines the strength of the explosion. Defaults to -1 (The normal TNT Explosion Yield is used).",
+  "default": "-1 (The normal TNT Explosion Yield is used",
+  "example": "Options:\n ExplosionYield: 2",
+  "zh": ""
+ },
+ {
+  "name": "Incendiary",
+  "group": "Mob specific options",
+  "sub": "TNT",
+  "subs": [
+   "TNT"
+  ],
+  "description": "Whether the explosion is capable of starting fires. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n Incendiary: true",
+  "zh": ""
+ },
+ {
+  "name": "Pattern",
+  "group": "Mob specific options",
+  "sub": "Tropical Fish",
+  "subs": [
+   "Tropical Fish"
+  ],
+  "description": "Sets the Shape/Pattern of the fish.",
+  "default": "",
+  "example": "Options:\n Pattern: GLITTER",
+  "zh": ""
+ },
+ {
+  "name": "BodyColor",
+  "group": "Mob specific options",
+  "sub": "Tropical Fish",
+  "subs": [
+   "Tropical Fish"
+  ],
+  "description": "Sets the Primary Color of the fish.",
+  "default": "",
+  "example": "Options:\n BodyColor: GRAY",
+  "zh": ""
+ },
+ {
+  "name": "HasTrades",
+  "group": "Mob specific options",
+  "sub": "Villagers",
+  "subs": [
+   "Villagers"
+  ],
+  "description": "Whether the villager can be traded with. Defaults to false.",
+  "default": "false",
+  "example": "Options:\n HasTrades: true",
+  "zh": ""
+ },
+ {
+  "name": "Profession",
+  "group": "Mob specific options",
+  "sub": "Villagers",
+  "subs": [
+   "Villagers",
+   "Zombie Villagers"
+  ],
+  "description": "Specifies the Profession of the villager. Villagers without this option will roll a random profession on their initial spawn.",
+  "default": "",
+  "example": "Options:\n Profession: MASON",
+  "zh": ""
+ },
+ {
+  "name": "Level",
+  "group": "Mob specific options",
+  "sub": "Villagers",
+  "subs": [
+   "Villagers"
+  ],
+  "description": "Villager profession level, levels 1 - 5. Level 1 villagers might switch professions. If you want a villager to hold its profession, give them a level of 2 or higher. Required if setting villager professions.",
+  "default": "",
+  "example": "Options:\n Level: 3",
+  "zh": ""
+ }
+]

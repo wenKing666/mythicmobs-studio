@@ -1,0 +1,22 @@
+# 原始 HTML 缓存（80MB），可随时删除，删后重跑 crawl_wiki.py 会重新下载
+data/raw/
+
+# 中间产物
+data/mythicmobs-wiki.raw.json
+data/crawl.log
+
+# Python
+__pycache__/
+*.pyc
+
+# 编辑器工程（后续）
+node_modules/
+dist/
+target/
+# Electron 运行时
+node_modules/
+electron-install.log
+
+# 测试产生的临时文件
+tests/fixture-server/**/_write_test.yml
+tests/fixture-server/**/_write_test.yml.bak-*

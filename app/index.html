@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MythicMobs 编辑器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="mark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
+    <span class="app-name">MythicMobs 编辑器</span>
+    <span class="app-ver" id="appVer">0.2</span>
+  </div>
+  <div class="top-actions">
+    <button id="btnOpenFolder" class="btn dark" hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5h6l1.6 2h9.4v9.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M3.5 8.5V5.5A1.5 1.5 0 0 1 5 4h3.6l1.6 2"/></svg>
+      打开文件夹
+    </button>
+    <button id="btnNewMob" class="btn dark">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      新建怪物
+    </button>
+    <button id="btnNewItem" class="btn dark">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      新建物品
+    </button>
+    <button id="btnHelp" class="btn dark icon-only" title="使用说明">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.2a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.2 1-1.2 1.8v.4M12 17h.01"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="sidebar">
+    <div class="side-block">
+      <div class="side-title">项目</div>
+      <div id="projectList" class="project-list"></div>
+    </div>
+    <div class="side-block" id="serverBlock" hidden>
+      <div class="side-title">服务器文件</div>
+      <div id="serverDir" class="side-dir"></div>
+      <div id="serverFiles" class="file-list"></div>
+    </div>
+    <div class="side-block">
+      <div class="side-title">模板</div>
+      <div id="templateList" class="template-list"></div>
+    </div>
+    <div class="side-foot">数据保存在本机浏览器</div>
+  </aside>
+
+  <section class="editor" id="editor"></section>
+
+  <aside class="preview">
+    <div class="preview-head">
+      <span class="preview-title">配置预览</span>
+      <div class="preview-actions">
+        <button id="btnCopy" class="btn dark mini">复制</button>
+        <button id="btnDownload" class="btn accent mini">下载 .yml</button>
+      </div>
+    </div>
+    <div id="yamlWarn" class="yaml-warn" hidden></div>
+    <pre id="yamlOut" class="yaml"></pre>
+    <div class="preview-tip">
+      怪物放进 <code>plugins/MythicMobs/Mobs/</code>，物品放进 <code>plugins/MythicMobs/Items/</code>，游戏内 <code>/mm reload</code>
+    </div>
+  </aside>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<div id="helpModal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>使用说明</h2>
+      <button class="modal-close" id="btnCloseHelp" title="关闭">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <ol class="help-steps">
+      <li>左边选一个模板，或点右上角「新建怪物 / 新建物品」。</li>
+      <li>中间填表格，右侧会实时生成配置文件。</li>
+      <li>点「下载 .yml」，把文件放进服务器对应目录，游戏里 <code>/mm reload</code>。</li>
+    </ol>
+    <h3>几个名词</h3>
+    <dl class="help-dl">
+      <dt>ID</dt><dd>英文唯一名，服务器里用它刷怪，例如 <code>my_boss</code>，不能有空格和中文。</dd>
+      <dt>触发器</dt><dd>什么时候执行，比如生成时、攻击时、死亡时。</dd>
+      <dt>效果</dt><dd>做什么，比如造成伤害、播放音效、发送消息。</dd>
+      <dt>目标</dt><dd>对谁做，比如自己、当前攻击目标、附近的玩家。</dd>
+    </dl>
+    <p class="help-note">测试版：怪物与物品的基础功能可用，技能目前放出 21 个常用机制，后续补齐全部 303 个。</p>
+  </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/data.js"></script>
+<script src="js/options-data.js"></script>
+<script src="js/yaml.js"></script>
+<script src="js/state.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script src="js/host.js"></script>
+</body>
+</html>
+
