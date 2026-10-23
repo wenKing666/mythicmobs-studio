@@ -973,6 +973,47 @@ window.MM_UI = (function () {
     }).join("");
   }
 
+  /* 共用调色盘：色板/hex 点击走 onInsert(token)，渐变走 onReplace(fullText) */
+  function colorToolsPanel(onInsert, onReplace) {
+    return el("div", { class: "color-tools" }, [
+      el("div", { class: "color-row" }, MC_COLORS.map(function (c) {
+        return el("button", {
+          class: "swatch", type: "button", title: "&" + c[0] + " " + c[2],
+          style: "background:" + c[1],
+          onclick: function () { onInsert("&" + c[0]); }
+        });
+      })),
+      el("div", { class: "color-row" }, [
+        el("span", { class: "color-lab", text: "自定义色：" }),
+        el("input", { class: "input hex-in", type: "text", placeholder: "#FF5555" }),
+        el("button", {
+          class: "mini-btn", type: "button", text: "插入",
+          onclick: function (e) {
+            const tools = e.target.closest(".color-tools");
+            const v = String(tools.querySelector(".hex-in").value || "").trim();
+            if (!/^#?[0-9a-fA-F]{6}$/.test(v)) { toast("格式：#FF5555 这样的六位色值"); return; }
+            onInsert("&#" + v.replace("#", "").toUpperCase());
+          }
+        }),
+        el("button", {
+          class: "mini-btn", type: "button", text: "做渐变",
+          onclick: function (e) {
+            const tools = e.target.closest(".color-tools");
+            const body = tools.querySelector(".grad-text").value;
+            const ga = tools.querySelector(".grad-a").value;
+            const gb = tools.querySelector(".grad-b").value;
+            if (!body) { toast("先填要渐变的文字"); return; }
+            if (!/^#[0-9a-fA-F]{6}$/.test(ga) || !/^#[0-9a-fA-F]{6}$/.test(gb)) { toast("起止色要 #RRGGBB 格式"); return; }
+            onReplace(gradientText(body, ga, gb));
+          }
+        }),
+        el("input", { class: "input grad-text", type: "text", placeholder: "渐变文字" }),
+        el("input", { class: "input grad-a", type: "text", value: "#FF5555", title: "起始色" }),
+        el("input", { class: "input grad-b", type: "text", value: "#5555FF", title: "结束色" })
+      ])
+    ]);
+  }
+
   /* 显示名专用字段：输入 + 实时彩色预览 + 可展开的调色盘 */
   function colorField(labelText, hint, valueRef, onchange, placeholder) {
     const input = textInput(valueRef.get ? valueRef.get() : valueRef, function (v) {
@@ -985,44 +1026,10 @@ window.MM_UI = (function () {
       const v = input.value;
       preview.innerHTML = v ? renderMcText(v) : '<span style="opacity:.45">输入 &6 &c 等代码或直接打字，这里实时显示效果</span>';
     }
-    const tools = el("div", { class: "color-tools" }, [
-      el("div", { class: "color-row" }, MC_COLORS.map(function (c) {
-        return el("button", {
-          class: "swatch", type: "button", title: "&" + c[0] + " " + c[2],
-          style: "background:" + c[1],
-          onclick: function () { insertAtCursor(input, "&" + c[0]); onchange(input.value); paint(); }
-        });
-      })),
-      el("div", { class: "color-row" }, [
-        el("span", { class: "color-lab", text: "自定义色：" }),
-        el("input", { class: "input hex-in", type: "text", placeholder: "#FF5555" }, null),
-        el("button", {
-          class: "mini-btn", type: "button", text: "插入",
-          onclick: function () {
-            const hexIn = tools.querySelector(".hex-in");
-            const v = String(hexIn.value || "").trim();
-            if (!/^#?[0-9a-fA-F]{6}$/.test(v)) { toast("格式：#FF5555 这样的六位色值"); return; }
-            insertAtCursor(input, "&#" + v.replace("#", "").toUpperCase());
-            onchange(input.value); paint();
-          }
-        }),
-        el("button", {
-          class: "mini-btn", type: "button", text: "做渐变",
-          onclick: function () {
-            const body = tools.querySelector(".grad-text").value;
-            const ga = tools.querySelector(".grad-a").value;
-            const gb = tools.querySelector(".grad-b").value;
-            if (!body) { toast("先填要渐变的文字"); return; }
-            if (!/^#[0-9a-fA-F]{6}$/.test(ga) || !/^#[0-9a-fA-F]{6}$/.test(gb)) { toast("起止色要 #RRGGBB 格式"); return; }
-            input.value = gradientText(body, ga, gb);
-            onchange(input.value); paint();
-          }
-        }),
-        el("input", { class: "input grad-text", type: "text", placeholder: "渐变文字" }),
-        el("input", { class: "input grad-a", type: "text", value: "#FF5555", title: "起始色" }),
-        el("input", { class: "input grad-b", type: "text", value: "#5555FF", title: "结束色" })
-      ])
-    ]);
+    const tools = colorToolsPanel(
+      function (token) { insertAtCursor(input, token); onchange(input.value); paint(); },
+      function (full) { input.value = full; onchange(full); paint(); }
+    );
     function insertAtCursor(inp, text) {
       const st = inp.selectionStart || inp.value.length;
       const en = inp.selectionEnd || inp.value.length;
@@ -2484,6 +2491,56 @@ window.MM_UI = (function () {
   }
 
   /* ---------- 物品表单 ---------- */
+  /* 物品描述逐行编辑（0.25.0）：每行输入 + 彩色预览 + 调色盘/渐变 + 拖拽排序 */
+  function loreRows(d) {
+    if (!d.lore) d.lore = [];
+    const listEl = el("div", { class: "list lore-list" });
+    let expanded = -1;   /* 当前展开调色盘的行号，-1 全收 */
+
+    function render() {
+      listEl.innerHTML = "";
+      d.lore.forEach(function (line, i) {
+        const body = el("div", { class: "row-body" }, [
+          el("div", { class: "lore-line" }, [
+            dragHandle(d.lore, i, function () { render(); changed(true); }),
+            el("span", { class: "lore-idx", text: String(i + 1) })
+          ]),
+          el("div", { class: "lore-main" }, [
+            textInput(line, function (v) {
+              d.lore[i] = v; MM_STATE.touch(); changed();
+              preview.innerHTML = v ? renderMcText(v) : "";
+            }, { placeholder: "这一行写什么，支持 &6 颜色代码" }),
+            el("div", { class: "color-preview mini", html: line ? renderMcText(line) : "" })
+          ]),
+          el("span", {
+            class: "lore-paint", title: "调色 / 渐变",
+            onclick: function () { expanded = expanded === i ? -1 : i; render(); }
+          }, [svgSpan("sparkle", 13)]),
+          rmButton("删除", function () {
+            d.lore.splice(i, 1); MM_STATE.touch(); changed(true); render();
+          })
+        ]);
+        const row = sortableRow(el("div", { class: "list-row lore-row" }, [body]), d.lore, i,
+          function () { render(); changed(true); });
+        listEl.appendChild(row);
+        if (expanded === i) {
+          const tools = colorToolsPanel(
+            function (token) { d.lore[i] = (d.lore[i] || "") + token; changed(true); render(); },
+            function (full) { d.lore[i] = full; changed(true); render(); }
+          );
+          listEl.appendChild(el("div", { class: "lore-tools-wrap" }, [tools]));
+        }
+      });
+      listEl.appendChild(addButton("添加一行", function () {
+        d.lore.push(""); changed(true); render();
+        expanded = d.lore.length - 1;
+        render();
+      }));
+    }
+    render();
+    return listEl;
+  }
+
   function renderItem(root, p) {
     const d = p.data;
 
@@ -2498,14 +2555,8 @@ window.MM_UI = (function () {
       ])
     ]));
 
-    const loreArea = el("textarea", { class: "input", rows: 4, placeholder: "第一行介绍\n第二行介绍" });
-    loreArea.value = (d.lore || []).join("\n");
-    loreArea.addEventListener("input", function () {
-      d.lore = loreArea.value.split("\n");
-      MM_STATE.touch(); changed();
-    });
-    root.appendChild(card("text", "物品描述", "显示在名字下面的小字", (d.lore || []).length > 0, [
-      field("描述", "一行一条，支持 & 颜色代码", loreArea, { full: true })
+    root.appendChild(card("text", "物品描述", "显示在名字下面的小字，一行一条，可拖拽排序", (d.lore || []).length > 0, [
+      loreRows(d)
     ]));
 
     const enBody = el("div", { class: "list" });

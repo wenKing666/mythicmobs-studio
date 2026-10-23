@@ -1259,6 +1259,8 @@
     $("btnWizard").addEventListener("click", startWizard);
     $("btnToggleSidebar").addEventListener("click", function () { toggleFold("mm_ui_sidebar"); });
     $("btnTogglePreview").addEventListener("click", function () { toggleFold("mm_ui_preview"); });
+    $("railExpandSidebar").addEventListener("click", function () { toggleFold("mm_ui_sidebar"); });
+    $("railExpandPreview").addEventListener("click", function () { toggleFold("mm_ui_preview"); });
     /* 窄窗口且用户没表达过偏好时，默认折叠预览（避免三栏挤成一团） */
     try {
       if (!localStorage.getItem("mm_ui_preview") && window.innerWidth < 1240) {

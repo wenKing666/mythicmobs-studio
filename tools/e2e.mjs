@@ -1137,12 +1137,15 @@ async function main() {
 
   // 31. 折叠
   await evalJs(`document.getElementById("btnTogglePreview").click(); true`);
-  check("预览可隐藏", await evalJs(`document.body.classList.contains("preview-folded")
-    && document.querySelector(".preview").offsetParent === null`));
+  check("预览折叠成把手且中间扩满", await evalJs(`document.body.classList.contains("preview-folded")
+    && !!document.querySelector(".preview .fold-rail")
+    && document.querySelector("#editor").getBoundingClientRect().width > 1000`));
   await evalJs(`document.getElementById("btnTogglePreview").click(); true`);
-  check("预览可恢复", await evalJs(`!document.body.classList.contains("preview-folded")`));
+  check("预览可恢复", await evalJs(`!document.body.classList.contains("preview-folded")
+    && document.querySelector(".preview .preview-body") !== null`));
   await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
-  check("侧栏可隐藏", await evalJs(`document.body.classList.contains("sidebar-folded")`));
+  check("侧栏折叠成把手", await evalJs(`document.body.classList.contains("sidebar-folded")
+    && !!document.querySelector(".sidebar .fold-rail")`));
   await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
   check("侧栏可恢复", await evalJs(`!document.body.classList.contains("sidebar-folded")`));
 
