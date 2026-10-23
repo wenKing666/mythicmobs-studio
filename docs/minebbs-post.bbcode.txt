@@ -56,7 +56,9 @@
 [HEADING=2]下载[/HEADING]
 
 [LIST]
-[*][B]附件[/B]：MythicMobsStudio-0.27.0.exe（约 97 MB，Windows 10/11 便携版，双击即用）
+[*][B]GitHub 下载[/B]：https://github.com/wenKing666/mythicmobs-studio/releases/download/v0.27.0/MythicMobsStudio-0.27.0.exe
+[*][B]源码仓库[/B]：https://github.com/wenKing666/mythicmobs-studio
+[*]（论坛附件：MythicMobsStudio-0.27.0.exe，约 97 MB，Windows 10/11 便携版，双击即用）
 [*]数据全部保存在本机，[B]不联网、不上传任何东西[/B]
 [/LIST]
 
