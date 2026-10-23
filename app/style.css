@@ -1146,7 +1146,11 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 body.sidebar-folded .sidebar, body.preview-folded .preview { padding: 0 !important; }
 body.sidebar-folded .side-tabs, body.sidebar-folded .side-pane,
 body.sidebar-folded .side-foot { display: none; }
-body.sidebar-folded .fold-rail, body.preview-folded .fold-rail {
+/* 把手只在自己面板折叠时显示（限定面板，避免 A 折叠把 B 的把手也点亮） */
+body.sidebar-folded .sidebar .fold-rail {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 12px; height: 100%;
+}
+body.preview-folded .preview .fold-rail {
   display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 12px; height: 100%;
 }
 body.sidebar-folded .sidebar { width: 34px; }

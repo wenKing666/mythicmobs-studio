@@ -1148,6 +1148,19 @@ async function main() {
     && !!document.querySelector(".sidebar .fold-rail")`));
   await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
   check("侧栏可恢复", await evalJs(`!document.body.classList.contains("sidebar-folded")`));
+  // 收一侧时另一侧把手不得点亮（0.25.0 回归：选择器未限定面板）
+  await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
+  check("收侧栏时预览把手不亮", await evalJs(`(() => {
+    const rail = document.querySelector(".preview .fold-rail");
+    return getComputedStyle(rail).display === "none";
+  })()`));
+  await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
+  await evalJs(`document.getElementById("btnTogglePreview").click(); true`);
+  check("收预览时侧栏把手不亮", await evalJs(`(() => {
+    const rail = document.querySelector(".sidebar .fold-rail");
+    return getComputedStyle(rail).display === "none";
+  })()`));
+  await evalJs(`document.getElementById("btnTogglePreview").click(); true`);
 
   // 32. 新手向导
   await evalJs(`MM_APP.startWizard(); true`);
