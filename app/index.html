@@ -12,7 +12,7 @@
   <div class="brand">
     <svg class="mark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
     <span class="app-name">MythicMobs 编辑器</span>
-    <span class="app-ver" id="appVer">0.22.0</span>
+    <span class="app-ver" id="appVer">0.24.0</span>
   </div>
   <div class="top-actions">
     <details id="newMore" class="dropdown">
@@ -86,7 +86,7 @@
         <input id="projectFilter" class="pane-filter" type="text" placeholder="过滤项目…" autocomplete="off">
       </div>
       <div id="projectList" class="project-list"></div>
-      <div class="side-foot">数据保存在本机浏览器</div>
+      <div class="side-foot">数据保存在本机硬盘，随开随用</div>
     </div>
 
     <div class="side-pane" data-pane="server" id="serverBlock" hidden>
@@ -117,21 +117,21 @@
         <span class="preview-title">配置预览</span>
         <span class="preview-sub">改左侧表单，这里实时更新</span>
       </div>
-      <div class="preview-actions">
-        <button id="btnCopy" class="btn dark mini">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-          复制
-        </button>
-        <button id="btnDownload" class="btn accent mini">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
-          下载 .yml
-        </button>
-      </div>
     </div>
     <div id="yamlWarn" class="yaml-warn" hidden></div>
     <pre id="yamlOut" class="yaml"></pre>
     <div class="preview-tip">
       <span id="previewTipText">怪物放进 <code>plugins/MythicMobs/Mobs/</code>，物品放进 <code>plugins/MythicMobs/Items/</code>，游戏内 <code>/mm reload</code></span>
+    </div>
+    <div class="preview-cta">
+      <button id="btnCopy" class="btn dark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        复制配置
+      </button>
+      <button id="btnDownload" class="btn accent">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+        下载 .yml
+      </button>
     </div>
   </aside>
 </main>

@@ -139,6 +139,13 @@ window.MM_UI = (function () {
 
     function syncZh() {
       const z = zhOf(input.value);
+      if (!z && String(input.value || "").trim() && !required) {
+        zhLine.textContent = "\u2713 自定义 ID（IA / CE 等插件物品直接填这里）";
+        zhLine.style.display = "";
+        zhLine.classList.add("custom-id");
+        return;
+      }
+      if (zhLine.classList) zhLine.classList.remove("custom-id");
       zhLine.textContent = z || "";
       zhLine.style.display = z ? "" : "none";
       if (required) {
@@ -876,6 +883,173 @@ window.MM_UI = (function () {
   }
 
   /* ---------- 编辑器外壳 ---------- */
+  /* ---------- 颜色代码工具（0.24.0）：预览 / 色板 / hex / 渐变 ---------- */
+  const MC_COLORS = [
+    ["0", "#000000", "黑"], ["1", "#0000AA", "深蓝"], ["2", "#00AA00", "深绿"], ["3", "#00AAAA", "青"],
+    ["4", "#AA0000", "深红"], ["5", "#AA00AA", "紫"], ["6", "#FFAA00", "橙"], ["7", "#AAAAAA", "灰"],
+    ["8", "#555555", "深灰"], ["9", "#5555FF", "蓝"], ["a", "#55FF55", "绿"], ["b", "#55FFFF", "亮青"],
+    ["c", "#FF5555", "红"], ["d", "#FF55FF", "粉"], ["e", "#FFFF55", "黄"], ["f", "#FFFFFF", "白"]
+  ];
+  const MM_TAGS = {
+    black: "#000000", dark_blue: "#0000AA", dark_green: "#00AA00", dark_aqua: "#00AAAA",
+    dark_red: "#AA0000", dark_purple: "#AA00AA", gold: "#FFAA00", gray: "#AAAAAA",
+    dark_gray: "#555555", blue: "#5555FF", green: "#55FF55", aqua: "#55FFFF",
+    red: "#FF5555", light_purple: "#FF55FF", yellow: "#FFFF55", white: "#FFFFFF"
+  };
+
+  /* 把 & 代码 / &#hex / MiniMessage 标签渲染成彩色 HTML（用于预览，不进 YAML） */
+  function renderMcText(raw) {
+    const esc = function (t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+    let out = "", color = "", styles = {};
+    let i = 0;
+    const src = String(raw || "");
+    const styleCss = function () {
+      let css = color ? "color:" + color : "";
+      if (styles.bold) css += ";font-weight:700";
+      if (styles.italic) css += ";font-style:italic";
+      if (styles.underline) css += ";text-decoration:underline";
+      if (styles.strike) css += ";text-decoration:line-through";
+      return css;
+    };
+    let buf = "";
+    const flush = function () {
+      if (!buf) return;
+      out += color || Object.keys(styles).length
+        ? '<span style="' + styleCss() + '">' + esc(buf) + "</span>" : esc(buf);
+      buf = "";
+    };
+    while (i < src.length) {
+      const ch = src[i];
+      if (ch === "&" && i + 1 < src.length) {
+        const code = src[i + 1].toLowerCase();
+        if (MC_COLORS.some(function (c) { return c[0] === code; })) {
+          flush(); color = MC_COLORS.find(function (c) { return c[0] === code; })[1]; styles = {}; i += 2; continue;
+        }
+        if (code === "#") {
+          const hex = src.slice(i + 2, i + 9);
+          if (/^[0-9a-fA-F]{6}$/.test(hex)) { flush(); color = hex; styles = {}; i += 9; continue; }
+        }
+        if ("lnmo".indexOf(code) >= 0) {
+          flush();
+          if (code === "l") styles.bold = true;
+          if (code === "o") styles.italic = true;
+          if (code === "n") styles.underline = true;
+          if (code === "m") styles.strike = true;
+          i += 2; continue;
+        }
+        if (code === "r") { flush(); color = ""; styles = {}; i += 2; continue; }
+      }
+      if (ch === "<") {
+        const end = src.indexOf(">", i);
+        if (end > i) {
+          const tag = src.slice(i + 1, end).toLowerCase();
+          if (MM_TAGS[tag]) { flush(); color = MM_TAGS[tag]; styles = {}; i = end + 1; continue; }
+          if (tag === "bold" || tag === "b") { flush(); styles.bold = true; i = end + 1; continue; }
+          if (tag === "italic" || tag === "i" || tag === "em") { flush(); styles.italic = true; i = end + 1; continue; }
+          if (tag === "underlined" || tag === "u") { flush(); styles.underline = true; i = end + 1; continue; }
+          if (tag === "strikethrough" || tag === "strike") { flush(); styles.strike = true; i = end + 1; continue; }
+          if (tag === "reset") { flush(); color = ""; styles = {}; i = end + 1; continue; }
+        }
+      }
+      buf += ch; i++;
+    }
+    flush();
+    return out;
+  }
+
+  /* 渐变：把文字按起止色逐字符上色，输出 &#hex 形式（所有版本通用） */
+  function gradientText(text, hexA, hexB) {
+    const chars = Array.from(String(text || ""));
+    if (!chars.length) return "";
+    const pa = [parseInt(hexA.slice(1, 3), 16), parseInt(hexA.slice(3, 5), 16), parseInt(hexA.slice(5, 7), 16)];
+    const pb = [parseInt(hexB.slice(1, 3), 16), parseInt(hexB.slice(3, 5), 16), parseInt(hexB.slice(5, 7), 16)];
+    const n = chars.length - 1 || 1;
+    return chars.map(function (ch, i) {
+      if (ch === " ") return " ";
+      const t = i / n;
+      const c = pa.map(function (v, k) { return Math.round(v + (pb[k] - v) * t); });
+      const hex = c.map(function (v) { return ("0" + v.toString(16)).slice(-2); }).join("");
+      return "&#" + hex + ch;
+    }).join("");
+  }
+
+  /* 显示名专用字段：输入 + 实时彩色预览 + 可展开的调色盘 */
+  function colorField(labelText, hint, valueRef, onchange, placeholder) {
+    const input = textInput(valueRef.get ? valueRef.get() : valueRef, function (v) {
+      valueRef.set ? valueRef.set(v) : (valueRef = v);
+      onchange(v);
+      paint();
+    }, { placeholder: placeholder || "&c我的怪物" });
+    const preview = el("div", { class: "color-preview", text: "" });
+    function paint() {
+      const v = input.value;
+      preview.innerHTML = v ? renderMcText(v) : '<span style="opacity:.45">输入 &6 &c 等代码或直接打字，这里实时显示效果</span>';
+    }
+    const tools = el("div", { class: "color-tools" }, [
+      el("div", { class: "color-row" }, MC_COLORS.map(function (c) {
+        return el("button", {
+          class: "swatch", type: "button", title: "&" + c[0] + " " + c[2],
+          style: "background:" + c[1],
+          onclick: function () { insertAtCursor(input, "&" + c[0]); onchange(input.value); paint(); }
+        });
+      })),
+      el("div", { class: "color-row" }, [
+        el("span", { class: "color-lab", text: "自定义色：" }),
+        el("input", { class: "input hex-in", type: "text", placeholder: "#FF5555" }, null),
+        el("button", {
+          class: "mini-btn", type: "button", text: "插入",
+          onclick: function () {
+            const hexIn = tools.querySelector(".hex-in");
+            const v = String(hexIn.value || "").trim();
+            if (!/^#?[0-9a-fA-F]{6}$/.test(v)) { toast("格式：#FF5555 这样的六位色值"); return; }
+            insertAtCursor(input, "&#" + v.replace("#", "").toUpperCase());
+            onchange(input.value); paint();
+          }
+        }),
+        el("button", {
+          class: "mini-btn", type: "button", text: "做渐变",
+          onclick: function () {
+            const body = tools.querySelector(".grad-text").value;
+            const ga = tools.querySelector(".grad-a").value;
+            const gb = tools.querySelector(".grad-b").value;
+            if (!body) { toast("先填要渐变的文字"); return; }
+            if (!/^#[0-9a-fA-F]{6}$/.test(ga) || !/^#[0-9a-fA-F]{6}$/.test(gb)) { toast("起止色要 #RRGGBB 格式"); return; }
+            input.value = gradientText(body, ga, gb);
+            onchange(input.value); paint();
+          }
+        }),
+        el("input", { class: "input grad-text", type: "text", placeholder: "渐变文字" }),
+        el("input", { class: "input grad-a", type: "text", value: "#FF5555", title: "起始色" }),
+        el("input", { class: "input grad-b", type: "text", value: "#5555FF", title: "结束色" })
+      ])
+    ]);
+    function insertAtCursor(inp, text) {
+      const st = inp.selectionStart || inp.value.length;
+      const en = inp.selectionEnd || inp.value.length;
+      inp.value = inp.value.slice(0, st) + text + inp.value.slice(en);
+      inp.selectionStart = inp.selectionEnd = st + text.length;
+      inp.focus();
+    }
+    paint();
+    const wrap = el("div", { class: "field" }, [
+      el("label", { class: "f-label", text: labelText }),
+      hint ? el("div", { class: "f-hint", text: hint }) : null,
+      input,
+      preview,
+      el("details", { class: "color-more" }, [
+        el("summary", { text: "调色盘 / 渐变" })
+      ].concat([tools]))
+    ].filter(Boolean));
+    /* 展开时才挂 tools（避免 summary 内嵌交互冲突） */
+    const det = wrap.querySelector("details.color-more");
+    det.querySelector("summary").addEventListener("click", function () {
+      const body = det.querySelector(".color-tools");
+      if (body) det.insertBefore(body, null);
+    });
+    tools.querySelector(".hex-in").addEventListener("input", function () { /* noop，占位保持布局 */ });
+    return wrap;
+  }
+
   /* 0.21.0：首次打开（还没有任何项目）的欢迎页 */
   function renderWelcome(root) {
     root.innerHTML = "";
@@ -1094,9 +1268,11 @@ window.MM_UI = (function () {
                 : "服务器里用它刷怪 / 给物品，只能英文、数字、下划线"
             })
           ]),
-          isSkill ? null : field("显示名称", "头顶显示的名字，支持 & 颜色代码", textInput(p.data.display, function (v) {
-            p.data.display = v; MM_STATE.touch(); changed();
-          }, { placeholder: p.kind === "mob" ? "&c我的怪物" : "&b我的物品" }))
+          isSkill ? null : colorField("显示名称", "头顶显示的名字：支持 & 颜色代码、&#RRGGBB、渐变。下方实时预览效果", {
+            get: function () { return p.data.display; },
+            set: function (v) { p.data.display = v; }
+          }, function () { MM_STATE.touch(); changed(); },
+            p.kind === "mob" ? "&c我的怪物" : "&b我的物品")
         ].filter(Boolean))
       ])
     ]);
@@ -1778,7 +1954,7 @@ window.MM_UI = (function () {
             field("槽位", null, selectInput(D.equipSlots, e.slot, function (v) {
               e.slot = v; MM_STATE.touch(); changed();
             })),
-            field("物品 ID", "原版物品填英文 ID", listInput(D.materials, e.item, function (v) {
+            field("物品 ID", "原版名，或 ItemsAdder / CX 等插件的自定义物品 ID", listInput(D.materials, e.item, function (v) {
               e.item = v; MM_STATE.touch(); changed();
             }, "diamond_sword"))
           ])

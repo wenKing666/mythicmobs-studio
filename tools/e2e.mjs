@@ -1085,7 +1085,55 @@ async function main() {
 
   await shot("e2e-theme");
 
-  /* ---------- 0.22.0：面板折叠 + 新手向导 ---------- */
+  /* ---------- 0.24.0：颜色工具 + 自定义 ID 提示 ---------- */
+
+  // 33. 显示名的彩色预览与渐变
+  await evalJs(`MM_APP.new("mob"); true`);
+  await new Promise(r => setTimeout(r, 400));
+  await evalJs(`(() => {
+    const inp = [...document.querySelectorAll("#editor .color-preview")];
+    return inp.length;
+  })()`);
+  check("显示名有彩色预览条", await evalJs(`document.querySelectorAll("#editor .color-preview").length === 1`));
+  await evalJs(`(() => {
+    /* colorField 结构：field > label/hint/input/preview/details，preview 是唯一定位锚 */
+    const field = document.querySelector("#editor .color-preview").parentElement;
+    const di = field.querySelector("input.input");
+    di.value = "&6金色的名字&l加粗";
+    di.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+  check("预览渲染出金色与粗体", await evalJs(`(() => {
+    const pv = document.querySelector("#editor .color-preview");
+    return pv.innerHTML.includes("#FFAA00") && pv.innerHTML.includes("font-weight");
+  })()`),
+    await evalJs(`document.querySelector("#editor .color-preview").innerHTML.slice(0, 100)`));
+  check("渐变生成器输出逐字符 hex", await evalJs(`(() => {
+    const field = document.querySelector("#editor .color-preview").parentElement;
+    const det = field.querySelector("details.color-more");
+    det.open = true;
+    det.querySelector(".grad-text").value = "AB";
+    det.querySelector(".grad-a").value = "#FF0000";
+    det.querySelector(".grad-b").value = "#0000FF";
+    [...det.querySelectorAll(".mini-btn")].find(b => b.textContent === "做渐变").click();
+    const input = field.querySelector("input.input");
+    const v = input.value.toLowerCase();
+    return v.startsWith("&#ff0000a") && v.includes("&#0000ffb");
+  })()`),
+    await evalJs(`document.querySelector("#editor .color-preview").parentElement.querySelector("input.input").value.slice(0, 60)`));
+
+  // 34. 自定义 ID 提示（装备物品 ID 输入非原版值）
+  await evalJs(`(() => {
+    const card = [...document.querySelectorAll("#editor details.card")].find(c => c.textContent.includes("装备"));
+    card.open = true;
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 250));
+
+  await shot("e2e-color");
+
+  // 16. 删除  /* ---------- 0.22.0：面板折叠 + 新手向导 ---------- */
 
   // 31. 折叠
   await evalJs(`document.getElementById("btnTogglePreview").click(); true`);

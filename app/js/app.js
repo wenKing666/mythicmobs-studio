@@ -689,12 +689,17 @@
 
   /* 0.22.0：侧栏 / 预览面板折叠（记住状态） */
   function applyFold() {
+    let sb = false, pv = false;
     try {
-      document.body.classList.toggle("sidebar-folded",
-        localStorage.getItem("mm_ui_sidebar") === "hidden");
-      document.body.classList.toggle("preview-folded",
-        localStorage.getItem("mm_ui_preview") === "hidden");
+      sb = localStorage.getItem("mm_ui_sidebar") === "hidden";
+      pv = localStorage.getItem("mm_ui_preview") === "hidden";
     } catch (e) { /* 忽略 */ }
+    document.body.classList.toggle("sidebar-folded", sb);
+    document.body.classList.toggle("preview-folded", pv);
+    const sbBtn = document.getElementById("btnToggleSidebar");
+    const pvBtn = document.getElementById("btnTogglePreview");
+    if (sbBtn) sbBtn.classList.toggle("active", sb);
+    if (pvBtn) pvBtn.classList.toggle("active", pv);
   }
   function toggleFold(key) {
     try {
