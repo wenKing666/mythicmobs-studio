@@ -25,3 +25,6 @@ tests/fixture-server/**/*.bak-*
 # e2e 截图产物（tools/e2e.mjs 会往当前目录写）
 e2e-*.png
 .tmp-edge-e2e/
+.tmp-edge-*/
+.tmp_dbg*.mjs
+.tmp_shot*.mjs
