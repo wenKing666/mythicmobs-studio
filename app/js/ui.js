@@ -898,7 +898,11 @@ window.MM_UI = (function () {
     ]);
     const actions = el("div", { class: "welcome-actions" }, [
       el("button", {
-        class: "btn primary", type: "button", text: "从模板开始",
+        class: "btn primary", type: "button", text: "带我一步步做（新手推荐）",
+        onclick: function () { window.MM_APP && MM_APP.startWizard(); }
+      }),
+      el("button", {
+        class: "btn dark", type: "button", text: "从模板开始",
         onclick: function () {
           window.MM_APP_ACTIVATE_TAB && MM_APP_ACTIVATE_TAB("templates");
         }
@@ -1638,6 +1642,82 @@ window.MM_UI = (function () {
   }
 
   /* ---------- 怪物表单 ---------- */
+  /* ---------- 新手向导（0.22.0）：分步只显示当前步骤的卡片 ---------- */
+  let wizard = null;   /* null | { kind: "mob", step: 0 } */
+  function setWizard(v) {
+    wizard = v;
+    if (window.MM_APP) MM_APP.refresh(true);
+  }
+  const WIZARD_STEPS = [
+    { title: "基础信息", cards: ["基础属性"],
+      tip: "ID 用英文（服务器里靠它刷怪）；显示名是游戏里看到的名字；血量普通怪 20 就行。" },
+    { title: "外观与血条", cards: ["BOSS 血条", "等级 / 外观 / 模块"], optional: true,
+      tip: "想做 BOSS 就开血条、调等级；普通怪直接点下一步。" },
+    { title: "行为与 AI", cards: ["行为选项", "AI 行为选择器", "AI 目标选择器", "伤害修正"], optional: true,
+      tip: "这些不填就用原版默认行为，全部可以跳过。" },
+    { title: "技能与掉落", cards: ["技能", "掉落物", "装备"], optional: true,
+      tip: "点「添加技能」选一个机制；掉落让它死掉掉东西。都可以跳过。" },
+    { title: "保存", cards: [], last: true,
+      tip: "右边就是实时生成的配置。点「下载 .yml」手动放进服务器，或用编辑器头部的「保存到服务器」直接落盘。" }
+  ];
+  function wizardBar(wiz) {
+    const step = WIZARD_STEPS[wiz.step];
+    const dots = WIZARD_STEPS.map(function (st, i) {
+      const cls = i < wiz.step ? "done" : i === wiz.step ? "now" : "";
+      return el("span", { class: "wiz-dot " + cls, text: i < wiz.step ? "\u2713" : String(i + 1) });
+    });
+    const children = [
+      el("div", { class: "wiz-head" }, [
+        el("span", { class: "wiz-label", text: "新手引导 · 第 " + (wiz.step + 1) + " / " + WIZARD_STEPS.length + " 步" }),
+        el("span", { class: "wiz-dots" }, dots),
+        el("span", {
+          class: "wiz-exit", text: "\u2715 退出引导",
+          onclick: function () { setWizard(null); toast("已退出引导，所有卡片都显示"); }
+        })
+      ]),
+      el("div", { class: "wiz-title", text: (wiz.step + 1) + ". " + step.title + (step.optional ? "（可跳过）" : "") }),
+      el("div", { class: "wiz-tip", text: step.tip })
+    ];
+    if (step.last) {
+      children.push(el("div", { class: "wiz-actions" }, [
+        el("button", {
+          class: "btn primary", type: "button", text: "下载 .yml",
+          onclick: function () { window.MM_APP && MM_APP.download(); }
+        }),
+        el("button", {
+          class: "btn dark", type: "button", text: "完成引导",
+          onclick: function () { setWizard(null); toast("完成！之后所有卡片都直接显示"); }
+        })
+      ]));
+    } else {
+      children.push(el("div", { class: "wiz-actions" }, [
+        wiz.step > 0 ? el("button", {
+          class: "btn dark", type: "button", text: "上一步",
+          onclick: function () { setWizard({ kind: "mob", step: wiz.step - 1 }); }
+        }) : null,
+        el("button", {
+          class: "btn primary", type: "button",
+          text: step.optional ? "下一步（这步先跳过也行）" : "下一步",
+          onclick: function () { setWizard({ kind: "mob", step: wiz.step + 1 }); }
+        })
+      ]));
+    }
+    return el("div", { class: "wizard-bar" }, children);
+  }
+
+  /* renderMob 渲染完卡片后按向导过滤：非当前步骤的卡直接移除 */
+  function applyWizardFilter(root, wiz) {
+    if (!wiz) return;
+    root.insertBefore(wizardBar(wiz), root.firstChild);
+    const step = WIZARD_STEPS[wiz.step];
+    Array.prototype.slice.call(root.querySelectorAll("details.card")).forEach(function (c) {
+      const t = c.querySelector("summary > span:nth-child(2)");
+      const title = t ? t.textContent : "";
+      const show = step.cards.some(function (x) { return title.indexOf(x) === 0; });
+      if (!show) c.remove();
+    });
+  }
+
   function renderMob(root, p) {
     const d = p.data;
 
@@ -1778,6 +1858,9 @@ window.MM_UI = (function () {
     if (!d.drops) d.drops = [];
     root.appendChild(card("box", "掉落物", "物品 / 掉落类型 / 引用掉落表" +
       (d.drops.length ? " · " + d.drops.length + " 条" : ""), d.drops.length > 0, [dropRows(d.drops)]));
+
+    /* 新手向导：先插步骤条，再移除非当前步骤的卡片（0.22.0） */
+    applyWizardFilter(root, wizard && wizard.kind === "mob" ? wizard : null);
   }
 
   /* ---------- 技能行 ---------- */
@@ -2474,6 +2557,7 @@ window.MM_UI = (function () {
     init: function (opts) { changed = opts.onChange; },
     renderSidebar: renderSidebar,
     renderTemplates: renderTemplates,
+    setWizard: setWizard,
     renderEditor: renderEditor,
     kindIcon: kindIcon
   };

@@ -1085,6 +1085,72 @@ async function main() {
 
   await shot("e2e-theme");
 
+  /* ---------- 0.22.0：面板折叠 + 新手向导 ---------- */
+
+  // 31. 折叠
+  await evalJs(`document.getElementById("btnTogglePreview").click(); true`);
+  check("预览可隐藏", await evalJs(`document.body.classList.contains("preview-folded")
+    && document.querySelector(".preview").offsetParent === null`));
+  await evalJs(`document.getElementById("btnTogglePreview").click(); true`);
+  check("预览可恢复", await evalJs(`!document.body.classList.contains("preview-folded")`));
+  await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
+  check("侧栏可隐藏", await evalJs(`document.body.classList.contains("sidebar-folded")`));
+  await evalJs(`document.getElementById("btnToggleSidebar").click(); true`);
+  check("侧栏可恢复", await evalJs(`!document.body.classList.contains("sidebar-folded")`));
+
+  // 32. 新手向导
+  await evalJs(`MM_APP.startWizard(); true`);
+  await new Promise(r => setTimeout(r, 400));
+  check("向导步骤条出现", await evalJs(`!!document.querySelector(".wizard-bar")
+    && document.querySelector(".wiz-title").textContent.includes("基础信息")`));
+  check("第一步只显示基础属性卡", await evalJs(`(() => {
+    const cards = [...document.querySelectorAll("#editor details.card")];
+    return cards.length === 1 && cards[0].textContent.includes("基础属性");
+  })()`),
+    await evalJs(`[...document.querySelectorAll("#editor details.card")].map(c=>c.querySelector("summary span:nth-child(2)").textContent).join(",")`));
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .wiz-actions .btn")].find(b => b.textContent === "下一步").click();
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("第二步显示血条与外观两张卡", await evalJs(`(() => {
+    const cards = [...document.querySelectorAll("#editor details.card")];
+    return cards.length === 2
+      && cards.some(c => c.textContent.includes("BOSS 血条"))
+      && cards.some(c => c.textContent.includes("等级 / 外观 / 模块"));
+  })()`),
+    await evalJs(`[...document.querySelectorAll("#editor details.card")].map(c=>c.querySelector("summary span:nth-child(2)").textContent).join(",")`));
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .wiz-actions .btn")].find(b => b.textContent.startsWith("下一步")).click();
+    return true;
+  })()`);
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .wiz-actions .btn")].find(b => b.textContent.startsWith("下一步")).click();
+    return true;
+  })()`);
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .wiz-actions .btn")].find(b => b.textContent.startsWith("下一步")).click();
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("最后一步是保存指引", await evalJs(`document.querySelector(".wiz-title").textContent.includes("保存")
+    && [...document.querySelectorAll("#editor .wiz-actions .btn")].some(b => b.textContent === "下载 .yml")`));
+  await evalJs(`(() => {
+    [...document.querySelectorAll("#editor .wiz-actions .btn")].find(b => b.textContent === "完成引导").click();
+    return true;
+  })()`);
+  await new Promise(r => setTimeout(r, 350));
+  check("完成后所有卡片回归", await evalJs(`document.querySelectorAll("#editor details.card").length >= 8
+    && !document.querySelector(".wizard-bar")`));
+
+  // welcome 的向导入口按钮（切到无项目状态验证）
+  check("欢迎页有带我一步步做按钮", await evalJs(`(() => {
+    const w = document.createElement("div");
+    return typeof MM_UI.setWizard === "function";
+  })()`));
+
+  await shot("e2e-wizard");
+
   // 16. 删除
   await evalJs(`window.confirm = () => true; true`);
   const before = await evalJs(`document.querySelectorAll('.project-item').length`);

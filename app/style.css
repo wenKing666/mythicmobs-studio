@@ -684,10 +684,10 @@ code {
 ::-webkit-scrollbar-thumb:hover { background: #b6b6b0; background-clip: content-box; }
 .preview ::-webkit-scrollbar-thumb { background: #34383e; background-clip: content-box; }
 
-/* ---------------- 窄屏 ---------------- */
+/* ---------------- 窄屏：预览列收窄（可手动展开，不再强制隐藏） ---------------- */
 @media (max-width: 1240px) {
-  .layout { grid-template-columns: 220px minmax(0, 1fr); }
-  .preview { display: none; }
+  .layout { grid-template-columns: 220px minmax(0, 1fr) 320px; }
+  .preview-tip { display: none; }
 }
 
 .side-dir { font-size: 10.5px; color: var(--ink-4); padding: 0 8px 6px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
@@ -1138,3 +1138,22 @@ button.mini:hover { border-color: var(--accent); color: var(--accent); }
 .w-d { font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
 .welcome-actions { display: flex; gap: 10px; justify-content: center; }
 .welcome-foot { margin-top: 24px; font-size: 11.5px; color: var(--ink-4); }
+
+/* ================= 0.22.0 新手向导 + 面板折叠 ================= */
+body.sidebar-folded .sidebar { display: none; }
+body.preview-folded .preview { display: none; }
+.wizard-bar { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--accent);
+  border-radius: 10px; background: var(--accent-soft); }
+.wiz-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.wiz-label { font-size: 11.5px; font-weight: 700; color: var(--accent); }
+.wiz-dots { display: flex; gap: 6px; }
+.wiz-dot { width: 22px; height: 22px; line-height: 22px; border-radius: 50%; text-align: center;
+  font-size: 11.5px; font-weight: 700; background: var(--panel); color: var(--ink-3);
+  border: 1px solid var(--line); }
+.wiz-dot.done { background: var(--accent); color: #fff; border-color: var(--accent); }
+.wiz-dot.now { border-color: var(--accent); color: var(--accent); }
+.wiz-exit { margin-left: auto; font-size: 11.5px; color: var(--ink-3); cursor: pointer; }
+.wiz-exit:hover { color: var(--danger); }
+.wiz-title { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.wiz-tip { font-size: 12.5px; color: var(--ink-2); line-height: 1.6; margin-bottom: 10px; }
+.wiz-actions { display: flex; gap: 10px; justify-content: flex-end; }

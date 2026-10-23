@@ -677,6 +677,32 @@
   }
   window.MM_APP_ACTIVATE_TAB = activateTab;
 
+  /* 0.22.0：新手向导入口——新建一只空怪并进入分步引导 */
+  function startWizard() {
+    const p = MM_STATE.create("mob");
+    MM_UI.renderEditor($("editor"), p);
+    refresh();
+    $("editor").scrollTop = 0;
+    MM_UI.setWizard({ kind: "mob", step: 0 });
+    toast("引导开始：跟着步骤走，随时可以退出");
+  }
+
+  /* 0.22.0：侧栏 / 预览面板折叠（记住状态） */
+  function applyFold() {
+    try {
+      document.body.classList.toggle("sidebar-folded",
+        localStorage.getItem("mm_ui_sidebar") === "hidden");
+      document.body.classList.toggle("preview-folded",
+        localStorage.getItem("mm_ui_preview") === "hidden");
+    } catch (e) { /* 忽略 */ }
+  }
+  function toggleFold(key) {
+    try {
+      localStorage.setItem(key, localStorage.getItem(key) === "hidden" ? "shown" : "hidden");
+    } catch (e) { /* 忽略 */ }
+    applyFold();
+  }
+
   /* 0.16.0：主题切换（默认浅色，深色记住偏好） */
   function themeInit() {
     const btn = $("btnTheme");
@@ -1225,6 +1251,16 @@
     $("projectFilter").addEventListener("input", function () {
       MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
     });
+    $("btnWizard").addEventListener("click", startWizard);
+    $("btnToggleSidebar").addEventListener("click", function () { toggleFold("mm_ui_sidebar"); });
+    $("btnTogglePreview").addEventListener("click", function () { toggleFold("mm_ui_preview"); });
+    /* 窄窗口且用户没表达过偏好时，默认折叠预览（避免三栏挤成一团） */
+    try {
+      if (!localStorage.getItem("mm_ui_preview") && window.innerWidth < 1240) {
+        localStorage.setItem("mm_ui_preview", "hidden");
+      }
+    } catch (e) { /* 忽略 */ }
+    applyFold();
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });
@@ -1270,7 +1306,8 @@
     window.MM_APP = { new: newProject, template: useTemplate, download: download, refresh: refresh, select: selectProject,
       reload: reloadFromDisk, switchEntry: switchEntry, clone: cloneProject, saveAsTemplate: saveAsTemplate,
       undo: doUndo, redo: doRedo, saveToServer: saveToServer, exportTemplate: exportTemplate, importTemplate: importTemplate,
-      showBatchModal: showBatchModal, openVars: openVars, exportBundle: exportBundle, importBundle: importBundle };
+      showBatchModal: showBatchModal, openVars: openVars, exportBundle: exportBundle, importBundle: importBundle,
+      startWizard: startWizard };
     restoreLastDir();
   }
 
