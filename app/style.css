@@ -1225,3 +1225,10 @@ body.sidebar-folded .sidebar { display: block; }
 /* 0.26.0 血条色块 */
 .bb-swatch { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line-2);
   display: inline-block; flex: none; }
+
+/* 0.27.0 面板自带折叠按钮 */
+.side-fold-btn { width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--panel-2); color: var(--ink-3); cursor: pointer; font-size: 13px; line-height: 1;
+  flex: none; }
+.side-fold-btn:hover { border-color: var(--accent); color: var(--accent); }
+.preview-head .side-fold-btn { margin-left: auto; }

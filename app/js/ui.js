@@ -2526,7 +2526,8 @@ window.MM_UI = (function () {
               d.lore[i] = v; MM_STATE.touch(); changed();
               preview.innerHTML = v ? renderMcText(v) : "";
             }, { placeholder: "这一行写什么，支持 &6 颜色代码" }),
-            el("div", { class: "color-preview mini", html: line ? renderMcText(line) : "" })
+            el("div", { class: "color-preview mini", html: line ? renderMcText(line)
+              : '<span style="opacity:.45">输入内容后这里实时显示游戏内效果</span>' })
           ]),
           el("span", {
             class: "lore-paint", title: "调色 / 渐变",

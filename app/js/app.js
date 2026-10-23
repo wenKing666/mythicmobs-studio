@@ -143,6 +143,9 @@
     if (!p) {
       $("yamlOut").innerHTML = '<span class="c">← 从左侧选一个配置或新建，这里会实时生成 YAML</span>';
       renderWarnings([]);
+      /* 删掉最后一个项目时也要刷新列表并回到欢迎页（0.27.0 修复删除「延迟生效」） */
+      MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
+      MM_UI.renderEditor($("editor"), null);
       return;
     }
     if (rebuild) paintPreview(p);
@@ -1258,6 +1261,14 @@
     $("btnImportBundle").addEventListener("click", importBundle);
     document.querySelectorAll(".side-tab").forEach(function (t) {
       t.addEventListener("click", function () { activateTab(t.dataset.tab); });
+    });
+    /* 新建下拉：点面板外任意位置自动收起（0.27.0） */
+    const newDetails = $("newMore");
+    document.addEventListener("mousedown", function (e) {
+      if (newDetails.open && !newDetails.contains(e.target)) newDetails.removeAttribute("open");
+    });
+    newDetails.addEventListener("click", function (e) {
+      if (e.target.closest(".dd-item, .dropdown-item")) newDetails.removeAttribute("open");
     });
     $("projectFilter").addEventListener("input", function () {
       MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
