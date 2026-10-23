@@ -338,7 +338,13 @@ window.MM_UI = (function () {
   /* ---------- 侧栏 ---------- */
   function renderSidebar(listEl, onSelect, onDelete) {
     listEl.innerHTML = "";
-    const all = MM_STATE.all();
+    let all = MM_STATE.all();
+    const filterInput = document.getElementById("projectFilter");
+    const kw = filterInput ? filterInput.value.trim().toLowerCase() : "";
+    if (kw) all = all.filter(function (p) {
+      return p.key.toLowerCase().indexOf(kw) >= 0 ||
+        String(p.data.display || "").toLowerCase().indexOf(kw) >= 0;
+    });
     if (!all.length) {
       listEl.appendChild(el("div", {
         class: "hint", style: "padding:4px 8px 2px;font-size:11px;color:#a9abaf",
@@ -870,19 +876,56 @@ window.MM_UI = (function () {
   }
 
   /* ---------- 编辑器外壳 ---------- */
+  /* 0.21.0：首次打开（还没有任何项目）的欢迎页 */
+  function renderWelcome(root) {
+    root.innerHTML = "";
+    const steps = el("div", { class: "welcome-steps" }, [
+      el("div", { class: "w-step" }, [
+        el("div", { class: "w-num", text: "1" }),
+        el("div", { class: "w-t", text: "挑一个模板" }),
+        el("div", { class: "w-d", text: "左侧「模板」页签里选，或顶部「新建」从零开始" })
+      ]),
+      el("div", { class: "w-step" }, [
+        el("div", { class: "w-num", text: "2" }),
+        el("div", { class: "w-t", text: "填表格" }),
+        el("div", { class: "w-d", text: "不用懂 YAML，右边实时生成配置，写错还有体检提醒" })
+      ]),
+      el("div", { class: "w-step" }, [
+        el("div", { class: "w-num", text: "3" }),
+        el("div", { class: "w-t", text: "放进服务器" }),
+        el("div", { class: "w-d", text: "下载 .yml 或「保存到服务器」，游戏里 /mm reload 生效" })
+      ])
+    ]);
+    const actions = el("div", { class: "welcome-actions" }, [
+      el("button", {
+        class: "btn primary", type: "button", text: "从模板开始",
+        onclick: function () {
+          window.MM_APP_ACTIVATE_TAB && MM_APP_ACTIVATE_TAB("templates");
+        }
+      }),
+      el("button", {
+        class: "btn dark", type: "button", text: "新建怪物",
+        onclick: function () { window.MM_APP && MM_APP.new("mob"); }
+      }),
+      el("button", {
+        class: "btn dark", type: "button", text: "新建技能组",
+        onclick: function () { window.MM_APP && MM_APP.new("skill"); }
+      })
+    ]);
+    root.appendChild(el("div", { class: "welcome" }, [
+      el("div", { class: "welcome-icon", html: MM_ICONS.get("layers", 44) }),
+      el("h2", { class: "welcome-title", text: "做一个属于你的 MythicMobs 怪物" }),
+      el("p", { class: "welcome-sub", text: "不用写 YAML——填表格就行，三步上手：" }),
+      steps,
+      actions,
+      el("p", { class: "welcome-foot", text: "管理已有配置？桌面版点顶部「打开文件夹」选 plugins/MythicMobs，点谁编辑谁。" })
+    ]));
+  }
+
   function renderEditor(root, project) {
     root.innerHTML = "";
     if (!project) {
-      root.appendChild(el("div", { class: "empty" }, [
-        el("div", { class: "big", html: MM_ICONS.get("layers", 30) }),
-        el("h2", { text: "还没有打开的项目" }),
-        el("p", { text: "从左侧模板开始，或新建一个" }),
-        el("div", { class: "hint-row" }, [
-          el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("mob"); } }, ["新建怪物"]),
-          el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("item"); } }, ["新建物品"]),
-          el("button", { class: "btn", onclick: function () { window.MM_APP && window.MM_APP.new("skill"); } }, ["新建技能组"])
-        ])
-      ]));
+      renderWelcome(root);
       return;
     }
     const tabs = entryTabs(project);

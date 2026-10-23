@@ -74,7 +74,8 @@ async function main() {
   await send("Page.navigate", { url: BASE });
   await new Promise(r => setTimeout(r, 1400));
 
-  check("页面加载出空状态", await evalJs(`document.body.innerText.includes("还没有打开的项目")`));
+  console.log("  [诊断]", await evalJs(`JSON.stringify({ projects: MM_STATE.all().length, hasWelcome: document.body.innerText.includes("做一个属于你的 MythicMobs 怪物"), head: document.body.innerText.slice(0, 80).replace(/[\\n|]/g, " ") })`));
+  check("页面加载出空状态", await evalJs(`document.body.innerText.includes("做一个属于你的 MythicMobs 怪物")`));
 
   // 1. 新建怪物
   await evalJs(`document.getElementById("btnNewMob").click(); true`);

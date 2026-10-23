@@ -249,7 +249,8 @@
   function buildNewMenu() {
     const box = $("newMoreMenu");
     if (!box) return;
-    box.innerHTML = "";
+    /* 0.21.0：快捷四项（dropdown-quick）与分隔线是 HTML 里写死的，只清掉旧的 spec 项 */
+    box.querySelectorAll(".dropdown-item").forEach(function (b) { b.remove(); });
     const types = (window.MM_SPEC && MM_SPEC.allTypes()) || [];
     types.forEach(function (t) {
       const b = document.createElement("button");
@@ -662,6 +663,19 @@
       body.querySelectorAll(".graph-edge.hot").forEach(function (edge) { edge.classList.remove("hot"); });
     });
   }
+
+  /* 0.21.0：侧栏页签切换（项目 / 服务器 / 模板） */
+  function activateTab(name) {
+    document.querySelectorAll(".side-tab").forEach(function (t) {
+      t.classList.toggle("on", t.dataset.tab === name);
+    });
+    document.querySelectorAll(".side-pane").forEach(function (pane) {
+      const paneEl = pane;
+      if (pane.dataset.pane === name) paneEl.classList.add("on");
+      else paneEl.classList.remove("on");
+    });
+  }
+  window.MM_APP_ACTIVATE_TAB = activateTab;
 
   /* 0.16.0：主题切换（默认浅色，深色记住偏好） */
   function themeInit() {
@@ -1205,6 +1219,12 @@
     $("btnBatch").addEventListener("click", showBatchModal);
     $("btnVars").addEventListener("click", openVars);
     $("btnImportBundle").addEventListener("click", importBundle);
+    document.querySelectorAll(".side-tab").forEach(function (t) {
+      t.addEventListener("click", function () { activateTab(t.dataset.tab); });
+    });
+    $("projectFilter").addEventListener("input", function () {
+      MM_UI.renderSidebar($("projectList"), selectProject, deleteProject);
+    });
     $("btnCopy").addEventListener("click", copy);
     $("btnDownload").addEventListener("click", download);
     $("btnHelp").addEventListener("click", function () { $("helpModal").hidden = false; });

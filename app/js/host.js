@@ -241,6 +241,8 @@
     $("serverDir").textContent = rootDir;
     $("serverDir").title = rootDir;
     $("serverBlock").hidden = false;
+    $("tabServer").hidden = false;
+    if (window.MM_APP_ACTIVATE_TAB) MM_APP_ACTIVATE_TAB("server");
     renderFiles();
     return files.length;
   };

@@ -12,44 +12,47 @@
   <div class="brand">
     <svg class="mark" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
     <span class="app-name">MythicMobs 编辑器</span>
-    <span class="app-ver" id="appVer">0.20.0</span>
+    <span class="app-ver" id="appVer">0.21.0</span>
   </div>
   <div class="top-actions">
+    <details id="newMore" class="dropdown">
+      <summary class="btn primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        新建
+      </summary>
+      <div class="dropdown-menu" id="newMoreMenu">
+        <div class="dropdown-quick">
+          <button id="btnNewMob" class="dd-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            怪物
+          </button>
+          <button id="btnNewItem" class="dd-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            物品
+          </button>
+          <button id="btnNewSkill" class="dd-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M13 2.5 5.5 13.2h5L9 21.5l9.5-11.3h-5.2z"/></svg>
+            技能组
+          </button>
+          <button id="btnNewDropTable" class="dd-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
+            掉落表
+          </button>
+        </div>
+        <div class="dropdown-sep"></div>
+      </div>
+    </details>
     <button id="btnOpenFolder" class="btn dark" hidden>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5h6l1.6 2h9.4v9.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M3.5 8.5V5.5A1.5 1.5 0 0 1 5 4h3.6l1.6 2"/></svg>
       打开文件夹
     </button>
-    <button id="btnNewMob" class="btn dark">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      新建怪物
-    </button>
-    <button id="btnNewItem" class="btn dark">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      新建物品
-    </button>
-    <button id="btnNewSkill" class="btn dark">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M13 2.5 5.5 13.2h5L9 21.5l9.5-11.3h-5.2z"/></svg>
-      新建技能组
-    </button>
-    <button id="btnNewDropTable" class="btn dark">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.2l8 4.3v9L12 20.8l-8-4.3v-9zM4 7.5l8 4.4 8-4.4M12 11.9v8.9"/></svg>
-      新建掉落表
-    </button>
-    <details id="newMore" class="dropdown">
-      <summary class="btn dark">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        更多类型
-      </summary>
-      <div class="dropdown-menu" id="newMoreMenu"></div>
-    </details>
     <div class="gsearch" id="gsearch">
       <input id="gsearchInput" class="gsearch-input" type="text" autocomplete="off"
         placeholder="搜索配置内容…（物品 / 技能 / 怪物名）" />
       <div class="gsearch-pop" id="gsearchPop" hidden></div>
     </div>
-    <button id="btnGraph" class="btn dark" title="谁引用了谁：怪物 → 技能组 → 掉落表">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="7" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M8.2 7 15.6 7M7.2 8.2 10.8 16M16.8 8.2 13.2 16"/></svg>
-      关系图
+    <button id="btnGraph" class="btn dark icon-only" title="谁引用了谁：怪物 → 技能组 → 掉落表">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="7" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M8.2 7 15.6 7M7.2 8.2 10.8 16M16.8 8.2 13.2 16"/></svg>
     </button>
     <button id="btnTheme" class="btn dark icon-only" title="切换深浅色主题">
       <svg id="themeSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
@@ -63,42 +66,63 @@
 
 <main class="layout">
   <aside class="sidebar">
-    <div class="side-block">
-      <div class="side-title">项目</div>
-      <div id="projectList" class="project-list"></div>
+    <div class="side-tabs">
+      <button class="side-tab on" data-tab="projects">项目</button>
+      <button class="side-tab" data-tab="server" id="tabServer" hidden>服务器</button>
+      <button class="side-tab" data-tab="templates">模板</button>
     </div>
-    <div class="side-block" id="serverBlock" hidden>
-      <div class="side-title">服务器文件
+
+    <div class="side-pane on" data-pane="projects">
+      <div class="pane-toolbar">
+        <input id="projectFilter" class="pane-filter" type="text" placeholder="过滤项目…" autocomplete="off">
+      </div>
+      <div id="projectList" class="project-list"></div>
+      <div class="side-foot">数据保存在本机浏览器</div>
+    </div>
+
+    <div class="side-pane" data-pane="server" id="serverBlock" hidden>
+      <div class="pane-toolbar">
+        <span id="serverDir" class="side-dir"></span>
+      </div>
+      <div class="pane-toolbar side-btns">
         <button id="btnBatch" class="side-mini" title="按规则批量修改多份配置（先预览再写回）">批量编辑</button>
         <button id="btnVars" class="side-mini" title="扫描全服变量（var=xxx），支持全局重命名">变量</button>
         <button id="btnCleanBak" class="side-mini" title="清理保存时产生的 .bak 备份（默认保留最近 5 份）">清理备份</button>
       </div>
-      <div id="serverDir" class="side-dir"></div>
       <div id="serverFiles" class="file-list"></div>
     </div>
-    <div class="side-block">
-      <div class="side-title">模板
+
+    <div class="side-pane" data-pane="templates">
+      <div class="pane-toolbar side-btns">
         <button id="btnImportBundle" class="side-mini" title="导入配置包（一组相关配置整体重建）">导入配置包</button>
       </div>
       <div id="templateList" class="template-list"></div>
     </div>
-    <div class="side-foot">数据保存在本机浏览器</div>
   </aside>
 
   <section class="editor" id="editor"></section>
 
   <aside class="preview">
     <div class="preview-head">
-      <span class="preview-title">配置预览</span>
+      <div class="preview-title-wrap">
+        <span class="preview-title">配置预览</span>
+        <span class="preview-sub">改左侧表单，这里实时更新</span>
+      </div>
       <div class="preview-actions">
-        <button id="btnCopy" class="btn dark mini">复制</button>
-        <button id="btnDownload" class="btn accent mini">下载 .yml</button>
+        <button id="btnCopy" class="btn dark mini">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          复制
+        </button>
+        <button id="btnDownload" class="btn accent mini">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+          下载 .yml
+        </button>
       </div>
     </div>
     <div id="yamlWarn" class="yaml-warn" hidden></div>
     <pre id="yamlOut" class="yaml"></pre>
     <div class="preview-tip">
-      怪物放进 <code>plugins/MythicMobs/Mobs/</code>，物品放进 <code>plugins/MythicMobs/Items/</code>，游戏内 <code>/mm reload</code>
+      <span id="previewTipText">怪物放进 <code>plugins/MythicMobs/Mobs/</code>，物品放进 <code>plugins/MythicMobs/Items/</code>，游戏内 <code>/mm reload</code></span>
     </div>
   </aside>
 </main>
@@ -114,8 +138,8 @@
       </button>
     </div>
     <ol class="help-steps">
-      <li>左边选一个模板（也可以点「存为模板」攒自己的），或点右上角「新建怪物 / 新建物品 / 更多类型」。</li>
-      <li>桌面版点「打开文件夹」选服务器的 <code>plugins/MythicMobs</code>，左侧直接列出全部配置，点谁编辑谁。</li>
+      <li>左边选一个模板（也可以点「存为模板」攒自己的），或点顶部「新建」。</li>
+      <li>桌面版点「打开文件夹」选服务器的 <code>plugins/MythicMobs</code>，「服务器」页签直接列出全部配置，点谁编辑谁。</li>
       <li>中间填表格，右侧实时生成配置；复制 YAML 或用「保存到服务器」直接落盘。</li>
       <li>改完游戏里 <code>/mm reload</code> 就能生效。写错了没关系——<code>Ctrl+Z</code> 撤销，引用检查也会提醒。</li>
     </ol>
@@ -162,4 +186,3 @@
 <script src="js/host.js"></script>
 </body>
 </html>
-
