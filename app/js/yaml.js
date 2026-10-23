@@ -885,6 +885,12 @@ window.MM_YAML = (function () {
 
   function validate(p) {
     const out = [];
+    /* 掉落概率习惯提示：chance 是 0~1 的小数，写 100 的新手最多（0.26.0） */
+    const drops = (p && p.data && p.data.drops) || [];
+    drops.forEach(function (dp) {
+      const c = parseFloat(dp && dp.chance);
+      if (!isNaN(c) && c > 1) out.push("掉落概率 chance 是 0～1 的小数（0.5 表示 50%），你填的 " + c + " 会被当成 100% 掉落");
+    });
     if (!p) return out;
     /* pack.yml 这种「一个目录只有一份」的文件没有 ID 概念 */
     const single = specOf(p.kind) && specOf(p.kind).single;

@@ -1221,3 +1221,7 @@ body.sidebar-folded .sidebar { display: block; }
   display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .lore-paint:hover { border-color: var(--accent); color: var(--accent); }
 .lore-tools-wrap { padding: 2px 10px 8px 36px; background: var(--panel-2); }
+
+/* 0.26.0 血条色块 */
+.bb-swatch { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line-2);
+  display: inline-block; flex: none; }

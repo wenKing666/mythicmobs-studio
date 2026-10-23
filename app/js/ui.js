@@ -1901,6 +1901,21 @@ window.MM_UI = (function () {
     });
   }
 
+  /* BOSS 血条颜色：下拉 + 当前颜色的色块预览（0.26.0） */
+  const BOSSBAR_HEX = { RED: "#e03c3c", GREEN: "#3ce05a", BLUE: "#3c6ae0", PINK: "#e03cc8",
+    YELLOW: "#e0d23c", PURPLE: "#9b3ce0", WHITE: "#f2f2f2" };
+  function bossbarColorPicker(bb) {
+    const wrap = el("div", { class: "combo" });
+    const sel = selectInput(D.bossbarColors, bb.color, function (v) {
+      bb.color = v; MM_STATE.touch(); changed();
+      swatch.style.background = BOSSBAR_HEX[v] || "#f2f2f2";
+    });
+    const swatch = el("span", { class: "bb-swatch", style: "background:" + (BOSSBAR_HEX[bb.color] || "#f2f2f2") });
+    wrap.appendChild(sel);
+    wrap.appendChild(swatch);
+    return wrap;
+  }
+
   function renderMob(root, p) {
     const d = p.data;
 
@@ -1936,9 +1951,7 @@ window.MM_UI = (function () {
         field("血条标题", "留空则用显示名称", textInput(bb.title, function (v) {
           bb.title = v; MM_STATE.touch(); changed();
         }, { placeholder: "&6BOSS" }), { full: true }),
-        field("颜色", null, selectInput(D.bossbarColors, bb.color, function (v) {
-          bb.color = v; MM_STATE.touch(); changed();
-        })),
+        field("颜色", null, bossbarColorPicker(bb)),
         field("样式", null, selectInput(D.bossbarStyles, bb.style, function (v) {
           bb.style = v; MM_STATE.touch(); changed();
         })),
@@ -1950,7 +1963,10 @@ window.MM_UI = (function () {
     root.appendChild(card("crown", "BOSS 血条", "", !!bb.enabled, bbChildren));
 
     /* 行为选项（官方全量 126 项） */
-    root.appendChild(card("sliders", "行为选项", "官方全量 " + optionsCount() + " 项，不填则用默认值", true, [optionsBody(d)]));
+    const optFilled = optionsCount ? (d.options ? Object.keys(d.options).filter(function (k) { return d.options[k] !== "" && d.options[k] !== undefined; }).length : 0) : 0;
+    root.appendChild(card("sliders", "行为选项",
+      "官方全量 " + optionsCount() + " 项，不填则用默认值" + (optFilled ? " · 已改 " + optFilled + " 项" : ""),
+      optFilled > 0, [optionsBody(d)]));
 
     /* 装备 */
     const eqBody = el("div", { class: "list" });

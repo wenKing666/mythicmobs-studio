@@ -139,6 +139,12 @@
   function refresh(rebuild) {
     const p = MM_STATE.current();
     if (previewTimer) clearTimeout(previewTimer);
+    /* 没有任何项目时：预览区显示引导占位，而不是一片空白（0.26.0） */
+    if (!p) {
+      $("yamlOut").innerHTML = '<span class="c">← 从左侧选一个配置或新建，这里会实时生成 YAML</span>';
+      renderWarnings([]);
+      return;
+    }
     if (rebuild) paintPreview(p);
     else previewTimer = setTimeout(function () { previewTimer = null; paintPreview(MM_STATE.current()); }, 120);
 
@@ -1302,6 +1308,12 @@
     });
 
     document.addEventListener("keydown", function (e) {
+      /* Ctrl+F / Ctrl+K：聚焦全局搜索（0.26.0） */
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "f" || e.key.toLowerCase() === "k")) {
+        const gi = $("gsearchInput");
+        if (gi) { e.preventDefault(); gi.focus(); gi.select(); }
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         download();
