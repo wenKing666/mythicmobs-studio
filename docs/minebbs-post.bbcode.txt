@@ -56,9 +56,9 @@
 [HEADING=2]下载[/HEADING]
 
 [LIST]
-[*][B]GitHub 下载[/B]：https://github.com/wenKing666/mythicmobs-studio/releases/download/v0.27.0/MythicMobsStudio-0.27.0.exe
+[*][B]GitHub 下载[/B]：https://github.com/wenKing666/mythicmobs-studio/releases/download/v0.27.1/MythicMobsStudio-0.27.1.exe
 [*][B]源码仓库[/B]：https://github.com/wenKing666/mythicmobs-studio
-[*]（论坛附件：MythicMobsStudio-0.27.0.exe，约 97 MB，Windows 10/11 便携版，双击即用）
+[*]（论坛附件：MythicMobsStudio-0.27.1.exe，约 97 MB，Windows 10/11 便携版，双击即用）
 [*]数据全部保存在本机，[B]不联网、不上传任何东西[/B]
 [/LIST]
 
@@ -73,6 +73,10 @@
 [B]Q：会不会改坏我现有的配置？[/B]
 打开的是你服务器的原文件，保存前自动备份（.bak-日期），侧栏一键清理旧备份；外部改动过文件还会先弹「差异确认」让你看清改了什么再覆盖。
 
+[B]Q：双击提示「Windows 已保护你的电脑」？[/B]
+正常现象：软件没有买代码签名证书，Windows 对所有未签名的陌生程序都会这么提示。点[B]「更多信息」→「仍要运行」[/B]即可。介意的话也可以右键 exe → 属性 → 勾选「解除锁定」再运行。
+[B]Q：点了「仍要运行」还是没反应？[/B]
+按顺序排查：①确认是[B]先解压 zip 再运行[/B]，别在压缩包里直接双击；②第一次启动要把程序解压到临时目录，机械硬盘可能要等 10～30 秒，不是没反应；③确认系统是 [B]Windows 10/11 64 位[/B]（Win7 / 32 位跑不起来）；④检查 360 / 电脑管家等杀软是否静默拦截（看隔离区）；⑤再不行看 %APPDATA%\mythicmobs-studio\crash.log，把内容发出来即可定位。
 [B]Q：免费吗？有没有广告？[/B]
 完全免费，无广告，不联网。
 
@@ -80,6 +84,7 @@
 
 [DETAILS=最近更新日志（点击展开）]
 [LIST]
+[*]0.27.1 启动报错可见化：出错弹窗 + 崩溃日志（远程排查用）
 [*]0.27.0 折叠按钮移到面板上 / 删除项目即时生效 / 新建菜单点外关闭
 [*]0.26.0 Ctrl+F 搜索 / 行为选项默认收起 / 掉落概率新手提醒
 [*]0.25.0 侧栏预览折叠改把手模式 / 物品描述逐行编辑拖拽排序
