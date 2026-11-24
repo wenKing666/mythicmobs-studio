@@ -7,6 +7,34 @@ const YAML = require("yaml");
 
 let win = null;
 
+/* 0.27.1：崩溃日志 + 可见报错——远程用户「双击没反应」时能拿到原因。
+   日志写在 userData/crash.log（便携版即 %APPDATA%/MythicMobs Studio/crash.log） */
+function logCrash(msg) {
+  try {
+    fs.appendFileSync(path.join(app.getPath("userData"), "crash.log"),
+      `[${new Date().toISOString()}] ${msg}\n`, "utf8");
+  } catch { /* 目录不可写时以弹窗为准 */ }
+}
+function fatalBox(title, msg) {
+  try { dialog.showErrorBox(title, String(msg).slice(0, 3000)); } catch { /* 忽略 */ }
+}
+process.on("uncaughtException", (e) => {
+  logCrash("uncaughtException: " + (e && e.stack || e));
+  fatalBox("MythicMobs 编辑器运行出错", (e && e.stack || e) + "\n\n日志位置：%APPDATA%\\MythicMobs Studio\\crash.log");
+});
+process.on("unhandledRejection", (e) => {
+  logCrash("unhandledRejection: " + (e && e.stack || e));
+});
+app.on("render-process-gone", (_e, details) => {
+  logCrash("render-process-gone: " + JSON.stringify(details));
+  if (details.reason !== "clean-exit") {
+    fatalBox("MythicMobs 编辑器", "界面进程异常退出（" + details.reason + "）。\n\n常见原因：显卡驱动过旧。可尝试更新显卡驱动，或把日志发给作者。\n日志位置：%APPDATA%\\MythicMobs Studio\\crash.log");
+  }
+});
+app.on("child-process-gone", (_e, details) => {
+  logCrash("child-process-gone: " + JSON.stringify(details));
+});
+
 function createWindow() {
   /* 0.17.0：记住窗口尺寸与位置（存 userData/win-bounds.json） */
   let bounds = null;
@@ -40,14 +68,21 @@ function createWindow() {
   win.on("move", saveBounds);
   win.on("close", saveBounds);
   win.setMenuBarVisibility(false);
+  win.webContents.on("did-fail-load", (_e, code, desc, url) => {
+    logCrash(`did-fail-load ${code} ${desc} ${url}`);
+  });
   win.loadFile(path.join(__dirname, "..", "app", "index.html"));
 }
 
 app.whenReady().then(() => {
+  logCrash(`启动正常 v${app.getVersion()} (electron ${process.versions.electron}, ${process.arch})`);
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+}).catch((e) => {
+  logCrash("whenReady 失败: " + (e && e.stack || e));
+  fatalBox("MythicMobs 编辑器启动失败", (e && e.stack || e));
 });
 
 app.on("window-all-closed", () => {
