@@ -8,11 +8,12 @@ const YAML = require("yaml");
 let win = null;
 
 /* 0.27.1：崩溃日志 + 可见报错——远程用户「双击没反应」时能拿到原因。
-   日志写在 userData/crash.log（便携版即 %APPDATA%/MythicMobs Studio/crash.log） */
+   日志写在 userData/crash.log（实际路径随应用名，运行时取真实值弹窗告知） */
+let crashLogPath = "userData 目录下的 crash.log";
+try { crashLogPath = path.join(app.getPath("userData"), "crash.log"); } catch { /* app 未就绪时由 whenReady 再补 */ }
 function logCrash(msg) {
   try {
-    fs.appendFileSync(path.join(app.getPath("userData"), "crash.log"),
-      `[${new Date().toISOString()}] ${msg}\n`, "utf8");
+    fs.appendFileSync(crashLogPath, `[${new Date().toISOString()}] ${msg}\n`, "utf8");
   } catch { /* 目录不可写时以弹窗为准 */ }
 }
 function fatalBox(title, msg) {
@@ -20,7 +21,7 @@ function fatalBox(title, msg) {
 }
 process.on("uncaughtException", (e) => {
   logCrash("uncaughtException: " + (e && e.stack || e));
-  fatalBox("MythicMobs 编辑器运行出错", (e && e.stack || e) + "\n\n日志位置：%APPDATA%\\MythicMobs Studio\\crash.log");
+  fatalBox("MythicMobs 编辑器运行出错", (e && e.stack || e) + "\n\n日志位置：" + crashLogPath);
 });
 process.on("unhandledRejection", (e) => {
   logCrash("unhandledRejection: " + (e && e.stack || e));
@@ -28,7 +29,7 @@ process.on("unhandledRejection", (e) => {
 app.on("render-process-gone", (_e, details) => {
   logCrash("render-process-gone: " + JSON.stringify(details));
   if (details.reason !== "clean-exit") {
-    fatalBox("MythicMobs 编辑器", "界面进程异常退出（" + details.reason + "）。\n\n常见原因：显卡驱动过旧。可尝试更新显卡驱动，或把日志发给作者。\n日志位置：%APPDATA%\\MythicMobs Studio\\crash.log");
+    fatalBox("MythicMobs 编辑器", "界面进程异常退出（" + details.reason + "）。\n\n常见原因：显卡驱动过旧。可尝试更新显卡驱动，或把日志发给作者。\n日志位置：" + crashLogPath);
   }
 });
 app.on("child-process-gone", (_e, details) => {
